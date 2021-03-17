@@ -1,0 +1,90 @@
+---
+title: "Fig. 1"
+output: pdf_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+require(dplyr)
+require(ggplot2)
+```
+
+Define shared variables
+
+```{r}
+chain_assumption_labs <- c("Smallest plausible chains", "Largest pluasible chains")
+names(chain_assumption_labs) <- c("max", "min")
+shared_theme <- theme_bw()
+last_sample_to_extinction_delay <- 14  # days
+single_col_width <- 11.4  # cm
+```
+
+Load data
+
+```{r}
+workdir <- "results_main"
+grapevine_results <- load_grapevine_results(
+  workdir = workdir, 
+  min_chain_size = 2,
+  viollier_only = F)
+samples <- grapevine_results$samples
+```
+
+Summarize data
+
+```{r}
+chain_summary_stats <- samples %>%
+  group_by(tree, chains_assumption, chain_idx) %>%
+  summarize(
+    first_sample_date = min(date),
+    first_sample_month = format(first_sample_date, "%b. %Y"),
+    last_sample_date = max(date),
+    size = n()
+  ) 
+chain_summary_stats$first_sample_month <- factor(
+  x = chain_summary_stats$first_sample_month,
+  levels = unique(format(sort(chain_summary_stats$first_sample_date), "%b. %Y")))
+```
+
+Make plot
+
+```{r}
+p <- ggplot(
+  data = chain_summary_stats,
+  aes(
+    x = first_sample_month, 
+    y = last_sample_date + last_sample_to_extinction_delay)) + 
+  geom_violin(
+    aes(fill = chains_assumption), 
+    position = "identity",
+    alpha = 0.5) + 
+  coord_flip()
+
+pretty_p <- p + 
+  labs(
+    x = "First sample date", 
+    y = "Transmission chain extinction date") + 
+  scale_fill_discrete(
+    name = element_blank(),
+    labels = chain_assumption_labs) + 
+  scale_y_date(date_labels = "%b. %Y") + 
+  shared_theme + 
+  theme(legend.position = "bottom")
+
+show(pretty_p)
+ggsave(
+  plot = pretty_p,
+  file = paste("figures", "fig_1_chain_longevity.png", sep = "/"),
+  width = single_col_width,
+  height = single_col_width,
+  units = "cm"
+)
+```
+
