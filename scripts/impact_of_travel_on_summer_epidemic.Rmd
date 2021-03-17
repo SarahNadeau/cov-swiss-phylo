@@ -1,0 +1,221 @@
+---
+title: "Travel vs. local transmission driving summer epidemic"
+author: "Sarah Nadeau"
+date: "03/02/2021"
+output: html_document
+
+This script is a first-pass analysis at whether the Swiss epidemic still would
+have grown over the summer with perfect quarantine.
+
+TODO: check max clusters (really aggregating all possible from polytomies)
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '/Users/nadeaus/Repos/cov-swiss-phylogenetics')
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+source("../grapevine/utility_functions.R")
+require(ggplot2)
+```
+
+Get information on Swiss transmission chains over the summer (take to be the 
+truth for now).
+
+```{r}
+prefix <- "rep_1_n_sim_3000_n_imports_padded_1"
+clusters_max <- read.delim(
+  file = paste("../grapevine/dont_commit/2021_01_18_all/clusters/", 
+               prefix, "_m_3_p_1_swiss_polytomies_F_clusters.txt", sep = ""),
+  stringsAsFactors = F
+)
+clusters_min <- read.delim(
+  file = paste("../grapevine/dont_commit/2021_01_18_all/clusters/", 
+               prefix, "_m_3_p_1_swiss_polytomies_T_clusters.txt", sep = ""),
+  stringsAsFactors = F
+)
+metadata <- read.delim(
+  file = paste("../grapevine/dont_commit/2021_01_18_all/alignment_metadata/",
+               prefix, "_tree_metadata.txt", sep = ""),
+  stringsAsFactors = F, quote = ""
+)
+```
+
+Massage data
+
+```{r}
+clusters_max_by_tip <- get_cluster_data_by_tip(
+  cluster_data = clusters_max,
+  metadata = metadata) %>%
+  mutate(cluster_type = "max")
+clusters_min_by_tip <- get_cluster_data_by_tip(
+  cluster_data = clusters_min,
+  metadata = metadata) %>%
+  mutate(cluster_type = "min")
+clusters <- rbind(clusters_max_by_tip, clusters_min_by_tip)
+clusters <- clusters %>% mutate(
+  date_wk_since_epi_start = get_week_since_epidemic_start(date = date))
+```
+
+Plot sampled cases by transmission chain
+
+```{r}
+largest_clusters <- clusters %>% 
+  group_by(cluster_idx, cluster_type) %>%
+  summarize(cluster_size = n()) %>%
+  group_by(cluster_type) %>%
+  top_n(n = 10, wt = cluster_size) %>%
+  mutate(is_largest_cluster = T)
+clusters_to_plot <- merge(x = clusters, y = largest_clusters, all = T)
+
+ggplot(
+  data = clusters_to_plot,
+  aes(x = date_wk_since_epi_start, 
+      fill = case_when(
+        is_largest_cluster ~ as.character(cluster_idx),
+        T ~ "other cluster"))) +
+  geom_bar(position = "stack") + 
+  facet_grid(. ~ cluster_type) + 
+  theme(legend.position = "none")
+```
+
+So, the Swiss epidemic appears to be comprised of many introduction that spurred
+transient within-country transmission chains. Without constant re-introduction 
+the epidemic would have disappeared.
+
+Compare to the result from the UK between Mar 1 and Jun 7.
+```{r}
+UK_dist <- list(
+  "bigger_than_100" = 32,
+  "11_to_100" = 261,
+  "10_or_smaller" = 880,
+  "singletons" = 1650)
+UK_dist_to_plot <- data.frame(
+  size = names(UK_dist),
+  n_chains = unlist(UK_dist)) %>%
+  mutate(country = "UK", cluster_type = "UK")
+
+CH_dist_to_plot <- as.data.frame(clusters %>% 
+  group_by(cluster_idx, cluster_type) %>%
+  summarize(
+    size = 
+      case_when(
+        n() == 1 ~ "singletons",
+        n() <= 10 ~ "10_or_smaller",
+        n() <= 100 ~ "11_to_100",
+        n() > 100 ~ "bigger_than_100")) %>% 
+  ungroup() %>% group_by(size, cluster_type) %>%
+  summarize(n_chains = n()) %>%
+  mutate(country = "CH"))
+
+ggplot(
+  data = rbind(UK_dist_to_plot, CH_dist_to_plot) %>%
+    mutate(size = factor(
+      x = size, 
+      levels = c("singletons", "10_or_smaller", "11_to_100", "bigger_than_100"))),
+  aes(x = size, y = n_chains)) + 
+  geom_col() + 
+  facet_grid(country ~ cluster_type)
+```
+
+Our max clusters assumption seems to fit the UK epidemic dynamics better. We 
+do have more singletons though. Maybe because I don't properly aggregate descendents
+of max clusters (I do all or none, not as many as possible).
+
+So what would the *sampled epidemic have looked like without any introductions
+after border closures?
+
+Consider June 15 as the start of the summer, since this is when the partial 
+border closure lifted. 
+The LdP UK paper estimated an import-to-UK-TMRCA delay of 1-10 days, depending
+on the size of the sampled transmission chain. So, it took them max 10 days 
+after import to sample a within-country transmission event. Ignoring differences
+in sampling effort for now, I'll say it takes us max 10 days as well and all 
+imports of CH TMRCAs occured max 10 days beforehand.
+
+1. assume zero introductions after Jun 15 (so zero new CH TMRCAs after Jun 25)
+
+```{r}
+largest_clusters_2 <- clusters %>% 
+  filter(as.Date(ch_tmrca) <= as.Date("2020-06-25")) %>%
+  group_by(cluster_idx, cluster_type) %>%
+  summarize(cluster_size = n()) %>%
+  group_by(cluster_type) %>%
+  top_n(n = 10, wt = cluster_size) %>%
+  mutate(is_largest_cluster = T)
+clusters_to_plot_2 <- merge(
+  x = clusters %>%
+    filter(as.Date(ch_tmrca) <= as.Date("2020-06-25")), 
+  y = largest_clusters_2, all = T)
+
+ggplot(
+  data = clusters_to_plot_2,
+  aes(x = date_wk_since_epi_start, 
+      fill = case_when(
+        is_largest_cluster ~ as.character(cluster_idx),
+        T ~ "other cluster"))) +
+  geom_bar(position = "stack") + 
+  facet_grid(. ~ cluster_type) + 
+  theme(legend.position = "none")
+```
+
+So, even with zero new introductions after ~Jun 15 the sampled epidemic would
+have sustained itself.
+
+But how can we translate transmission chains into the overall epidemic size?
+Let's say confirmed cases are proportional to true epidemic size after Apr. 23
+when testing became available to anyone with symptoms. Then I just have to 
+correct the number of genome samples to the number of confirmed cases.
+
+Get the number of confirmed cases per week.
+
+```{r}
+cases <- read.csv(
+  file = "data/200325_Datengrundlage_Grafiken_COVID-19-Bericht.csv",
+  skip = 6)
+cases <- cases %>% 
+  mutate(date = as.Date(Datum, format = "%d.%m.%y")) %>%
+  mutate(date_wk_since_epi_start = get_week_since_epidemic_start(date = date)) %>%
+  group_by(date_wk_since_epi_start) %>%
+  summarize(n_cases = sum(Fallzahlen.pro.Tag))
+ggplot(data = cases, aes(x = date_wk_since_epi_start, y = n_cases)) + geom_col()
+```
+
+Correct the number of transmission chains by the number of confirmed cases.
+
+```{r}
+genomes_to_est_cases <- clusters %>%
+  group_by(cluster_type, date_wk_since_epi_start) %>%
+  summarize(n_genomes = n()) %>%
+  left_join(y = cases, by = "date_wk_since_epi_start") %>%
+  mutate(case_to_genome_ratio = n_cases / n_genomes) %>%
+  select(-c(n_genomes, n_cases))
+
+clusters_to_plot_3 <- clusters %>%
+  left_join(y = genomes_to_est_cases, 
+            by = c("cluster_type", "date_wk_since_epi_start")) %>%
+  mutate(no_import_scenario = F)
+
+alt_clusters_to_plot_3 <- clusters_to_plot_3 %>%
+ filter(ch_tmrca <= as.Date("2020-06-25")) %>%
+  mutate(no_import_scenario = T)
+  
+ggplot(
+  data = rbind(clusters_to_plot_3, alt_clusters_to_plot_3),
+  aes(x = date_wk_since_epi_start)) +
+  geom_bar(position = "stack") + 
+  facet_grid(no_import_scenario ~ cluster_type) + 
+  theme(legend.position = "none")
+
+ggplot(
+  data = rbind(clusters_to_plot_3, alt_clusters_to_plot_3),
+  aes(x = date_wk_since_epi_start, y = case_to_genome_ratio / 7)) +
+  geom_col(position = "stack") + 
+  facet_grid(no_import_scenario ~ cluster_type, scales = "free") + 
+  labs(y = "week_genomes_to_week_cases_by_7")
+  theme(legend.position = "none")
+```
+
+We would have much smaller confirmed case numbers if there were no imports over
+the summer, but the epidemic still would have grown.

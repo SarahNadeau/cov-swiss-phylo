@@ -1,0 +1,218 @@
+---
+title: "Test for travel quarantine effect on SARS-CoV-2 imports"
+output: pdf_document
+---
+
+This script is to test whether the rate of new introductions from a country
+is effected by whether travellers from the country are under quarantine orders.
+
+Date range for analysis is constrained to quarantine list data start/end dates.
+Phylogenetic import estimates are only for chains where travel context sequences
+clustered with them, and also only for one chain per polytomy. So these represent 
+estimates for only a fraction of the total number of chains.
+
+Q: why does it matters which transmission chain assumption we make if we take each polytomy as 1 import anyways?
+A: when polytomies are allowed to be Swiss, if the polytomy node is swiss then indeed, we cannot classify a location for the origin of the transmission chain
+This means should have more datapoints when s=F.
+
+TODO: compare/contrast results when s=T and s=F
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/NonRepoProjects/cov-swiss-phylogenetics/scripts")
+
+source("../../../Repos/grapevine/database/R/utility.R")
+source("../../../Repos/grapevine/utility_functions.R")
+source("../../../Repos/grapevine/generate_figures/functions.R")
+require(dplyr)
+require(ggplot2)
+```
+
+```{r}
+workdir <- "../grapevine/jan-dec_-01_max_sampling_-5_context-sf"
+s <- F
+
+outdir <- paste(workdir, "output", sep = "/")
+system(command = paste("mkdir -p", outdir))
+db_connection <- open_database_connection(config_file = "../../../Repos/grapevine/workdir/input/config.yml")
+```
+
+Load data: independent variables
+
+```{r}
+# indep variables: source country, whether travellers under quarantine order by day
+travel_quarantine_by_country_day <- get_travel_quarantine_by_country_day(
+  db_connection = db_connection
+)  
+# indep variable: source country incidence per capita per day
+country_incidence <- get_country_incidence(
+  min_date = min(travel_quarantine_by_country_day$date), 
+  max_date = max(travel_quarantine_by_country_day$date),
+  db_connection = db_connection
+)  
+# indep variable: distance from country to Switzerland
+country_distances <- get_country_distances(
+  non_focal_countries = as.character(unique(travel_quarantine_by_country_day$iso_code)),
+  focal_countries = "CHE",
+  db_connection = db_connection
+)
+# indep variable: travel connection to Switzerland
+country_arrivals <- read.delim(
+  file = paste(
+    workdir, 
+    "tmp/alignments/estimated_monthly_infectious_arrivals.txt", 
+    sep = "/"),
+  stringsAsFactors = F) %>%
+  select(date, iso_code, n_tourist_arrivals, n_commuter_permits)
+
+# clean data
+warn_missing_incidence_data(
+  travel_quarantine_by_country_day = travel_quarantine_by_country_day, 
+  country_incidence = country_incidence
+)
+travel_quarantine_by_country_day <- travel_quarantine_by_country_day %>%
+  filter(iso_code %in% country_incidence$iso_code)
+
+# merge data
+indep_vars <- merge(
+    x = travel_quarantine_by_country_day, y = country_incidence,
+    by = c("iso_code", "date"), 
+    all = T) 
+indep_vars <- merge(
+  x = indep_vars, y = country_distances,
+  by = "iso_code",
+  all.x = T)
+indep_vars <- merge(
+  x = indep_vars, y = country_arrivals,
+  by = c("iso_code", "date"),
+  all.x = T)
+```
+
+Load data: possible dependent variables
+
+```{r}
+# dep variable: number of FOPH recorded exposures from each country each day
+recorded_exposures <- get_exposures_per_country_day(
+  min_date = min(travel_quarantine_by_country_day$date), 
+  max_date = max(travel_quarantine_by_country_day$date),
+  db_connection = db_connection
+)
+# dep variable: number of lineages departing a country each day
+chains_asr <- load_chains_asr(s = s, workdir = workdir)
+chains_asr_representative <- pick_origin_representative_chains(chains_asr)
+chains_asr_long <- pivot_chains_longer(chains_asr_representative)
+asr_daily <- chains_asr_long %>% 
+  filter(foreign_tmrca >= min(travel_quarantine_by_country_day$date),
+         foreign_tmrca <= max(travel_quarantine_by_country_day$date)) %>%
+  group_by(foreign_tmrca, origin) %>%
+  summarize(n_lineages = sum(asr_contribution, na.rm = T)) %>%
+  ungroup() %>%
+  mutate(iso_code = country_name_to_iso_code(country = origin)) %>%
+  select(-origin) %>%
+  rename("date" = "foreign_tmrca")
+
+# merge data
+dep_vars <- merge(
+  x = recorded_exposures, y = asr_daily,
+  by = c("iso_code", "date"),
+  all = T)
+```
+
+Merge independent and dependent variables, aggregate timechunks
+
+```{r}
+model_data_daily <- merge(
+  x = indep_vars, y = dep_vars, 
+  by = c("iso_code", "date"),
+  all = T) %>%
+  tidyr::replace_na(list(
+    "quarantine_order" = F,  # not on the quarantine list = no quarantine order
+    "n_exposures" = 0,  # no exposures in bag_meldeformular = 0 exposures
+    "n_lineages" = 0,  # no foreign attachment points in the month have travel context descendents from the country = 0 lineages imported from the country
+    "n_tourist_arrivals" = 0,
+    "n_commuter_permits" = 0)) %>%  # no tourist arrivals to hotels recorded or commuter permits = 0 arrivals 
+  group_by(iso_code) %>%
+  mutate(quarantine_y_and_n = length(unique(quarantine_order)) == 2) %>%
+  filter(quarantine_y_and_n) %>%  # only countries on & off quarantine list at some point
+  select(-quarantine_y_and_n) %>%
+  ungroup()
+
+model_data_weekly <- model_data_daily %>%
+  mutate(date = format(date, "%y-%U")) %>%
+  group_by(date, iso_code) %>%
+  summarize(
+    n_exposures = sum(n_exposures),
+    n_lineages = sum(n_lineages),
+    dist_to_CHE = dist_to_CHE[1],
+    new_cases_per_million = mean(new_cases_per_million),
+    quarantine_order = sum(quarantine_order) / n())  # indep var frac of days on list 
+
+model_data_monthly <- model_data_daily %>%
+  mutate(date = format(date, "%y-%m-01")) %>%
+  group_by(date, iso_code) %>%
+  summarize(
+    n_exposures = sum(n_exposures),
+    n_lineages = sum(n_lineages),
+    dist_to_CHE = dist_to_CHE[1],
+    new_cases_per_million = mean(new_cases_per_million),
+    quarantine_order = sum(quarantine_order) / n(),  # indep var frac of days on list 
+    n_tourist_arrivals = sum(n_tourist_arrivals, na.rm = T),  # a monthly variable only  
+    n_commuter_permits = sum(n_commuter_permits, na.rm = T))  # a monthly variable only  
+```
+
+Plot data summary
+
+```{r}
+plot_dep_var_by_quarantine_status(
+  model_data = model_data_daily,
+  outdir = outdir,
+  dep_varname = "n_exposures")
+plot_dep_var_by_quarantine_status(
+  model_data = model_data_daily,
+  outdir = outdir,
+  dep_varname = "n_lineages")
+```
+
+Define model
+
+```{r}
+fit_model <- function(
+  model_data, return_fitted_model = F, dep_varname, indep_varnames
+) {
+  my_formula <- paste(dep_varname, " ~ ", paste0(indep_varnames, collapse = " + "), sep = "")
+  print(paste("Fitted model:", my_formula))
+  fitted_model <- lm(
+    data = model_data,
+    formula = as.formula(my_formula))
+  print(summary(fitted_model))
+  if (return_fitted_model) {
+    return(fitted_model)
+  }
+}
+```
+
+Fit model(s)
+Assumption: travel is constant year-round
+
+```{r}
+fit_model(
+  model_data = model_data_monthly,
+  dep_varname = "n_exposures",
+  indep_varnames = c("new_cases_per_million", "quarantine_order", "dist_to_CHE", 
+                     "n_tourist_arrivals"))
+fit_model(
+  model_data = model_data_monthly,
+  dep_varname = "n_lineages",
+  indep_varnames = c("new_cases_per_million", "quarantine_order", "dist_to_CHE", 
+                     "n_tourist_arrivals"))
+
+model_data_monthly_gathered <- model_data_monthly %>%
+  tidyr::gather(
+    key = "variable", value = "value",
+    dist_to_CHE, new_cases_per_million, quarantine_order, n_tourist_arrivals, 
+    n_commuter_permits)
+ggplot(data = model_data_monthly_gathered,
+       aes(x = value, y = n_lineages)) + 
+  geom_point() + 
+  facet_wrap(~variable, scales = "free")
+```
+
