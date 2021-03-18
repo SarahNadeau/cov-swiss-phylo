@@ -97,7 +97,7 @@ We compared the fraction of estimated imports attributable to the most common co
 
 \section*{Effect of travel quarantine policy to limit introductions}
 
-We can compare the number of reported exposures from countries during periods when these countries were on the quarantine versus off it \ref{fig:chain-origins-by-quarantine-status}, but these data appear include individuals who succesfully quarantined. 
+We can compare the number of reported exposures from countries during periods when these countries were on the quarantine versus off it \ref{fig:chain-origins-by-quarantine-status}, but these data include individuals who successfully quarantined. 
 We fit a linear model to estimate a coefficient for the effect of a travel quarantine order on the number of imports from country in a month.
 
 \begin{figure*}[tbhp]
@@ -108,7 +108,7 @@ We fit a linear model to estimate a coefficient for the effect of a travel quara
 \end{figure*}
 
 \begin{equation}
-    
+    \text{Lineages}_{week,country} = \beta_0 + \beta_1 I_{q} + \beta_2 \text{Incidence}_{week,country} + \text{Distance}_{country}
 \end{equation}
 
 \section*{Effect of non-pharmaceutical interventions to limit local transmission}
