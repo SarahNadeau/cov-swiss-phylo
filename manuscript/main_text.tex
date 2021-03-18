@@ -53,7 +53,9 @@ Are the effects of policies designed to prevent and contain SARS-CoV-2 imports e
 \section*{Transmission chains composing the Swiss epidemic}
 
 \subsection{Transmission chain longevity}
-During the first wave, transmission chains are driven to extinction within a few months. During the second wave, similarly stringent policies do not succeed in driving transmission chains to extinction so quickly.
+We show either the dates at which transmission chains go extinct (extinction assumed 2 weeks after the last sample) \ref{fig:chain-description} or the number of samples from each transmission chain each month \ref{fig:chain-description-v2}.
+
+From these plots we see that during the first wave, most transmission chains are driven to extinction within a few months. However during the second wave, similarly stringent policies do not succeed in driving transmission chains to extinction so quickly. There is evidence some transmission chains persisted in Switzerland from the start of the epidemic through to the end of our sampling period.
 
 \begin{figure}[tbhp]
 \centering
@@ -70,20 +72,31 @@ During the first wave, transmission chains are driven to extinction within a few
 \end{figure}
 
 \subsection{Transmission chain origins}
+We compare estimates for the origin countries of Swiss transmission chains based on line-list, mobility and incidence data, and phylogenetic estimates. The phylogenetic estimates are informed by the line-list, mobility, and incidence data since foreign sequences were included in the tree proportional to monthly imports estimated using these data. However, the phylogenetic relationships between these sequences and Swiss sequences additionally inform the phylogenetic estimates so we do not expect the estimates to match perfectly. 
+
+We see that most common origin countries are shared between the phylogenetic and prior estimates, but that the phylogenetic estimates shift the import dates further back in time \ref{fig:chain-origins}. This may be because our phylogenetic estimates are dated at the foreign attachment points of Swiss transmission chains, when the lineages were still circulating outside of Switzerland.
+
+We compared the fraction of estimated imports attributable to the most common countries between the phylogenetic and prior estimates for each of the first two epidemic waves in Switzerland \ref{tab:chain-origins-post-vs-prior}. We see that e.g. phylogenetic estimates exceed prior estimates for imports from the United Kingdom by a factor of 4-7 during the first wave. Assuming the smallest plausible number of Swiss transmission chains, phylogenetic estimates for imports from Serbia exceed prior estimates by a factor of 3.8 - 120 across both waves.
 
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=.8\linewidth]{figures/fig_2_chain_origins.png}
 \caption{Estimated number of infectious individuals arriving in Switzerland by month and origin country. Prior estimates are based on Swiss FOPH (Federal Office of Public Health) line-list data for foreign exposure locations (Reported exposure), cross-border commuter permit numbers (Infected commuter), and tourist arrivals at Swiss hotels (Infected tourist). Tree-based estimates are parsimony-based estimates of ancestral node locations for nodes ancestral to Swiss transmission chains. For the parsimony-based estimation of ancestral node locations, foreign tips in the tree were chosen proportionally to the prior estimates each month.}  
-\label{fig:chain-description-v2}
+\label{fig:chain-origins}
 \end{figure}
 
 \input{tables/origins_table_posterior_v_prior}
+% Caption and label added directly to table .tex file:
+% \caption{Phylogenetic vs. prior estimates for transmission chain origin locations.}
+% \label{tab:chain-origins-post-vs-prior}
 
 \section*{Effect of travel quarantine policy to limit introductions}
 
 
+
 \section*{Effect of non-pharmaceutical interventions to limit local transmission}
+
+Tim is still working on getting the BDSKY analysis running.
 
 % \subsection*{Author Affiliations}
 
