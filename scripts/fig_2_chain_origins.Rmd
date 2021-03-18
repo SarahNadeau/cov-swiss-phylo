@@ -1,0 +1,146 @@
+---
+title: "Fig. 2"
+output: pdf_document
+---
+
+TODO: fix empty spaces in prior plot
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+require(dplyr)
+require(ggplot2)
+db_connection = open_database_connection(config_file = "../grapevine/workdir/input/config.yml")
+```
+
+Define shared variables
+
+```{r}
+chain_assumption_labs <- c("Smallest plausible chains", "Largest plausible chains")
+names(chain_assumption_labs) <- c("max", "min")
+shared_theme <- theme_bw()
+single_col_width <- 11.4  # cm
+n_top_origins_to_plot <- 5
+wave_break <- as.Date("2020-05-01")
+lockdown_end <- as.Date("2020-06-15")
+lockdown_start <- as.Date("2020-03-25")
+country_colors <- get_country_colors(db_connection)
+```
+
+Load data
+
+```{r}
+workdir <- "results_main"
+
+grapevine_results <- load_grapevine_results(
+  workdir = workdir, 
+  min_chain_size = 1,
+  viollier_only = F)
+
+origins_data <- get_origin_prior_vs_posterior_data(
+  workdir = workdir,
+  origins_representative = grapevine_results$origins) 
+```
+
+Make plot
+
+```{r}
+most_common_origins <- origins_data %>% 
+  group_by(est_type, iso_code, chains_assumption) %>%
+  summarize(total_n_inds = sum(n_inds)) %>%
+  ungroup() %>% group_by(est_type, chains_assumption) %>%
+  arrange(desc(total_n_inds)) %>%
+  mutate(origin_idx = 1:n()) %>%
+  top_n(n = n_top_origins_to_plot, wt = -origin_idx)
+
+origins_data_to_plot <- origins_data %>%
+  mutate(
+    origin_to_plot = case_when(
+      iso_code %in% most_common_origins$iso_code ~ iso_code_to_country_name(iso_code),
+      T ~ "other"
+    )
+  ) %>% select(-iso_code) %>%
+  tidyr::unite(
+    col = "group", origin_to_plot, n_inds_type, remove = F
+  ) %>% tidyr::unite(
+    col = "facet", est_type, chains_assumption, remove = F
+  ) %>% group_by(
+    date, origin_to_plot, group, facet, n_inds_type) %>%
+  summarize(n_inds = sum(n_inds)) 
+
+origins_data_to_plot$n_inds_type <- factor(
+  x = origins_data_to_plot$n_inds_type,
+  levels = c("sum_fractional_lineage_asr", "exposures", "tourist_arrivals", "commuter_permits")
+)
+origins_data_to_plot$facet <- factor(
+  x = origins_data_to_plot$facet,
+  levels = c(
+    "prior_NA", 
+    "posterior_max", 
+    "posterior_min"),
+  labels = c(
+    "Prior estimates", 
+    "Tree-based estimates\n (Smallest plausible chains)",
+    "Tree-based estimates\n (Largest plausible chains)"))
+
+plot <- ggplot(
+  data = origins_data_to_plot,
+  aes(x = as.Date(date), y = n_inds)) + 
+  facet_grid(
+    facet ~ .,
+    scales = "free") + 
+  geom_area(
+    aes(group = group, fill = origin_to_plot, alpha = n_inds_type),
+    position = "stack") +  # 'fill' means height corresponds to percentage of all classifiable foreign mrcas in month
+  scale_fill_manual(values = country_colors, name = "Origin country") +
+  scale_alpha_manual(
+    values = c(
+      sum_fractional_lineage_asr = 0.75,
+      exposures = 1, 
+      tourist_arrivals = 0.5, 
+      commuter_permits = 0.25),
+    labels = c(
+      sum_fractional_lineage_asr = "Number of lineages (estimated)",
+      exposures = "Reported exposure",
+      tourist_arrivals = "Infected tourist (estimated)",
+      commuter_permits = "Infected commuter (estimated)"),
+    name = "Import type") + 
+  labs(
+    x = element_blank(),
+    y = "Number of imports") + 
+  scale_x_date(date_labels = "%b. %Y", date_breaks = "1 month") + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+show(plot)
+ggsave(
+  plot = plot + 
+    theme(legend.position = "bottom", legend.box = "vertical", legend.margin = margin()) + 
+    guides(fill = guide_legend(nrow = 2, byrow = T, title.position = "top", title.hjust = 0.5),
+           alpha = guide_legend(nrow = 2, byrows = T, title.position = "top", title.hjust = 0.5)),
+  file = paste("figures", "fig_2_chain_origins.png", sep = "/"),
+  width = single_col_width,
+  height = single_col_width * 2,
+  units = "cm"
+)
+```
+
+Table area in prior vs. posterior 
+
+```{r}
+tmp_table <- table_chain_origins(
+  workdir = workdir,
+  chain_asr = grapevine_results$chain_asr,
+  return_table = T
+) 
+print(tmp_table)
+```
+
+
+
