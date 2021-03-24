@@ -12,19 +12,9 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 source("../grapevine/database/R/utility.R")
 source("../grapevine/utility_functions.R")
 source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
 require(dplyr)
 require(ggplot2)
-```
-
-Define shared variables
-
-```{r}
-chain_assumption_labs <- c("Smallest plausible chains", "Largest plausible chains")
-names(chain_assumption_labs) <- c("max", "min")
-shared_theme <- theme_bw()
-single_col_width <- 11.4  # cm
-n_chains_to_plot <- 10
-wave_break <- as.Date("2020-05-01")
 ```
 
 Load external data

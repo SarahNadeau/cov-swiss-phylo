@@ -3,8 +3,6 @@ title: "Fig. 2"
 output: pdf_document
 ---
 
-TODO: fix empty spaces in prior plot
-
 ```{r, setup, include=FALSE}
 knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
@@ -14,23 +12,11 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 source("../grapevine/database/R/utility.R")
 source("../grapevine/utility_functions.R")
 source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
 require(dplyr)
 require(ggplot2)
-db_connection = open_database_connection(config_file = "../grapevine/workdir/input/config.yml")
-```
-
-Define shared variables
-
-```{r}
-chain_assumption_labs <- c("Smallest plausible chains", "Largest plausible chains")
-names(chain_assumption_labs) <- c("max", "min")
-shared_theme <- theme_bw()
-single_col_width <- 11.4  # cm
-n_top_origins_to_plot <- 5
-wave_break <- as.Date("2020-05-01")
-lockdown_end <- as.Date("2020-06-15")
-lockdown_start <- as.Date("2020-03-25")
-country_colors <- get_country_colors(db_connection)
+db_connection = open_database_connection(
+  config_file = "../grapevine/workdir/input/config.yml")
 ```
 
 Load data
@@ -42,104 +28,349 @@ grapevine_results <- load_grapevine_results(
   workdir = workdir, 
   min_chain_size = 1,
   viollier_only = F)
+chains <- grapevine_results$chains
+origins <- grapevine_results$origins
 
+# Count each origin once per unique foreign MRCA
 origins_data <- get_origin_prior_vs_posterior_data(
   workdir = workdir,
-  origins_representative = grapevine_results$origins) 
+  origins_representative = origins) %>%
+  mutate(iso_code = recode(iso_code, "XKX" = "KOS"))
+
+# Count each origin once per unique chain
+origins_per_chain <- merge(
+  x = origins,
+  y = chains,
+  by = c("tree",  "chains_assumption", "foreign_mrca", "foreign_tmrca", "foreign_tmrca_CI"),
+  all = T)
+origins_data_per_chain <- get_origin_prior_vs_posterior_data(
+  workdir = workdir,
+  origins_representative = origins_per_chain) %>%
+  mutate(iso_code = recode(iso_code, "XKX" = "KOS"))
+
+# Count each origin once per unique chain, use the swiss mrca data and not the foreign mrca date
+origins_data_per_chain_ch_mrca <- get_origin_prior_vs_posterior_data(
+  workdir = workdir,
+  origins_representative = origins_per_chain,
+  posterior_date = "ch_tmrca") %>%
+  mutate(iso_code = recode(iso_code, "XKX" = "KOS"))
+```
+
+Summarize different data options
+
+```{r}
+origins_tmp <- origins %>% 
+  group_by(chains_assumption, tree, foreign_mrca) %>%
+  summarize(n_times_counted = n())
+origins_per_chain_tmp <- origins_per_chain  %>% 
+  group_by(chains_assumption, tree, foreign_mrca) %>%
+  summarize(n_times_counted = n())
+
+ggplot(
+  data = origins_tmp,
+  aes(x = n_times_counted)) + 
+  geom_histogram() + 
+  facet_grid(. ~ chains_assumption) + 
+  ggtitle("Counting each unique foreign mrca once counts foreign mrcas this many times")
+ggplot(
+  data = origins_per_chain_tmp,
+  aes(x = n_times_counted)) + 
+  geom_histogram() + 
+  facet_grid(. ~ chains_assumption, scales= "free_x") + 
+  ggtitle("Counting each chain once counts each foreign mrca up to this many times")
+```
+
+Get origins that acheive n% frequency in any month in either the prior, posterior (max), or posterior (min)
+
+```{r}
+get_most_common_origins_to_plot <- function(
+  origin_freq_threshold = 0.10, origin_count_threshold = 3, origins_data
+) {
+  origins_freq <- origins_data %>%
+    group_by(est_type, chains_assumption, date) %>%
+    mutate(total_n_inds = sum(n_inds)) %>%
+    ungroup() %>%
+    group_by(est_type, chains_assumption, date, iso_code) %>%
+    summarize(freq_inds = sum(n_inds) / total_n_inds[[1]]) %>% # NaN means 0/0, so n_total_inds 0
+    ungroup()
+  
+  origins_count <- origins_data %>%
+    group_by(est_type, chains_assumption, iso_code) %>%
+    summarize(total_n_inds = sum(n_inds))
+  
+  most_freq_origins <- origins_freq %>%
+    filter(freq_inds > origin_freq_threshold)
+  most_count_origins <- origins_count %>%
+    filter(total_n_inds > origin_count_threshold)
+  most_common_origins <- most_freq_origins %>%
+    filter(iso_code %in% most_count_origins$iso_code)
+  
+  cat(
+    length(unique(most_common_origins$iso_code)), 
+    "origins will be highlighted in the plot for acheiving >",
+    origin_freq_threshold * 100,
+    "% frequency in some month in the prior or either posterior and at least",
+    origin_count_threshold, "total lineages:\n",
+    paste0(unique(most_common_origins$iso_code), collapse = ", "), 
+    "\n"
+  )
+  return(most_common_origins)
+}
+
+most_common_origins <- get_most_common_origins_to_plot(
+  origins_data = origins_data)
+most_common_origins_per_chain <- get_most_common_origins_to_plot(
+  origins_data = origins_data_per_chain)
 ```
 
 Make plot
+- posterior doesn't change so much for smallest plausible (max) chains because most chains descending from polytomies aren't included anyways (foreign_mrca is same as ch_mrca)
 
 ```{r}
-most_common_origins <- origins_data %>% 
-  group_by(est_type, iso_code, chains_assumption) %>%
-  summarize(total_n_inds = sum(n_inds)) %>%
-  ungroup() %>% group_by(est_type, chains_assumption) %>%
-  arrange(desc(total_n_inds)) %>%
-  mutate(origin_idx = 1:n()) %>%
-  top_n(n = n_top_origins_to_plot, wt = -origin_idx)
-
-origins_data_to_plot <- origins_data %>%
-  mutate(
-    origin_to_plot = case_when(
-      iso_code %in% most_common_origins$iso_code ~ iso_code_to_country_name(iso_code),
-      T ~ "other"
-    )
-  ) %>% select(-iso_code) %>%
-  tidyr::unite(
-    col = "group", origin_to_plot, n_inds_type, remove = F
-  ) %>% tidyr::unite(
-    col = "facet", est_type, chains_assumption, remove = F
-  ) %>% group_by(
-    date, origin_to_plot, group, facet, n_inds_type) %>%
-  summarize(n_inds = sum(n_inds)) 
-
-origins_data_to_plot$n_inds_type <- factor(
-  x = origins_data_to_plot$n_inds_type,
-  levels = c("sum_fractional_lineage_asr", "exposures", "tourist_arrivals", "commuter_permits")
-)
-origins_data_to_plot$facet <- factor(
-  x = origins_data_to_plot$facet,
-  levels = c(
-    "prior_NA", 
-    "posterior_max", 
-    "posterior_min"),
-  labels = c(
-    "Prior estimates", 
-    "Tree-based estimates\n (Smallest plausible chains)",
-    "Tree-based estimates\n (Largest plausible chains)"))
-
-plot <- ggplot(
-  data = origins_data_to_plot,
-  aes(x = as.Date(date), y = n_inds)) + 
-  facet_grid(
-    facet ~ .,
-    scales = "free") + 
-  geom_area(
-    aes(group = group, fill = origin_to_plot, alpha = n_inds_type),
-    position = "stack") +  # 'fill' means height corresponds to percentage of all classifiable foreign mrcas in month
-  scale_fill_manual(values = country_colors, name = "Origin country") +
-  scale_alpha_manual(
-    values = c(
-      sum_fractional_lineage_asr = 0.75,
-      exposures = 1, 
-      tourist_arrivals = 0.5, 
-      commuter_permits = 0.25),
+make_plot <- function(origins_data, country_colors, most_common_origins) {
+  origins_data_to_plot <- origins_data %>%
+    mutate(
+      origin_to_plot = case_when(
+        iso_code %in% most_common_origins$iso_code ~ iso_code,
+        T ~ "XXX"
+      )
+    ) %>%
+    tidyr::unite(
+      col = "group", origin_to_plot, n_inds_type, remove = F
+    ) %>% tidyr::unite(
+      col = "facet", est_type, chains_assumption, remove = F
+    ) %>% group_by(
+      date, origin_to_plot, group, facet, n_inds_type) %>%
+    summarize(n_inds = sum(n_inds)) 
+  
+  origins_data_to_plot$n_inds_type <- factor(
+    x = origins_data_to_plot$n_inds_type,
+    levels = c("sum_fractional_lineage_asr", "exposures", "tourist_arrivals", "commuter_permits")
+  )
+  origins_data_to_plot$facet <- factor(
+    x = origins_data_to_plot$facet,
+    levels = c(
+      "prior_NA", 
+      "posterior_max", 
+      "posterior_min"),
     labels = c(
-      sum_fractional_lineage_asr = "Number of lineages (estimated)",
-      exposures = "Reported exposure",
-      tourist_arrivals = "Infected tourist (estimated)",
-      commuter_permits = "Infected commuter (estimated)"),
-    name = "Import type") + 
-  labs(
-    x = element_blank(),
-    y = "Number of imports") + 
-  scale_x_date(date_labels = "%b. %Y", date_breaks = "1 month") + 
-  theme_bw() + 
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+      "Prior estimates", 
+      "Tree-based estimates\n (Smallest plausible chains)",
+      "Tree-based estimates\n (Largest plausible chains)"))
+  
+  plot <- ggplot(
+    data = origins_data_to_plot,
+    aes(x = as.Date(date), y = n_inds)) + 
+    facet_grid(
+      facet ~ .,
+      scales = "free") + 
+    geom_area(
+      aes(group = group, fill = as.factor(origin_to_plot), alpha = n_inds_type),
+      position = "stack") +  # 'fill' means height corresponds to percentage of all classifiable foreign mrcas in month
+    scale_fill_manual(
+      values = country_colors,
+      labels = iso_code_to_country_name,
+      name = "Origin country") +
+    scale_alpha_manual(
+      values = c(
+        sum_fractional_lineage_asr = 1,
+        exposures = 0.75, 
+        tourist_arrivals = 0.5, 
+        commuter_permits = 0.25),
+      labels = c(
+        sum_fractional_lineage_asr = "Number of lineages (estimated)",
+        exposures = "Reported exposure",
+        tourist_arrivals = "Infected tourist (estimated)",
+        commuter_permits = "Infected commuter (estimated)"),
+      name = "Import type") + 
+    labs(
+      x = element_blank(),
+      y = "Number of imports") + 
+    scale_x_date(date_labels = "%b. %Y", date_breaks = "1 month") + 
+    theme_bw() + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+  
+  return(plot)
+}
 
-show(plot)
-ggsave(
-  plot = plot + 
-    theme(legend.position = "bottom", legend.box = "vertical", legend.margin = margin()) + 
-    guides(fill = guide_legend(nrow = 2, byrow = T, title.position = "top", title.hjust = 0.5),
-           alpha = guide_legend(nrow = 2, byrows = T, title.position = "top", title.hjust = 0.5)),
-  file = paste("figures", "fig_2_chain_origins.png", sep = "/"),
-  width = single_col_width,
-  height = single_col_width * 2,
-  units = "cm"
-)
+country_colors <- get_country_colors(db_connection)
+origins_plot <- make_plot(
+  country_colors = country_colors, 
+  origins_data = origins_data, 
+  most_common_origins = most_common_origins)
+origins_per_chain_plot <- make_plot(
+  country_colors = country_colors, 
+  origins_data = origins_data_per_chain, 
+  most_common_origins = most_common_origins_per_chain)
+origins_per_chain_ch_tmrca_plot <- make_plot(
+  country_colors = country_colors, 
+  origins_data = origins_data_per_chain_ch_mrca, 
+  most_common_origins = most_common_origins_per_chain)
+
+show(origins_plot)
+show(origins_per_chain_plot)
+show(origins_per_chain_ch_tmrca_plot)
+```
+
+Save plots
+
+```{r}
+save_plot <- function(plotname, plot) {
+  ggsave(
+    plot = plot + 
+      theme(
+        legend.position = "bottom", 
+        legend.box = "vertical", 
+        legend.margin = margin()) + 
+      guides(
+        fill = guide_legend(
+          ncol = 3, byrow = T, title.position = "top", title.hjust = 0.5),
+        alpha = guide_legend(
+          nrow = 2, byrows = T, title.position = "top", title.hjust = 0.5)),
+    file = paste("figures", plotname, sep = "/"),
+    width = single_col_width,
+    height = single_col_width * 2,
+    units = "cm"
+  )
+}
+save_plot(
+  plot = origins_plot,
+  plotname = "fig_SX_chain_origins_per_foreign_mrca_foreign_tmrca.png")
+save_plot(
+  plot = origins_per_chain_plot,
+  plotname = "fig_SX_chain_origins_per_chain_foreign_tmrca.png")
+save_plot(
+  plot = origins_per_chain_ch_tmrca_plot,
+  plotname = "fig_2_chain_origins_per_chain_ch_tmrca.png")
 ```
 
 Table area in prior vs. posterior 
 
 ```{r}
-tmp_table <- table_chain_origins(
-  workdir = workdir,
-  chain_asr = grapevine_results$chain_asr,
-  return_table = T
-) 
-print(tmp_table)
+make_tables <- function(
+  origins_data, wave_breaks, most_common_origins
+) {
+  complete_period_breaks <- c(
+    range(as.Date(origins_data$date)), 
+    wave_breaks)  # most extreme dates + specified intermediate breakpoints
+  
+  origins_data_to_table <- origins_data %>%
+    mutate(
+      period = cut.Date(
+        x = as.Date(date), 
+        breaks = as.Date(complete_period_breaks),
+        include.lowest = T),
+      origin_to_plot = case_when(
+        iso_code %in% most_common_origins$iso_code ~ iso_code_to_country_name(iso_code),
+        T ~ "other"))
+  
+  origins_data_to_table <- rbind(
+    origins_data_to_table %>% 
+      mutate(chains_assumption = case_when(
+        est_type == "prior" ~ "max",
+        T ~ chains_assumption
+      )),
+    origins_data_to_table %>% 
+      filter(est_type == "prior") %>%
+      mutate(chains_assumption = "min")
+  )
+  
+  origins_table_posterior_v_prior <- origins_data_to_table %>%
+    group_by(period, est_type, chains_assumption) %>%
+    mutate(total_n_inds = sum(n_inds)) %>%
+    group_by(period, origin_to_plot, est_type, chains_assumption) %>%
+    summarize(frac_inds = sum(n_inds) / total_n_inds[1]) %>%
+    tidyr::pivot_wider(
+      names_from = est_type,
+      values_from = frac_inds) %>%
+    mutate(
+      posterior_to_prior = signif(posterior / prior, digits = 2),
+      # posterior_to_prior = recode(
+      #   .x = as.character(posterior_to_prior),
+      #   "Inf" = "0 in prior",  # Inf means x/0 (x posterior, 0 prior)
+      #   "NaN" = "0 in prior and posterior"),  # NaN means 0/0 (0 posterior, 0 prior)
+      posterior_to_prior = paste(posterior_to_prior, " (", signif(posterior, digits = 2), "/", signif(prior, digits = 2), ")", sep = "")) %>%
+    select(-c(posterior, prior)) %>%
+    tidyr::pivot_wider(
+      names_from = c(chains_assumption, period), 
+      values_from = posterior_to_prior)
+  
+  origins_table_posterior_v_exposures <- origins_data_to_table %>%
+    filter(n_inds_type != "commuter_permits", n_inds_type != "tourist_arrivals") %>%
+    group_by(period, est_type, chains_assumption) %>%
+    mutate(total_n_inds = sum(n_inds)) %>%
+    group_by(period, origin_to_plot, est_type, chains_assumption) %>%
+    summarize(frac_inds = sum(n_inds) / total_n_inds[1]) %>%
+    tidyr::pivot_wider(
+      names_from = est_type,
+      values_from = frac_inds) %>%
+    mutate(
+      posterior_to_prior = signif(posterior / prior, digits = 2),
+      # posterior_to_prior = recode(
+      #   .x = as.character(posterior_to_prior),
+      #   "Inf" = "0 in prior",  # Inf means x/0 (x posterior, 0 prior)
+      #   "NaN" = "0 in prior and posterior"),  # NaN means 0/0 (0 posterior, 0 prior)
+      posterior_to_prior = paste(posterior_to_prior, " (", signif(posterior, digits = 2), "/", signif(prior, digits = 2), ")", sep = "")) %>%
+    select(-c(posterior, prior)) %>%
+     tidyr::pivot_wider(
+      names_from = c(chains_assumption, period), 
+      values_from = posterior_to_prior)
+
+  return(list(
+    "origins_table_posterior_v_prior" = origins_table_posterior_v_prior,
+    "origins_table_posterior_v_exposures" = origins_table_posterior_v_exposures))
+}
+
+origins_tables <- make_tables(
+  origins_data = origins_data,
+  wave_breaks = wave_breaks, 
+  most_common_origins = most_common_origins)
+
+origins_tables_per_chain <- make_tables(
+  origins_data = origins_data_per_chain,
+  wave_breaks = wave_breaks, 
+  most_common_origins = most_common_origins_per_chain)
+
+origins_tables_per_chain_ch_mrca <- make_tables(
+  origins_data = origins_data_per_chain_ch_mrca,
+  wave_breaks = wave_breaks, 
+  most_common_origins = most_common_origins_per_chain)
+
+View(origins_tables_per_chain_ch_mrca$origins_table_posterior_v_prior)
+View(origins_tables_per_chain_ch_mrca$origins_table_posterior_v_exposures)
+```
+
+Save tables
+
+```{r}
+save_table_tex <- function(tables, table_prefix) {
+  print(
+    xtable::xtable(
+      x = tables$origins_table_posterior_v_prior  %>%
+        filter(origin_to_plot != "other") %>%
+        rename("Origin country" = "origin_to_plot"), 
+      type = "latex"), 
+    include.rownames = F,
+    file = paste("tables/", table_prefix, "_posterior_v_prior.tex", sep = ""))
+  
+  print(
+    xtable::xtable(
+      x = tables$origins_table_posterior_v_exposures %>%
+        filter(origin_to_plot != "other") %>%
+        rename("Origin country" = "origin_to_plot"), 
+      type = "latex"), 
+    include.rownames = F,
+    file = paste("tables/", table_prefix, "_posterior_v_exposures.tex", sep = ""))
+}
+save_table_tex(
+  tables = origins_tables,
+  table_prefix = "table_SX_chain_origins_per_foreign_mrca_foreign_tmrca")
+save_table_tex(
+  tables = origins_tables_per_chain,
+  table_prefix = "table_SX_chain_origins_per_chain_foreign_tmrca")
+save_table_tex(
+  tables = origins_tables_per_chain_ch_mrca,
+  table_prefix = "table_1_chain_origins_per_chain_ch_tmrca")
 ```
 
 

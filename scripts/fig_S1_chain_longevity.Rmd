@@ -1,0 +1,101 @@
+---
+title: "Fig. S1"
+output: pdf_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+require(dplyr)
+require(ggplot2)
+```
+
+Load data
+
+```{r}
+workdir <- "results_main"
+grapevine_results <- load_grapevine_results(
+  workdir = workdir, 
+  min_chain_size = 2,
+  viollier_only = F)
+samples <- grapevine_results$samples
+```
+
+Summarize data
+
+```{r}
+chain_summary_stats <- samples %>%
+  group_by(tree, chains_assumption, chain_idx) %>%
+  summarize(
+    first_sample_date = min(date),
+    last_sample_date = max(date),
+    first_sample_month = format(first_sample_date, "%Y-%m-01"),
+    last_sample_month = format(last_sample_date, "%Y-%m-01")
+  ) 
+chain_longevity_stats <- chain_summary_stats %>%
+  mutate(first_sample_month_2 = first_sample_month) %>%
+  tidyr::pivot_longer(
+    cols = c("first_sample_month_2", "last_sample_month"),
+    names_to = "date_type",
+    values_to = "date") %>%
+  mutate(date = as.Date(date)) %>%
+  tidyr::unite(col = "tree_chain", tree, chain_idx) %>%
+  group_by(tree_chain, chains_assumption) %>%
+  tidyr::complete(
+    date = seq.Date(min(date), max(date), by = "month")) %>%
+  tidyr::fill(first_sample_month) %>%
+  group_by(chains_assumption, first_sample_month, date) %>%
+  summarize(n_chains = n()) %>%
+  filter(first_sample_month < "2020-12-01")
+
+unique_ordered_months <- unique(sort(chain_summary_stats$first_sample_month))
+chain_longevity_stats$first_sample_month <- factor(
+  x = chain_longevity_stats$first_sample_month,
+  levels = unique_ordered_months,
+  labels = format(as.Date(unique_ordered_months), "%b. %Y"))
+```
+
+Make plot
+
+```{r}
+p <- ggplot(
+  data = chain_longevity_stats,
+  aes(x = date, y = n_chains)) + 
+  geom_area() + 
+  facet_grid(
+    first_sample_month ~ chains_assumption,
+    labeller = labeller(chains_assumption = chain_assumption_labs),
+    space = "free_y")
+
+pretty_p <- p +
+  labs(
+    x = element_blank(),
+    y = "Number of ongoing transmission chains\nby month of first sample") +
+  scale_x_date(
+    date_labels = "%b. %Y", date_breaks = "1 month") +
+  shared_theme + 
+  facet_nospace_theme_elements + 
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+
+show(pretty_p)
+```
+
+Save plot
+
+```{r}
+ggsave(
+  plot = pretty_p,
+  file = paste("figures", "fig_S1_chain_longevity.png", sep = "/"),
+  width = single_col_width,
+  height = single_col_width,
+  units = "cm"
+)
+```
+
