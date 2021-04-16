@@ -1,6 +1,31 @@
 \documentclass[9pt,twocolumn,twoside,lineno]{pnas-new}
 % Use the lineno option to display guide line numbers if required.
 
+\usepackage{todonotes}
+\usepackage{biblatex}
+\addbibresource{references}
+
+\newcommand\mindate{25. Feb. 2020}
+\newcommand\maxdate{31. Dec. 2020}
+\newcommand\maxsamplingpercent{1}
+\newcommand\gensimscalefactor{0.5}
+\newcommand\travelcontextscalefactor{1}
+\newcommand\outgroupisl{EPI\_ISL\_406798}
+\newcommand\nswissseqs{X}
+\newcommand\nsimseqs{Y}
+\newcommand\ntravelseqs{Z}
+\GISAIDpulldate{DD. Month 2021}
+\newcommand\nchainsmin{A}
+\newcommand\nchainsmax{B}
+\newcommand\minlargestchainsper{C}
+\newcommand\maxlargestchainsper{D}
+\newcommand\ncinongruentexposurechainsmax{7} 
+\newcommand\nexposurechainsmax{106}
+\newcommand\ncinongruentexposurechainsmin{14} 
+\newcommand\nexposurechainsmin{64}
+\newcommand\rankexpsamplemin{2}
+\newcommand\rankexpsamplemax{1}
+
 \templatetype{pnasresearcharticle} % Choose template 
 % {pnasresearcharticle} = Template for a two-column research article
 % {pnasmathematics} %= Template for a one-column mathematics article
@@ -34,7 +59,7 @@
 
 \begin{abstract}
 % Please provide an abstract of no more than 250 words in a single paragraph. Abstracts should explain to the general reader the major contributions of the article. References in the abstract must be cited in full within the abstract itself and cited in the text.
-Are the effects of policies designed to prevent and contain SARS-CoV-2 imports evident in genomic surveillance data? Here we use SARS-CoV-2 genome sequences from approximately 1\% of all confirmed cases in Switzerland from the first case on February 25th through December 31st 2020 to identify local transmission chains, estimate their international sources, and quantify their spread in Switzerland. We first performed a large-scale phylogenetic analysis to characterize the spatial and temporal pattern of virus imports into Switzerland and test for evidence whether Switzerland’s travel quarantine policy reduced virus imports. We then performed a phylodynamic analysis to quantify transmission chain spread in Switzerland and test whether Switzerland’s contact tracing program was able to slow the spread of imported lineages once local cases were identified. These analyses aim to help us understand the importance of international travel towards a national epidemic, an increasingly relevant topic as global vaccination campaigns continue at an uneven pace and new variants of concern spread internationally. 
+Are the effects of policies designed to prevent and contain SARS-CoV-2 imports evident in genomic surveillance data? Here we use SARS-CoV-2 genome sequences from approximately 1\% of all confirmed cases in Switzerland from the first case on February 25th through December 31st 2020 to identify local transmission chains, estimate their international origins, and quantify their spread in Switzerland. We first performed a large-scale phylogenetic analysis to characterize the spatial and temporal pattern of virus imports into Switzerland and test for evidence whether Switzerland’s travel quarantine policy reduced virus imports. We then performed a phylodynamic analysis to quantify transmission chain spread in Switzerland and test whether Switzerland’s contact tracing program was able to slow the spread of imported lineages once local cases were identified. These analyses aim to help us understand the importance of international travel towards a national epidemic, an increasingly relevant topic as global vaccination campaigns continue at an uneven pace and new variants of concern spread internationally. 
 \end{abstract}
 
 \dates{This manuscript was compiled on \today}
@@ -46,57 +71,96 @@ Are the effects of policies designed to prevent and contain SARS-CoV-2 imports e
 \thispagestyle{firststyle}
 \ifthenelse{\boolean{shortarticle}}{\ifthenelse{\boolean{singlecolumn}}{\abscontentformatted}{\abscontent}}{}
 
+% \subsection*{Author Affiliations}
+
+% Include department, institution, and complete address, with the ZIP/postal code, for each author. Use lower case letters to match authors with institutions, as shown in the example. PNAS strongly encourages authors to supply an \href{https://orcid.org/}{ORCID identifier} for each author. Individual authors must link their ORCID account to their PNAS account at \href{http://www.pnascentral.org/}{www.pnascentral.org}. For proper authentication, authors must provide their ORCID at submission and are not permitted to add ORCIDs on proofs.
+
+\section{Introduction}
 % If your first paragraph (i.e. with the \dropcap) contains a list environment (quote, quotation, theorem, definition, enumerate, itemize...), the line after the list may have some extra indentation. If this is the case, add \parshape=0 to the end of the list environment.
 % \dropcap{T}his PNAS journal template is provided to help you write your work in the correct journal format. Instructions for use are provided below. 
-\dropcap{G}enomic data are useful for identifying transmission chains and their sources in the absence of linked epidemiological data.
 
-\section*{Transmission chains composing the Swiss epidemic}
+% Claim importance
+\dropcap{P}ublic health policies must prevent or break transmission chains to stem an epidemic, but case-level data to investigate individual transmission chains, and the effect of interventions on their spread, is often lacking. These data are both logistically difficult to collect and, for reasons of privacy, difficult to disseminate. In the absence of contact tracing data, pathogen genomes provide an alternate source of information on the relationships between cases in an epidemic. As viruses replicate and spread, they accumulate mutations in their genetic code. Given a sufficiently fast-mutating virus, one can compare viral genomes between cases in an outbreak to identify which cases are from the same transmission chain (carry shared mutations). 
+
+% During the SARS-CoV-2 pandemic, viral genome data have been generated and analyzed at unprecedented speed and scale. First, SARS-CoV-2 genomes collected from some of the first confirmed cases in late December 2019 and early January 2020 were all very genetically similar, suggesting the origin of the pandemic was a single zoonotic jump of the virus from animals into humans around November 2019 \cite{VirologicalRambaut}.  
+% Then, as SARS-CoV-2 spread from China - where it was first identified - and began to diversify, comparison of early cases in new regions helped establish when local transmission began, e.g. \cite{Worobey2020a}.
+% Finally, in Summer and Fall 2020, genome surveillance helped identify, investigate, and track mutations suspected of conferring increased transmissibility, increased pathogenicity, or vaccine escape, e.g. \cite{Hodcroft2020Emergence14, Rambautb}.
+
+SARS-CoV-2 genome data have been extensively used to characterize and quantify aspects of regional epidemics and their composite transmission chains. One common approach involves constructing a phylogenetic tree from viral genomes that shows the relationships between cases. Specific events, like imports from abroad, super-spreading events, and spread along a transmission chain can be inferred based on the clustering of cases in the phylogeny, e.g. \cite{Lu2020, Eden2020, OudeMunnink2020, Bluhm2020}. Going one step further, more complex phylodynamic analyses fit a mechanistic epidemiological model to the phylogeny, where the branching events on the tree (transmission events) are explained by the parameters of an epidemiological model \cite{Grenfell2004}.  
+
+Importantly, these methods can help evaluate the effects of public health policy on epidemic spread. For instance, \cite{Mallon2020, duPlessis2021} showed that major reductions in lineage diversity and size or geographic distribution of lineages in the Irish and English SARS-CoV-2 epidemics coincided with national lockdowns. \cite{Miller2020, Geoghegan2020a, Muller2020a} used phylodynamic methods to estimate the reproductive number of SARS-CoV-2 and observed a decrease after public health measures and/or mobility indices dropped in Israel, New Zealand, and Washington State, USA. However, the utility of genome data for evaluating policy effects is still largely unexplored.
+
+% Indicate a gap
+% Right now not clear why we don't follow the approaches of either UK or Israel/NZ/WA
+Parametric inference using genome sequence data is complicated for several reasons. One problem is sampling bias; genome sequencing efforts are highly variable across regions and through time, so phylogeographic estimates are subject to sampling bias \cite{Villabona-Arenas2020, DeMaio2015}. A second problem is phylogenetic uncertainty; if viral diversity is either too low or too high, there is little information for reconstructing phylogenetic releationships  \cite{Villabona-Arenas2020}. In either case, phylogenetic inferences may be misleading or overly confident. Phylodynamic models can account for sampling bias by fitting  time-varying sampling and transmission rates to structured populations and for phylogenetic uncertainty by integrating over many possible phylogenies \cite{Scire2020b}. However, such models are too computationally complex to fit to thousands of genomes. 
+% In the absence of strong prior information, these models are also too richly parameterized to be identifiable \cite{Louca2021FundamentalEpidemiology}.
+
+% State that our paper fills the gap
+Here we carefully combine phylogenetic and phylodynamic methods to address these challenges and to characterize the Swiss SARS-CoV-2 epidemic, including the effects of public health policy on this epidemic. We perform a two-step analysis that allows us to analyze thousands of genomes (approximately 1\% of confirmed cases in Switzerland from the first case on February 25th through December 31st 2020) and account for both sampling bias and phylogenetic uncertainty. In a first step, we construct a maximum-likelihood phylogenies for each SARS-CoV-2 lineage and identify Swiss transmission chains. In a second step, we jointly infer epidemiological parameters of the Swiss epidemic from these transmission chains in a phylodynamic framework, similar to \cite{Muller2020, Muller2020a}. Our phylogenetic analysis includes two novelties to address issues of sampling bias and phylogenetic uncertainty. First, we use incidence and travel data to generate prior estimates of transmission chain origin locations, and then allow phylogenetic relationships between sequences to provide additional information when possible. 
+% include two context sets of foreign genomes in the phylogeny: we use the most genetically similar foreign sequences to identify Swiss transmission chains and a second, representative set of sequences (according to incidence and travel data) to identify the origin of these transmission chains. This provides the highest possible resolution for identifying Swiss transmission chains while avoiding obvious sampling biases in our geographic inferences. 
+Second, we estimate transmission chains under two extreme resolutions of phylogenetic uncertainty and report the differences as uncertainty in our results. Finally, our phylodynamic analysis is unique  because we include a parameter to assess whether contact tracing may have slowed transmission chain spread after chain detection by public health authorities. 
+
+% Intro our results
+Based on our phylogenetic analysis, we present the spatial and temporal pattern of virus imports into Switzerland - within the bounds of information attainable from genome sequences. We additionally test for evidence whether Switzerland’s travel quarantine policy reduced virus imports. Then, based on our phylodynamic analysis, we quantify transmission chain spread in Switzerland and test whether Switzerland’s contact tracing program helped slow transmission chain spread.
+
+\section{Results}
+
+\subsection{Transmission chains composing the Swiss epidemic}
+
+We estimate that the \nswissseqs\ Swiss genomes analyzed come from between \nchainsmin\ and \nchainsmax\ independently introduced transmission chains. The sizes of these transmission chains appears to follow a power law distribution, with the 10 largest chains account for \minlargestchainsper\ to \maxlargestchainsper\ \% of genome samples \ref{fig:chain-size-dist}. From a down-sampling analysis, we see that we do not reach saturation - if we were to include more genomes, we would likely identify more transmission chains \ref{fig:chain-downsampling}. 
+
+Validation of the identified transmission chains is difficult without detailed contact tracing data. However, we can compare the number and timing of recorded foreign exposures amongst the genome samples in each transmission chain. Given the largest plausible transmission chains, \ncinongruentexposurechainsmin\ out of \nexposurechainsmin\ transmission chains with at least one sample known to have been exposed outside of Switzerland have exposures from multiple countries (so, incongruent with the assumption that each transmission chain stems from a separate introduction into Switzerland). Given the smallest plausible tranmission chains, this fraction drops to \ncinongruentexposurechainsmax\ out of \nexposurechainsmax. The median rank of the exposed samples are  \rankexpsamplemin nd in the transmission chain given the largest plausible transmission chains and \rankexpsamplemax st given the smallest. Since we expect maximum one exposure country per transmission chain and the exposed sample(s) to be the index case(s), these results give us more confidence in the transmission chain definition yielding the smallest plausbile chains compared to the largest.
+
+% International comparison: UK chain sizes have power-law decay w/ alpha = 0.79 for chains 2 <= x <= 50, 1.26 for chains > 50. 
+% Similar to Louis, I see chain sizes as power-law distributed, with a change in scale factor at ~ chain size 50. 
+% The scaling factors I estimate are higher than his though (~1.2 for <= 50 and ~1.4 for >50). So, our Swiss chain sizes decay more sharply (fewer larger chains) than his UK chains.
 
 \subsection{Transmission chain longevity}
-We show either the dates at which transmission chains go extinct (extinction assumed 2 weeks after the last sample) \ref{fig:chain-description} or the number of samples from each transmission chain each month \ref{fig:chain-description-v2}.
+We show the number and longevity of transmission chains in \ref{fig:chain-longevity}. We show the longevity, size, and PANGO lineage of the largest transmission chains in \ref{fig:chain-sizes}.
 
-From these plots we see that during the first wave, most transmission chains are driven to extinction within a few months. However during the second wave, similarly stringent policies do not succeed in driving transmission chains to extinction so quickly. There is evidence some transmission chains persisted in Switzerland from the start of the epidemic through to the end of our sampling period.
+From \ref{fig:chain-longevity} we see that the number and longevity of transmission chains is affected by phylogenetic uncertainty. Robust to this uncertainty, there is evidence some transmission chains persisted in Switzerland from the start of the epidemic in March 2020 until the end of the sampling period. Assuming the smallest plausible transmission chain sizes, it seems transmission chains started in Spring 2020 tended to be driven to extinction, while transmission chains started over the Summer tended to continue spreading until the end of the sampling period.
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=.8\linewidth]{figures/fig_1_chain_longevity.png}
-\caption{Detection dates and longevity of Swiss transmission chains.}
-\label{fig:chain-description}
+\includegraphics[width=.8\linewidth]{figures/fig_S1_chain_longevity.png}
+\caption{Longevity of Swiss transmission chains by detection month.}
+\label{fig:chain-longevity}
 \end{figure}
 
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=.8\linewidth]{figures/fig_1_chains_through_time.png}
-\caption{Size of sampled Swiss transmission chains through time, compared with the Oxford COVID-19 Government Response Tracker stringency index provided by https://ourworldindata.org/grapher/covid-stringency-index. The 5 largest transmission chains during each epidemic wave are highlighted.}  
-\label{fig:chain-description-v2}
+\caption{Size of sampled Swiss transmission chains through time, compared with the Oxford COVID-19 Government Response Tracker stringency index provided by https://ourworldindata.org/grapher/covid-stringency-index. The \textcolor{red}{N} largest transmission chains during each epidemic wave are highlighted.}  
+\label{fig:chain-sizes}
 \end{figure}
 
 \subsection{Transmission chain origins}
-We compare estimates for the origin countries of Swiss transmission chains based on line-list, mobility and incidence data, and phylogenetic estimates. The phylogenetic estimates are informed by the line-list, mobility, and incidence data since foreign sequences were included in the tree proportional to monthly imports estimated using these data. However, the phylogenetic relationships between these sequences and Swiss sequences additionally inform the phylogenetic estimates so we do not expect the estimates to match perfectly. 
+We compare estimates for the origin countries of Swiss transmission chains based on (i) travel-based import estimates from line-list, mobility and incidence data, and (ii) phylogenetic estimates. The phylogenetic estimates are informed by the travel-based estimates since foreign travel context sequences were included in the tree proportional to monthly estimated imports. However, the phylogenetic relationships between the travel context and Swiss sequences inform the phylogenetic estimates so we do not expect estimates based on (i) and (ii) to match perfectly. 
 
-We see that most common origin countries are shared between the phylogenetic and prior estimates, but that the phylogenetic estimates shift the import dates further back in time \ref{fig:chain-origins}. This may be because our phylogenetic estimates are dated at the foreign attachment points of Swiss transmission chains, when the lineages were still circulating outside of Switzerland.
+We see that the phylogenetic estimates are strongly influenced by the composition of the travel context dataset. This is because many SARS-CoV-2 lineages are widely geographically distributed. Therefore, we caution that estimates of transmission chain origins from genomic data alone are highly susceptible to biased sampling.
 
-We compared the fraction of estimated imports attributable to the most common countries between the phylogenetic and prior estimates for each of the first two epidemic waves in Switzerland \ref{tab:chain-origins-post-vs-prior}. We see that e.g. phylogenetic estimates exceed prior estimates for imports from the United Kingdom by a factor of 4-7 during the first wave. Assuming the smallest plausible number of Swiss transmission chains, phylogenetic estimates for imports from Serbia exceed prior estimates by a factor of 3.8 - 120 across both waves.
+Next we checked to see if there were consistent differences between the phylogenetic and travel-based estimates, regardless of with travel context set was used. This would indicate robust phylogenetic signal for transmission chain origins. 
+
+% We compared the fraction of estimated imports attributable to the most common countries between the phylogenetic and prior estimates for each of the first two epidemic waves in Switzerland \ref{tab:chain-origins-post-vs-prior}. We see that e.g. phylogenetic estimates exceed prior estimates for imports from the United Kingdom by a factor of 4-7 during the first wave. Assuming the smallest plausible number of Swiss transmission chains, phylogenetic estimates for imports from Serbia exceed prior estimates by a factor of 3.8 - 120 across both waves.
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=.8\linewidth]{figures/fig_2_chain_origins.png}
+\includegraphics[width=.8\linewidth]{figures/fig_2_chain_origins_per_chain_ch_tmrca.png}
 \caption{Estimated number of infectious individuals arriving in Switzerland by month and origin country. Prior estimates are based on Swiss FOPH (Federal Office of Public Health) line-list data for foreign exposure locations (Reported exposure), cross-border commuter permit numbers (Infected commuter), and tourist arrivals at Swiss hotels (Infected tourist). Tree-based estimates are parsimony-based estimates of ancestral node locations for nodes ancestral to Swiss transmission chains. For the parsimony-based estimation of ancestral node locations, foreign tips in the tree were chosen proportionally to the prior estimates each month.}  
 \label{fig:chain-origins}
 \end{figure}
 
-\input{tables/origins_table_posterior_v_prior}
+\input{tables/table_1_chain_origins_per_chain_ch_tmrca_posterior_v_prior}
 % Caption and label added directly to table .tex file:
 % \caption{Phylogenetic vs. prior estimates for transmission chain origin locations.}
 % \label{tab:chain-origins-post-vs-prior}
 
-\input{tables/origins_table_posterior_v_exposures}
+% \input{tables/table_1_chain_origins_per_chain_ch_tmrca_posterior_v_exposures}
 % Caption and label added directly to table .tex file:
 % \caption{Phylogenetic vs. line-list estimates for transmission chain origin locations.}
 % \label{tab:chain-origins-post-vs-exposures}
 
-\newpage
-\section*{Effect of travel quarantine policy to limit introductions}
+\subsection{Effect of travel quarantine policy to prevent transmission chains}
 
 We can compare the number of reported exposures from countries during periods when these countries were on the quarantine versus off it \ref{fig:chain-origins-by-quarantine-status}, but these data include individuals who successfully quarantined. 
 We fit a linear model to estimate a coefficient for the effect of a travel quarantine order on the number of imports from country in a month.
@@ -104,7 +168,7 @@ We fit a linear model to estimate a coefficient for the effect of a travel quara
 \begin{figure*}[tbhp]
 \centering
 \includegraphics[width = 0.8\linewidth]{figures/chain_origins_by_quarantine_status.png}
-\caption{Recorded exposure locations and estimated transmission chain origin locations contrasted with periods when travellers were under quarantine-on-arrival orders.}  
+\caption{Recorded exposure locations and estimated transmission chain origin locations contrasted with periods when travellers were under quarantine-on-arrival orders. Note that after 28th October 2020 \textcolor{red}{doctors and test centers were only required to fill out a form with exposure location} for hospitalized cases and cases in retirement and nursing homes.}  
 \label{fig:chain-origins-by-quarantine-status}
 \end{figure*}
 
@@ -123,13 +187,70 @@ where $m$ = month and $c$ = country.
 \end{figure*}
 
 
-\section*{Effect of non-pharmaceutical interventions to limit local transmission}
+\subsection{Effect of non-pharmaceutical interventions to break transmission chains}
 
-Tim started the BDSKY analyses running today!
+\begin{itemize}
+    \item Spike and slab prior for Re multiplier
+    \item Bounded time-frame for Re multiplier
+    \item Sampling proportion upper bound 0.01 instead of 0.1 - Tim will rerun
+    \item Prior on cluster origins is not unique to each cluster, it's a big lognormal blob throughout 2020 - Tim will switch to unif(Jan 1 - Dec 31) so that our prior assumption is that the rate of introductions is constant from when the pandemic started spreading internationally until end of sampling period
+    \item How indep are Re estimates from phylo when I select seqs based on conf case \#s? - Tanja's not concerned, the genomes can still tell us what they tell us within what we already know from cases
+    \item 50\% prior y/n need Re factor, if y then unif(0, 1) on the factor 
+    \item Tim puts independent spike & slab priors in spring, summer, and fall and infers three Re reduction factors so we can see if Summer is really different
+    \item Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
+    \item What is the timescale? Does this explain the spike? A: 1 week
+\end{itemize}
 
-% \subsection*{Author Affiliations}
+\section{Discussion}
 
-% Include department, institution, and complete address, with the ZIP/postal code, for each author. Use lower case letters to match authors with institutions, as shown in the example. PNAS strongly encourages authors to supply an \href{https://orcid.org/}{ORCID identifier} for each author. Individual authors must link their ORCID account to their PNAS account at \href{http://www.pnascentral.org/}{www.pnascentral.org}. For proper authentication, authors must provide their ORCID at submission and are not permitted to add ORCIDs on proofs.
+\section{Materials and methods}
+\subsection{Swiss genome sequencing}
+Most of the Swiss SARS-CoV-2 genome samples analyzed were provided by Viollier AG, a Swiss medical diagnostics company. RNA was extracted from patient naso- or oral-pharangeal swabs using either the Abbott m2000sp or Seegene STARMag 96x4 Universal Cartridge RNA extraction kit. One aliquot of RNA extract was used for a qPCR test by Viollier and the remaining material from PCR-positive samples was transferred to the Genomics Facility Basel for whole-genome sequencing. Amplicon sequencing was performed using the ARCTIC v3 primer scheme, which yields tiled amplicons of approximately 400bp (12). Libraries were sequenced on an Illumina MiSeq machine, resulting in 2 x 251 base reads. We used V-pipe (13) for raw read quality control, mapping to the reference genome MN908947.3, and consensus base calling. Positions with <5x coverage were not called and positions with >5\% minor base composition were assigned the appropriate ambiguity code. We rejected samples where <90\% of quality-controlled reads did not map to the reference or with < 20,000 bases called. The consensus sequences we generated have been made publicly available on both GISAID (Accession IDs are given in Table S1) and ENA (samples are registered under study PRJEB38472).
+
+We supplemented our Swiss data with other Swiss sequences and foreign sequences available via the “nextfasta” downloaded resource on GISAID (accessed 10. October 2020). We removed non- human samples, duplicates, samples lacking a complete date specification, and samples with sequencing issues flagged by the Nextstrain team (14). We aligned the sequences to the reference genome MN908947.3 using MAFFT. We retained all Swiss sequences 320 kbases long and foreign sequences 327 kbases long. We then masked sites with high homoplasy or other known problems (15, 16). Finally, we used the Nextstrain diagnostic script to additionally exclude sequences with unexpectedly high divergence from the reference, clusters of SNPs in close proximity, or >3000 missing bases (criterion relaxed to >10000 missing bases for Swiss sequences). Sequence counts after each quality-control step are given in Table S2.
+
+\subsection{Sampling procedure}
+
+We considered three genome sample sets: (i) a ``Swiss dataset" of Swiss genomes down-sampled to maximum \maxsamplingpercent\% of confirmed cases each week from \mindate\ to \maxdate, (ii) a ``similarity dataset" with the most genetically similar foreign genomes, and (iii) a ``travel context dataset" with foreign genomes chosen proportionally to monthly incidence- and travel-based estimates of SARS-CoV-2 imports.  
+
+% describe representativeness of Swiss dataset here?
+The Swiss dataset was stratified by PANGO lineage, as provided by GISAID. Genome samples from lineages where $>50$\% of genomes on GISAID as of \GISAIDpulldate\ were Swiss were aggregated into higher-level lineages until $>50$\% of the samples were foreign. This aims to ensure each analyzed lineage originated outside of Switzerland.
+
+% describe nextstrain priority protocol for sim dataset
+To generate the similarity dataset, we used the Nextstrain priority protocol to choose \gensimscalefactor\ times as many most genetically similar foreign genomes as Swiss genomes for each PANGO lineage. 
+
+% describe context set estimation
+To generate the context dataset, we selected \travelcontextscalefactor\ times as many foreign genomes as Swiss genomes proportionally to monthly incidence- and travel-based estimates of SARS-CoV-2 imports and irregardless of PANGO lineage. Estimated introductions were based on case exposure locations recorded by the Swiss Federal Office for Public Health (FOPH), data on tourist arrivals at hotels published by the Swiss Federal Statistical Office (FSO), and data on the number of cross-border commuter permit holders published by the FSO. Here we aim to construct a reasonable prior estimate for monthly imports into Switzerland and recognize that these estimates are sensitive to our subjective weighting of various data sources. Therefore, we interpret our geographic inferences in the context of these assumptions.
+
+Given our estimates for monthly SARS-CoV-2 imports, we randomly selected genomes available on GISAID as of \GISAIDpulldate\ proportional to these estimates. For months without enough genomes from a country, we took extra sequences from the following month if possible and the preceding month if necessary. 
+
+% describe sensitivity analyses here
+% We applied this sub-sampling protocol three times with different random seeds. As an additional sensitivity check, we also padded the estimated imports per country and month by 1 before determining the number of context sequences to take. Based on the padded numbers, we randomly chose another set of context sequences. In all, we analyzed three replicate context datasets and one context dataset based on padded imports. In the main text, we discuss results based on only one of the replicate datasets; results from the other datasets are qualitatively similar (Fig. S8 – S10).
+
+% summarize the sample set
+The final dataset includes \nswissseqs\ Swiss sequences, \nsimseqs\ genetically similar sequences, and \ntravelseqs\ travel context sequences.
+
+\subsection{Timetree generation}
+We stratified the full dataset of Swiss, similarity, and travel genomes by PANGO lineage and built a separate maximum-likelihood phylogeny for each lineage - similar to \cite{DuPlessis2020} - using IQ-TREE \cite{Nguyen2014} with an HKY substitution model, empirical base frequencies, and 4 gamma rate categories. We then rooted each phylogeny with \outgroupisl\ as an outgroup and estimated branch lengths in time-units using least-squares dating (22) with a strict molecular clock and a minimum mutation rate of 0.0008 substitutions/site/year. We additionally assumed the root date to be between 15. Nov. and 24. Dec. 2019 (roughly in line with estimates provided by (23)) and set the minimum branch length to zero. Sequences that violated the strict clock assumption (z-score threshold > 3) were removed and near-zero branches ($<$1.7x10-5 substitutions/site/year) were collapsed into polytomies, reflecting the fact that the sequence data is not sufficient to resolve the ordering of these transmission events. Given the root date constraints, the mutation rate conformed to the lower bound of 0.0008 with extremely narrow confidence intervals. Confidence intervals for node dates were generated in LSD by re- sampling branch lengths 100 times under a lognormal relaxed clock model with standard deviation 0.4.
+
+\subsection{Phylogenetic analyses}
+\subsubsection{Transmission chain estimation}
+In the tree based on sequences from the Swiss, similarity, and travel context datasets we define Swiss transmission chains as maximal sets of at least 2 Swiss sequences satisfying the following criteria: the Swiss sequences are part of a clade in the tree and the subtree spanned by these Swiss sequences is monophyletic upon removing (a) up to 3 export events where (b) only one export event may occur along each internal branch. Exports are defined to be clades containing non-Swiss sequences. We chose a conservative value for criterion (b) while still allowing some export events and note that the number of inferred transmission chains is robust to different values for criterion (a) given criterion (b) (Fig. S13).
+We repeated our analysis interpreting polytomies in two ways. Once, we split Swiss clades descending from polytomies unless the polytomy only had a single non-Swiss descendent (see criterion (b)). Alternatively, we aggregated all Swiss clades descending from polytomies into a single transmission chain. These procedures represent two plausible extremes, the first being maximum introductions and minimum local transmission and the second being minimum introductions and maximum local transmission.
+We refer to any Swiss sequence not falling into a Swiss transmission chain as a Swiss singleton. We assume each singleton and each transmission chain represent an independent introduction of SARS-CoV-2 into Switzerland; together these are called Swiss introductions.
+
+\subsubsection{Transmission chain origin estimation}
+We inferred the source location of each introduction with a parsimony-based approach. For this, we used only tips in the context dataset and ignored tips in the similarity dataset. Otherwise, over-sequenced locations would show up too often as sources (24). Our procedure is as follows: we begin by labelling the MRCAs of Swiss transmission chains and all subtending nodes in the tree (excepting exported clades) as Swiss. Switzerland was excluded as a possible location for all other nodes. Given these constraints, we calculate the parsimony score for each possible location at each remaining node. Among the possible locations, we also include a “dummy” location to record the maximum parsimony score. So, in a first step we calculate parsimony scores up the tree. In a second step, we covert the parsimony scores at each node to location weights by taking the difference to the “dummy” score. Thus, locations with no support in the subtending tree are given a weight 0 and supported locations are weighted by the number of location changes they prevent. Importantly, these weights are determined through the parsimony score of the subtree descending the considered node and not of the full tree. Finally, we normalized the scores to 1 for each node. In summary, locations that would require more state changes in the subtending tree are down-weighted. For the summary figure Fig. 2b, we conservatively count each polytomy with Swiss descendants as a single introduction.
+
+\subsubsection{Test for travel quarantine effect}
+
+\subsection{Phylodynamic analysis}
+
+We jointly inferred the effective reproductive number and the sampling proportion from all clusters as in (25). We perform inference using the BDSKY model (26) in BEAST2 (27), which assumes a birth- death population dynamical model. Each cluster is assumed to result from an independent birth- death process having its own start time, but sharing all other parameters with the processes associated with the other clusters. We fixed the expected become-uninfectious rate to 36.5 per year, which corresponds to an average time to becoming uninfectious of 10 days. We assumed an HKY (28) nucleotide substitution model with 4 gamma rate categories to account for site-to-site rate heterogeneity (29). We assumed a strict clock with a rate fixed to 8x10-4 substitutions per site per year. The effective reproductive number (Fig. 4a) and the sampling proportion (Fig. 4b) were allowed to vary in a piecewise-constant fashion in intervals of 1 week. An independent smoothing prior was applied to the natural logarithm of each of these time-varying parameters (30). So as to constrain both the relative sizes of the change between weeks and the absolute reproductive number and sampling proportion values, we used smoothing priors formulated as the product between a) a Gaussian penalty on the differences between the logarithm of values for adjacent weeks and b) a function of the value taken in each week. For this function, we used the probability density of a LogNormal(0.8, 0.5) distribution in the case of the Re values, and the density of a Beta(1, 99) distribution in the case of the sampling proportion values. An Exp(1) hyperprior was applied to the variance of the Gaussian component of each smoothing prior.
+
+\section{Acknowledgments}
+
+
 
 % \subsection*{Submitting Manuscripts}
 
@@ -143,7 +264,8 @@ Tim started the BDSKY analyses running today!
 
 % A standard 6-page article is approximately 4,000 words, 50 references, and 4 medium-size graphical elements (i.e., figures and tables). The preferred length of articles remains at 6 pages, but PNAS will allow articles up to a maximum of 12 pages.
 
-% \subsection*{References}
+\subsection*{References}
+\printbibliography
 
 % References should be cited in numerical order as they appear in text; this will be done automatically via bibtex, e.g. \cite{belkin2002using} and \cite{berard1994embedding,coifman2005geometric}. All references cited in the main text should be included in the main manuscript file.
 
