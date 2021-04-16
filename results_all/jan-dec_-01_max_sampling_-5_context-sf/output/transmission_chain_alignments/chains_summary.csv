@@ -1,0 +1,5 @@
+"chains_assumption","n_seqs_in_alignment","n_unique_chains","n_singleton_chains","n_seqs_in_biggest_chain","timespan"
+"max",1803,621,702,197,"after jan 1"
+"min",1803,204,109,444,"after jan 1"
+"max",1685,521,346,99,"after may 1"
+"min",1685,189,75,223,"after may 1"
