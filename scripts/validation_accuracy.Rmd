@@ -1,0 +1,489 @@
+---
+title: "Accuracy check"
+author: "Sarah Nadeau"
+date: "08/04/2021"
+output: html_document
+---
+
+Accuracy: check how much the deviations from the prior match known exposure locations.
+
+```{r, setup, include=False}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+require(dplyr)
+require(ggplot2)
+require(ggtree)
+```
+
+```{r}
+source("generate_figures/functions.R")
+source("generate_alignments/functions.R")
+source("database/R/utility.R")
+source("utility_functions.R")
+db_connection = open_database_connection()
+```
+
+# Preference for including sequences with recorded GISAID or BAG-exposure locations
+
+## Copy data to local
+```{bash}
+WORKDIR=accuracy_validation 
+
+mkdir -p /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+scp nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/*.log \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./output/* \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.csv \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.txt \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.nex \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.png \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+```
+
+## Re-run with different chain-picking parameters
+```{bash, echo=F}
+cd ~/Repos/grapevine
+WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation
+
+TMP_ALIGNMENTS=$WORKDIR/tmp/alignments
+TMP_LSD=$WORKDIR/tmp/lsd
+TMP_CHAINS=$WORKDIR/tmp/chains_m_1_p_1
+TMP_ASR=$WORKDIR/tmp/asr_m_1_p_1
+
+mkdir -p $TMP_CHAINS
+mkdir -p $TMP_ASR
+
+MAX_NONFOCAL_SUBCLADES=1
+MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES=1
+
+# Pick chains
+for TREEFILE in $TMP_LSD/*.nex; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/pick_swiss_transmission_chains.R \
+        --tree $TREEFILE \
+        --metadata $TMP_ALIGNMENTS/${PREFIX}_metadata.csv \
+        --outdir $TMP_CHAINS \
+        --maxtotalsubclades $MAX_NONFOCAL_SUBCLADES \
+        --maxconsecutivesubclades $MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T \
+        --polytomiesareswiss \
+        --dontplot
+done
+
+for TREEFILE in $TMP_LSD/*.nex; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/pick_swiss_transmission_chains.R \
+        --tree $TREEFILE \
+        --metadata $TMP_ALIGNMENTS/${PREFIX}_metadata.csv \
+        --outdir $TMP_CHAINS \
+        --maxtotalsubclades $MAX_NONFOCAL_SUBCLADES \
+        --maxconsecutivesubclades $MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F \
+        --dontplot
+done
+
+# Reconstruct ancestral locations
+for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
+        --tree $TREEFILE \
+        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
+        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T_chains.txt \
+        --outdir $TMP_ASR \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T
+done
+
+for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
+        --tree $TREEFILE \
+        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
+        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F_chains.txt \
+        --outdir $TMP_ASR \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F
+done
+```
+
+```{bash, echo=False}
+cd ~/Repos/grapevine
+WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation
+
+TMP_ALIGNMENTS=$WORKDIR/tmp/alignments
+TMP_LSD=$WORKDIR/tmp/lsd
+TMP_CHAINS=$WORKDIR/tmp/chains_m_1_p_1
+TMP_ASR=$WORKDIR/tmp/asr_m_1_p_1
+
+mkdir -p $TMP_CHAINS
+mkdir -p $TMP_ASR
+
+MAX_NONFOCAL_SUBCLADES=1
+MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES=1
+
+for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
+        --tree $TREEFILE \
+        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
+        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T_chains.txt \
+        --outdir $TMP_ASR \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T 
+done
+
+for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
+        --tree $TREEFILE \
+        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
+        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F_chains.txt \
+        --outdir $TMP_ASR \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F
+done
+```
+
+## Load results into R
+```{r}
+workdir <- paste(
+  "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation",
+  "accuracy_validation",
+  sep = "/")
+grapevine_results <- load_grapevine_results(workdir = workdir)
+bag_exposures <- get_bag_exposures(db_connection = db_connection)
+metadata <- load_sample_metadata(workdir = workdir)
+```
+
+## Merge results to get estimated and recorded chain origin locations
+```{r}
+samples <- merge(
+  x = bag_exposures,
+  y = grapevine_results$samples,
+  all.y = T,
+  by = "gisaid_epi_isl") %>%
+  mutate(
+    iso_country_exposure = coalesce(
+      x = iso_country_exposure.x,
+      y = iso_country_exposure.y),
+    has_foreign_exposure = case_when(
+      iso_country_exposure != "CHE" ~ T,
+      T ~ F)) 
+
+samples_with_chain_mrca <- merge(
+  x = samples,
+  y = grapevine_results$chains %>%
+    select(chains_assumption, tree, chain_idx, foreign_mrca, foreign_tmrca, size),
+  by = c("chains_assumption", "tree", "chain_idx"),
+  all.x = T)
+
+samples_with_chain_origin <- merge(
+  x = samples_with_chain_mrca,
+  y = grapevine_results$origins %>%
+    select(-c(n_chains_descending, foreign_tmrca_CI)),
+  by = c("chains_assumption", "tree", "foreign_mrca", "foreign_tmrca"),
+  all.x = T)
+```
+
+## Define plotting function
+```{r}
+#' Plot the time-scaled phylogeny with tip locations, estimated ancestral node
+#' locations, estimated Swiss transmission chains, and genetic similarity & 
+#' travel context tips.
+#' @param tree Grapevine output, e.g. /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/jan-dec_-01_max_sampling_-5_context-sf/tmp/lsd/B.1.509.timetree.nex
+#' @param tree_data_with_asr Grapevine output, e.g. /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/jan-dec_-01_max_sampling_-5_context-sf/tmp/asr/B.1.509_m_3_p_1_s_F_tree_data_with_asr.txt
+#' @param chains Grapevine output, e.g. /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/jan-dec_-01_max_sampling_-5_context-sf/tmp/chains/B.1.509_m_3_p_1_s_F_chains.txt
+plot_tree <- function(
+  tree, tree_data_with_asr, chains, country_colors, outdir = NULL, prefix = "tree"
+) {
+  
+  country_colors[["CHE"]] <- "red"
+  country_colors_for_pies <- country_colors
+  names(country_colors_for_pies) <- paste(names(country_colors), "_loc_weight", sep = "")
+  
+  tree_data_to_plot <- tree_data_with_asr %>% 
+    mutate(
+      node_annotation = "",
+      # node_annotation = case_when(
+      #   node %in% chains$ch_mrca ~ "Swiss MRCA",
+      #   T ~ as.character(node)),
+      tip_type  = case_when(
+        travel_context ~ "travel context",
+        similarity_context ~ "genetic context",
+        focal_sequence ~ "",
+        T ~ "root"))
+  
+  # Apply manual correction: LSD returns '2021' for date of tips with date '2020-12-31'
+  tree_data_to_plot$date <- as.character(tree_data_to_plot$date)
+  tree_data_to_plot[tree_data_to_plot$date == "2021" & !is.na(tree_data_to_plot$label) & grepl(x = tree_data_to_plot$label, pattern = "2020-12-31"), "date"] <- "2020-12-31"
+  
+  tree_to_plot <- full_join(tree, tree_data_to_plot)
+  
+  loc_weight_cols <- which(grepl(x = colnames(tree_data_to_plot), pattern = "_loc_weight"))
+  node_location_pies <- ggtree::nodepie(
+    tree_data_to_plot, 
+    cols = loc_weight_cols)
+  node_location_pies_colored <- lapply(
+    X = node_location_pies, 
+    FUN = function(g) g + scale_fill_manual(values = country_colors_for_pies))
+  
+  p <- ggtree(
+    tr = tree_to_plot,
+    mrsd = max(as.Date(tree_data_to_plot$date)), 
+    as.Date = T) +
+    geom_inset(insets = node_location_pies_colored) +
+    geom_nodelab(aes(
+      label = node_annotation)) +
+    geom_tiplab(aes(
+      label = iso_code_to_country_name(iso_country),
+      # label = case_when(
+      #   tip_type != "" ~ paste(iso_code_to_country_name(iso_country), tip_type, sep = ": "),
+      #   iso_country == 'CHE' & iso_country_exposure != 'CHE' ~ paste(
+      #     iso_code_to_country_name(iso_country), " (", 
+      #     iso_code_to_country_name(iso_country_exposure), ")", sep = ""),
+      #   T ~ iso_code_to_country_name(iso_country)),
+      color = iso_country),
+      hjust = -0.1) +
+    scale_color_manual(values = country_colors) +
+    scale_x_date(
+      date_labels = "%b. %Y",
+      limits = c(as.Date("2019-12-01"), as.Date("2021-06-01"))) + 
+    theme_tree2() + 
+    theme(legend.position = "none")
+  show(p)
+    
+    
+  if (is.null(outdir)) {
+    return(p)
+  } else {
+    ggsave(
+      file = paste(outdir, paste(prefix, "_with_asr.pdf", sep = ""), sep = "/"),
+      plot = p,
+      dpi = 400
+    )
+  }
+}
+```
+
+## Plot validation examples
+```{r}
+# trees_with_foreign_exposure <- samples_with_chain_origin %>% 
+#   filter(has_foreign_exposure) %>%
+#   select(chains_assumption, tree, foreign_mrca, strain, iso_country_exposure, ends_with("_loc_weight")) %>%
+#   group_by(chains_assumption, tree) %>%
+#   summarize(n_foreign_exposures = n()) %>%
+# filter(n_foreign_exposures < 5)   ### TEMPORARY!!!
+
+# trees_to_plot <- trees_with_foreign_exposure
+trees_to_plot <- samples_with_chain_origin %>%
+  filter(tree == "B.1.36_m_1_p_1") %>%
+  group_by(tree, chains_assumption) %>%
+  summarise(n_samples = n())
+
+country_colors <- get_country_colors(db_connection = db_connection)
+country_colors[["AUT"]] <- "blue"
+
+for (i in 1:nrow(trees_to_plot)) {
+  chains_assumption <- trees_to_plot[[i, "chains_assumption"]]
+  tree <- trees_to_plot[[i, "tree"]]
+  lineage <- gsub(x = tree, pattern = "_m_1_p_1", replacement = "")
+  
+  chains_assumption_TF <- case_when(
+    chains_assumption == "min" ~ "T",
+    chains_assumption == "max" ~ "F")
+  
+  tree_file <- paste(workdir, "/tmp/lsd/", lineage, ".timetree.nex", sep = "")
+  tree_data_with_asr_file <- paste(workdir, "/tmp/asr/", tree, "_s_", chains_assumption_TF, "_tree_data_with_asr.txt", sep = "")
+  chains_file <- paste(workdir, "/tmp/chains/", tree, "_s_", chains_assumption_TF, "_chains.txt", sep = "")
+  
+  loaded_tree <- treeio::read.beast(file = tree_file)
+  loaded_tree_data_with_asr <- read.delim(file = tree_data_with_asr_file, stringsAsFactors = F) 
+  loaded_chains <- read.delim(file = chains_file, stringsAsFactors = F)
+  
+  merge_tree_data_with_asr <- merge(
+    x = samples_with_chain_origin %>% 
+    group_by(gisaid_epi_isl) %>%
+    summarise(iso_country_exposure = unique(iso_country_exposure)),
+    y = loaded_tree_data_with_asr,
+    by = "gisaid_epi_isl",
+    all.y = T, 
+    incomparables = NA) %>%
+    mutate(
+    iso_country_exposure = coalesce(
+      x = as.character(iso_country_exposure.x),
+      y = as.character(iso_country_exposure.y)))
+  
+  tmp <- plot_tree(
+    tree = loaded_tree, 
+    tree_data_with_asr = merge_tree_data_with_asr, 
+    chains = loaded_chains, 
+    country_colors = country_colors, 
+    outdir = "/Users/nadeaus/Documents/Presentations/21_04_14_TPH_science_behind_covid19/figures", 
+    prefix = paste(chains_assumption, lineage, sep = "_")
+  )
+}
+```
+
+Plot fraction of ASR that's correct for validation set
+```{r}
+samples_with_foreign_exposure <- samples_with_chain_origin %>% 
+  filter(has_foreign_exposure) %>%
+  select(chains_assumption, tree, strain, date, iso_country_exposure, ends_with("_loc_weight"))
+
+samples_with_foreign_exposure_long <- pivot_origins_longer(origins = samples_with_foreign_exposure)
+
+validation_results <- samples_with_foreign_exposure_long %>% 
+  mutate(asr_contribution = tidyr::replace_na(asr_contribution, 0)) %>%
+  group_by(chains_assumption, strain, iso_country_exposure) %>% 
+  summarize(
+    total_asr_weight = signif(sum(asr_contribution), digits = 2),  # because some sums are 0.999...
+    correct_asr_weight = sum(
+      case_when(origin == iso_country_exposure ~ asr_contribution,
+                origin != iso_country_exposure ~ 0)))
+
+p <- ggplot(
+  data = validation_results,
+  aes(x = correct_asr_weight)) + 
+  geom_histogram(aes(
+    fill = case_when(
+      total_asr_weight == 1 ~ "Estimated",
+      total_asr_weight == 0 ~ "No estimate"))) + 
+  facet_grid(. ~ chains_assumption) + 
+  scale_fill_discrete(name = "") + 
+  theme(legend.position = "bottom") + 
+  labs(x = "% location estimate matching exposure location",
+       y = "Number of cases")
+
+ggsave(
+  plot = p,
+  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation/accuracy_for_validation_samples_110.png",
+  width = 5,
+  height = 3, 
+  units = "in")
+```
+
+Plot difference from prior that's correct for validation set
+```{r}
+prior <- load_travel_context(workdir = workdir)
+samples_with_foreign_exposure_vs_prior <- dplyr::full_join(
+  x = samples_with_foreign_exposure_long %>%
+    mutate(prior_month = format(date, "%Y-%m-01")),
+  y = rbind(prior %>% mutate(chains_assumption = "min"),
+            prior %>% mutate(chains_assumption = "max")),
+  by = c("prior_month" = "date", "origin" = "iso_country", "chains_assumption" = "chains_assumption"))
+
+validation_results <- samples_with_foreign_exposure_vs_prior %>% 
+  mutate(asr_contribution = tidyr::replace_na(asr_contribution, 0)) %>%
+  mutate(n_inds = tidyr::replace_na(n_inds, 0)) %>%
+  group_by(chains_assumption, strain, iso_country_exposure) %>% 
+  summarize(
+    total_asr_weight = signif(sum(asr_contribution), digits = 2),  # because some of the sums are 0.999999999999999
+    correct_asr_weight = sum(
+      case_when(origin == iso_country_exposure ~ asr_contribution,
+                origin != iso_country_exposure ~ 0)),
+    prior_asr_weight = sum(
+      case_when(origin == iso_country_exposure ~ n_inds,
+                origin != iso_country_exposure ~ 0)) / sum(n_inds),
+    correct_asr_weight_to_prior_asr_weight = correct_asr_weight / prior_asr_weight)
+
+p <- ggplot(
+  data = validation_results %>% filter(chains_assumption == "max"),
+  aes(x = correct_asr_weight_to_prior_asr_weight)) + 
+  geom_histogram() + 
+  # facet_grid(. ~ chains_assumption) + 
+  scale_fill_discrete(name = "") + 
+  theme(legend.position = "bottom") + 
+  scale_x_log10() + 
+  geom_vline(xintercept = 1, linetype = "dashed") + 
+  labs(x = "'posterior' : 'prior' area",
+       y = "Number of cases")
+
+ggsave(
+  plot = p,
+  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation/posterior_to_prior_for_validation_samples_110_max.png",
+  width = 4, 
+  height = 3, units = "in"
+)
+```
+
+The phylogenetic relationships do inform the ASR because the "posterior" estimates
+are more correct even than the "prior" estimates for the validation set.
+
+How often are transmission chains congruent vs. incongruent with travel exposures of members?
+```{r}
+validation_results_2 <- samples_with_chain_origin %>% 
+  group_by(chains_assumption, chain_idx) %>% 
+  mutate(
+    n_foreign_exposures = length(iso_country_exposure[iso_country_exposure != "CHE"]),
+    n_diff_foreign_exposures = length(unique(iso_country_exposure[iso_country_exposure != "CHE"]))) %>%
+  group_by(chains_assumption, chain_idx, n_foreign_exposures, n_diff_foreign_exposures, iso_country_exposure) %>%
+  summarise(n_samples = n())
+
+validation_results_3 <- samples_with_chain_origin %>% 
+  group_by(chains_assumption, chain_idx) %>% 
+  summarize(
+    n_foreign_exposures = length(iso_country_exposure[iso_country_exposure != "CHE"]),
+    n_diff_foreign_exposures = length(unique(iso_country_exposure[iso_country_exposure != "CHE"])))
+
+ggplot(
+  data = validation_results_3,
+  aes(x = n_diff_foreign_exposures)) + 
+  geom_histogram() + 
+  facet_grid(. ~ chains_assumption)
+
+validation_results_3 %>% 
+  group_by(chains_assumption, n_diff_foreign_exposures) %>%
+  summarize(n_chains = n()) %>%
+  arrange(chains_assumption, n_diff_foreign_exposures)
+
+validation_results_3 %>% 
+  group_by(chains_assumption) %>%
+  summarize(
+    n_incongruent_exposures = sum(n_diff_foreign_exposures > 1),
+    n_exposed_chains = sum(n_foreign_exposures > 0),
+    frac_incongruent_exposures = sum(n_diff_foreign_exposures > 1) / sum(n_foreign_exposures > 0))
+
+validation_results_3 %>%
+  mutate(incongruent_foreign_exposures = n_diff_foreign_exposures > 1) %>%
+  group_by(chains_assumption) %>%
+  mutate(n_chains_total = n()) %>%
+  group_by(chains_assumption, incongruent_foreign_exposures) %>%
+  summarize(n_chains = n(), frac_chains = n() / n_chains_total[1])
+```
+
+Under max chains assumption, <1% (7 / 750 chains) have incongruent foreign exposure data (> 1 unique foreign exposure location in the chain).
+
+Under min chains assumption, this increases to ~5% (14 / 260 chains).
+
+Therefore, accuracy results indicate max chains assumption is more realistic for getting the number of introductions right and the origin of introductions right.
+
+Are the exposure samples typically among the first sampled in the chain?
+```{r}
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+
+validation_results_4 <- samples_with_chain_origin %>%
+  group_by(chains_assumption, chain_idx) %>%
+  arrange(date) %>%
+  mutate(chain_rank = 1:n(),
+         is_foreign_exposure = iso_country_exposure != "CHE")
+
+validation_results_4 %>% 
+  group_by(chains_assumption, is_foreign_exposure) %>%
+  summarize(mean_rank = mean(chain_rank),
+            med_rank = median(chain_rank),
+            mode_rank = getmode(chain_rank))
+```

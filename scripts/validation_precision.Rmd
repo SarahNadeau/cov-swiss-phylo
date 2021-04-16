@@ -1,0 +1,213 @@
+---
+title: "Precision check"
+author: "Sarah Nadeau"
+date: "06/04/2021"
+output: html_document
+---
+
+Precision: check how much the deviations from the prior differ with different draws of context sequences.
+
+```{r, setup, include=False}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+require(dplyr)
+require(ggplot2)
+require(ggtree)
+```
+
+```{r}
+source("generate_figures/functions.R")
+source("database/R/utility.R")
+source("utility_functions.R")
+db_connection = open_database_connection()
+```
+
+# Sensitivity to prior: 2x different prior dataset weights 
+1x, 1x, 1x weight and 
+1x, 0x, 0x weight to recorded case exposures, est. infected tourist arrivals, est. infected commuter arrivals
+
+## Copy data to local
+```{bash}
+WORKDIR=jan-dec_-005_max_sampling_-25_travel_-5_sim_context-sf_111_travel-wt
+
+mkdir -p /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+scp nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/*.log \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./output/* \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.csv \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.txt \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.nex \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.png \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+WORKDIR=jan-dec_-005_max_sampling_-25_travel_-5_sim_context-sf_100_travel-wt
+
+mkdir -p /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+scp nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/*.log \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./output/* \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.csv \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.txt \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.nex \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+
+rsync -a --relative \
+nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.png \
+/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
+```
+
+## Re-run most updated version of ancestral state reconstruction
+```{bash}
+cd ~/Repos/grapevine
+WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/jan-dec_-005_max_sampling_-25_travel_-5_sim_context-sf_100_travel-wt
+mkdir -p $WORKDIR/tmp/asr_corrected
+
+MAX_NONFOCAL_SUBCLADES=3
+MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES=1
+
+for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
+        --tree $TREEFILE \
+        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
+        --chains $WORKDIR/tmp/chains/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T_chains.txt \
+        --outdir $WORKDIR/tmp/asr_corrected \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T 
+done
+
+for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
+    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
+    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
+        --tree $TREEFILE \
+        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
+        --chains $WORKDIR/tmp/chains/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F_chains.txt \
+        --outdir $WORKDIR/tmp/asr_corrected \
+        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F
+done
+mv $WORKDIR/tmp/asr $WORKDIR/tmp/asr_prev_buggy
+mv $WORKDIR/tmp/asr_corrected $WORKDIR/tmp/asr
+```
+
+## Load results into R
+```{r}
+workdir_111 <- paste(
+  "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation",
+  "jan-dec_-005_max_sampling_-25_travel_-5_sim_context-sf_111_travel-wt",
+  sep = "/")
+workdir_100 <- paste(
+  "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation",
+  "jan-dec_-005_max_sampling_-25_travel_-5_sim_context-sf_100_travel-wt",
+  sep = "/")
+
+grapevine_results_111 <- load_grapevine_results(workdir = workdir_111)
+grapevine_results_100 <- load_grapevine_results(workdir = workdir_100)
+```
+
+## Evaluate precision
+```{r}
+country_colors <- get_country_colors(db_connection)
+
+origins_data_100 <- get_origin_prior_vs_posterior_data(
+    workdir = workdir_100,
+    origins_representative = grapevine_results_100$origins)
+origins_data_111 <- get_origin_prior_vs_posterior_data(
+    workdir = workdir_111,
+    origins_representative = grapevine_results_111$origins)
+
+common_origins <- union(
+  get_most_common_origins_to_plot(origins_data = origins_data_100)$iso_country,
+  get_most_common_origins_to_plot(origins_data = origins_data_111)$iso_country)
+
+origins_to_color <- common_origins
+# scales::show_col(country_colors[["KOS"]])
+
+plots_111 <- plot_chain_origins(
+  workdir = workdir_111,
+  grapevine_results = grapevine_results_111,
+  country_colors = country_colors,
+  origins_to_color = common_origins)
+plots_100 <- plot_chain_origins(
+  workdir = workdir_100,
+  grapevine_results = grapevine_results_100,
+  country_colors = country_colors,
+  origins_to_color = common_origins)
+```
+
+## Evaluate sensitivity of posterior to the prior
+```{r}
+show(plots_111$chain_origins_per_chain_ch_tmrca)
+ggsave(
+  plot = plots_111$chain_origins_per_chain_ch_tmrca,
+  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/precision_validation/111_prior_weights.png",
+  width = 7, height = 7, units = "in"
+)
+```
+
+```{r}
+show(plots_100$chain_origins_per_chain_ch_tmrca)
+ggsave(
+  plot = plots_100$chain_origins_per_chain_ch_tmrca,
+  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/precision_validation/100_prior_weights.png",
+  width = 7, height = 7, units = "in"
+)
+```
+
+```{r}
+
+```
+Conclusion: the phylogenetic signal is not so strong - the posteriors look much more
+similar to the priors than to one another).
+
+# Table differences bewteen prior and posterior for both travel context sets
+```{r}
+table_111 <- table_chain_origins(
+  workdir = workdir_111, 
+  outdir = NULL, 
+  period_breaks = c("2019-11-01"),
+  n_origins_to_table = 15, 
+  origins = grapevine_results_111$origins, 
+  return_table = T)
+
+table_100 <- table_chain_origins(
+  workdir = workdir_100, 
+  outdir = NULL, 
+  period_breaks = c("2019-11-01"), 
+  n_origins_to_table = 15, 
+  origins = grapevine_results_100$origins, 
+  return_table = T)
+
+merged_table <- merge(
+  x = table_111, y = table_100, 
+  suffixes = c("_111", "_100"),
+  by = c("iso_country", "country"),
+  all = F)
+View(merged_table)
+```
+

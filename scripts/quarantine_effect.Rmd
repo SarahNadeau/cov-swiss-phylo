@@ -143,6 +143,7 @@ model_data_daily <- merge(
     "n_lineages" = 0,  # no foreign attachment points in the month have travel context descendents from the country = 0 lineages imported from the country
     "n_tourist_arrivals" = 0,
     "n_commuter_permits" = 0)) %>%  # no tourist arrivals to hotels recorded or commuter permits = 0 arrivals 
+  filter(date >= "2019-12-01", date <= "2020-12-01") %>%
   group_by(iso_code) %>%
   mutate(quarantine_y_and_n = length(unique(quarantine_order)) == 2) %>%
   filter(quarantine_y_and_n) %>%  # only countries on & off quarantine list at some point
@@ -215,7 +216,7 @@ dep_var_by_quarantine_status <- ggplot(
   geom_point(
     aes(
       size = ifelse(n_inds == 0, NA, n_inds)),
-    shape = 1) +
+    alpha = 0.5) +
   scale_color_manual(
     values = c(`FALSE` = "grey", `TRUE` = "red"),
     name = "Country under FOPH quarantine order") +
@@ -236,7 +237,7 @@ ggsave(
   x = dep_var_by_quarantine_status,
   file = paste("figures", "chain_origins_by_quarantine_status.png", sep = "/"),
   width =  double_col_width,
-  height = double_col_width,
+  height = double_col_width * 0.75,
   units = "cm")
 ```
 

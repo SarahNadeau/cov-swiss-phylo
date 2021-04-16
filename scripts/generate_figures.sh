@@ -1,7 +1,7 @@
 #!/bin/bash
 
 MAX_DATE=2020-12-31
-WORKDIR=/Users/nadeaus/NonRepoProjects/cov-swiss-phylogenetics/grapevine/jan-dec_-01_max_sampling_-5_context-sf
+WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_main
 CURRENT_DIR=`pwd`
 cd /Users/nadeaus/Repos/grapevine
 
