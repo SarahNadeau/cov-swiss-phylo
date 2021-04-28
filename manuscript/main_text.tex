@@ -97,23 +97,20 @@ Validation of the identified transmission chains is difficult without detailed c
 % The scaling factors I estimate are higher than his though (~1.2 for <= 50 and ~1.4 for >50). So, our Swiss chain sizes decay more sharply (fewer larger chains) than his UK chains.
 
 \subsection{Transmission chain longevity}
-We show the number and longevity of transmission chains by the month they were fist sampled in \ref{fig:chain-longevity}. 
-
-From \ref{fig:chain-longevity} we see that the number and longevity of transmission chains is affected by phylogenetic uncertainty. Robust to this uncertainty, there is evidence that \nspanningchainsmax\ to \nspanningchainsmin\ transmission chains persisted in Switzerland from the start of the epidemic in March 2020 until the end of the sampling period in December 2020. Assuming the smallest plausible transmission chain sizes, it seems transmission chains started in Spring 2020 tended to be driven to extinction, while transmission chains started over the Summer tended to continue spreading until the end of the sampling period.
-
+We show the number and longevity of transmission chains by the month they were fist sampled in \ref{fig:chain-longevity}. From \ref{fig:chain-longevity} we see that the number and longevity of transmission chains is affected by phylogenetic uncertainty. A small number of transmission chains - between \nspanningchainsmax\ and \nspanningchainsmin\ - appear to have persisted in Switzerland from the start of the epidemic in March 2020 until the end of the sampling period in December 2020. Fewer new transmission chains were sampled in the months following the partial closure of Swiss borders bewteen 25. March 2020 and 14. June 2020. 
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=.8\linewidth]{figures/fig_S1_chain_longevity.png}
-\caption{Longevity of Swiss transmission chains by detection month.}
+\caption{Number and longevity of Swiss transmission chains by the month they were fist sampled. Areas are smoothed between monthly counts.}
 \label{fig:chain-longevity}
 \end{figure}
 
-\begin{figure}[tbhp]
-\centering
-\includegraphics[width=.8\linewidth]{figures/fig_1_chains_through_time.png}
-\caption{Size of sampled Swiss transmission chains through time, compared with the Oxford COVID-19 Government Response Tracker stringency index provided by https://ourworldindata.org/grapher/covid-stringency-index. The \textcolor{red}{N} largest transmission chains during each epidemic wave are highlighted.}  
-\label{fig:chain-sizes}
-\end{figure}
+% \begin{figure}[tbhp]
+% \centering
+% \includegraphics[width=.8\linewidth]{figures/fig_1_chains_through_time.png}
+% \caption{Size of sampled Swiss transmission chains through time, compared with the Oxford COVID-19 Government Response Tracker stringency index provided by https://ourworldindata.org/grapher/covid-stringency-index. The \textcolor{red}{N} largest transmission chains during each epidemic wave are highlighted.}  
+% \label{fig:chain-sizes}
+% \end{figure}
 
 \subsection{Transmission chain origins}
 We compare estimates for the origin countries of Swiss transmission chains based on (i) travel-based import estimates from line-list, mobility and incidence data, and (ii) phylogenetic estimates. The phylogenetic estimates are informed by the travel-based estimates since foreign travel context sequences were included in the tree proportional to monthly estimated imports. However, the phylogenetic relationships between the travel context and Swiss sequences inform the phylogenetic estimates so we do not expect estimates based on (i) and (ii) to match perfectly. 
