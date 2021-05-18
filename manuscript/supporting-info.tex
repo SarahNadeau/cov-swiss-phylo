@@ -23,7 +23,17 @@
 % \subsection*{Subhead}
 % Type or paste text here. This should be additional explanatory text such as an extended technical description of results, full details of mathematical models, etc.   
 \section{Sensitivity analyses}
-We investigated the sensitivity of transmission chain summary statistics to different ratios of genetically similar foreign context sequences to focal Swiss sequences. Figure \ref{fig:sensitivity_context_set_size} shows that as the context set size is increased from a 1:1 to 3:1 ratio, the number of estimated transmission chains increases and the mean size of the transmission chains decreases. However, the greatest differences in estimated transmission chains result from the different assumptions about how to resolve phylogenetic uncertainty (smallest vs. largest plausible chains), not the size of the foreign context set. Therefore, we chose the 2:1 ratio as a balance of speed (smaller dataset = faster tree search convergence) and information content (larger dataset = more precise estimates of transmission chain import dates). We rely on the different polytomy resolutions from one such tree to incorporate most of the uncertainty in transmission chain definition.
+
+At the very high level, we define Swiss transmission chains by picking Swiss clades off of phylogenetic trees including a mix of Swiss and foreign sequences. More specifically, we analyze sequences from 1\% of confirmed cases in Switzerland each week. After dividing these into pangolin lineages, we add genetically similar foreign sequences at a 2:1 ratio of foreign to Swiss sequences. After building a maximum likelihood tree for each pangolin lineage, we define Swiss transmission chain as clades of Swiss sequences with maximum 3 apparent re-exports to other countries and no more than one export in a row along the internal branches. Below, we describe how we decided on these values. 
+
+\subsection{Downsampling Swiss sequences}
+We aim to include Swiss sequences that are spatio-temporally representative of the Swiss epidemic. Therefore, we down-sample available Swiss sequences proportional to confirmed case counts at the regional (cantonal) level. To assess whether the number of transmission chains saturates as we add more and more sequences, we did a saturation analysis. TODO: add figure and discuss implications.
+
+\subsection{Ratio of foreign to Swiss sequences}
+We investigated the sensitivity of transmission chain summary statistics to different ratios of genetically similar foreign sequences to Swiss sequences. Figure \ref{fig:sensitivity_context_set_size} shows that increasing the ratio of foreign to Swiss sequences from 1:1 to 3:1 increases the number of estimated transmission chains and decreases their mean size. However, the greatest differences in estimated transmission chains result from the different assumptions about how to resolve phylogenetic uncertainty (smallest vs. largest plausible chains), not the ratio of foreign to Swiss sequences. Therefore, we chose the 2:1 ratio as a balance of speed (smaller dataset = faster tree search convergence) and information content (larger dataset = more precise estimates of transmission chain import dates). We rely on the difference between the smallest and largest plausible chains picked from one such tree to represent uncertainty in the transmission chains.
+
+\subsection{Transmission chain criteria}
+After deciding on a ratio of foreign to Swiss sequences, we investigated the sensitivity of transmission chain summary statistics to our criteria for picking transmission chains. Figure \ref{fig:sensitivity_m_p} shows that increasing the maximum number of exported lineages decreases the number of transmission chains and increases their size. Increasing the maximum consecutive exports has a much smaller effect. But again, these differences are smaller than those resulting from the different assumptions about how to resolve phylogenetic uncertainty (smallest vs. largest plausible chains). Therefore, we chose our criteria to be maximum 3 exported lineages and maximum one consecutive export to allow for some exports but not arbitrarily many. 
 
 \begin{figure*}[tbhp]
 \centering
@@ -32,8 +42,6 @@ We investigated the sensitivity of transmission chain summary statistics to diff
 \label{fig:sensitivity_context_set_size}
 \end{figure*}
 
-After deciding what size foreign context set to use, we investigated the sensitivity of transmission chain summary statistics to our heuristic definition of a transmission chain. Figure \ref{fig:sensitivity_m_p} shows that again, the greatest differences in estimated transmission chains result from different assumptions about how to resolve phylogenetic uncertainty, not the heuristic definition of a transmission chain. Therefore, we chose to define transmission chains based on maximum 3 exported lineages and maximum one consecutive export along a branch to allow for some exports but not arbitrarily many. 
-
 \begin{figure*}[tbhp]
 \centering
 \includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_chain_defn.png}
@@ -41,59 +49,57 @@ After deciding what size foreign context set to use, we investigated the sensiti
 \label{fig:sensitivity_m_p}
 \end{figure*}
 
-Finally, we investigated the sensitivity of transmission chain summary statistics to the number of focal Swiss sequences analyzed.
+
+% \section*{Heading}
+% \subsection*{Subhead}
+% Type or paste text here. You may break this section up into subheads as needed (e.g., one section on ``Materials'' and one on ``Methods'').
+
+% \subsection*{Materials}
+% Add a materials subsection if you need to.
+
+% \subsection*{Methods}
+% Add a methods subsection if you need to.
 
 
-\section*{Heading}
-\subsection*{Subhead}
-Type or paste text here. You may break this section up into subheads as needed (e.g., one section on ``Materials'' and one on ``Methods'').
+% %%% Each figure should be on its own page
+% \begin{figure}
+% \centering
+% \includegraphics[width=\textwidth]{example-image}
+% \caption{First figure}
+% \end{figure}
 
-\subsection*{Materials}
-Add a materials subsection if you need to.
+% \begin{figure}
+% \centering
+% \includegraphics[width=\textwidth]{frog}
+% \caption{Second figure}
+% \end{figure}
 
-\subsection*{Methods}
-Add a methods subsection if you need to.
+% \begin{table}\centering
+% \caption{This is a table}
 
+% \begin{tabular}{lrrr}
+% Species & CBS & CV & G3 \\
+% \midrule
+% 1. Acetaldehyde & 0.0 & 0.0 & 0.0 \\
+% 2. Vinyl alcohol & 9.1 & 9.6 & 13.5 \\
+% 3. Hydroxyethylidene & 50.8 & 51.2 & 54.0\\
+% \bottomrule
+% \end{tabular}
+% \end{table}
 
-%%% Each figure should be on its own page
-\begin{figure}
-\centering
-\includegraphics[width=\textwidth]{example-image}
-\caption{First figure}
-\end{figure}
+% %%% Add this line AFTER all your figures and tables
+% \FloatBarrier
 
-\begin{figure}
-\centering
-\includegraphics[width=\textwidth]{frog}
-\caption{Second figure}
-\end{figure}
+% \movie{Type legend for the movie here.}
 
-\begin{table}\centering
-\caption{This is a table}
+% \movie{Type legend for the other movie here. Adding longer text to show what happens, to decide on alignment and/or indentations.}
 
-\begin{tabular}{lrrr}
-Species & CBS & CV & G3 \\
-\midrule
-1. Acetaldehyde & 0.0 & 0.0 & 0.0 \\
-2. Vinyl alcohol & 9.1 & 9.6 & 13.5 \\
-3. Hydroxyethylidene & 50.8 & 51.2 & 54.0\\
-\bottomrule
-\end{tabular}
-\end{table}
+% \movie{A third movie, just for kicks.}
 
-%%% Add this line AFTER all your figures and tables
-\FloatBarrier
+% \dataset{dataset_one.txt}{Type or paste legend here.}
 
-\movie{Type legend for the movie here.}
+% \dataset{dataset_two.txt}{Type or paste legend here. Adding longer text to show what happens, to decide on alignment and/or indentations for multi-line or paragraph captions.}
 
-\movie{Type legend for the other movie here. Adding longer text to show what happens, to decide on alignment and/or indentations.}
-
-\movie{A third movie, just for kicks.}
-
-\dataset{dataset_one.txt}{Type or paste legend here.}
-
-\dataset{dataset_two.txt}{Type or paste legend here. Adding longer text to show what happens, to decide on alignment and/or indentations for multi-line or paragraph captions.}
-
-\bibliography{pnas-sample}
+% \bibliography{pnas-sample}
 
 \end{document}
