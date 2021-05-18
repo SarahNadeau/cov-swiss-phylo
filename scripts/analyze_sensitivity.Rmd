@@ -1,5 +1,5 @@
 ---
-title: "Compare chains with different size context sets"
+title: "Compare chains with different size context sets, different chain definitions"
 author: "Sarah Nadeau"
 date: "17/05/2021"
 output: html_document
@@ -13,12 +13,12 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 ```
 
 ```{r, include=FALSE}
+require(dplyr)
+require(ggplot2)
 source("../grapevine/database/R/utility.R")
 source("../grapevine/utility_functions.R")
 source("../grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
-require(dplyr)
-require(ggplot2)
 ```
 
 # Load data
@@ -50,7 +50,7 @@ load_results <- function(
 results <- load_results()
 ```
 
-# Compare transmission chain summary statistics
+# Compare transmission chain summary statistics across context set sizes, chains assumption
 
 ```{r}
 is_first <- T
@@ -106,4 +106,80 @@ ggsave(
 )
 ``` 
 
-# Compare to sensitivity due to chain definition
+# Load alternate chain data for chosen context set ratio
+
+```{r}
+load_alternative_chains <- function(
+  prefix = "results_all/jan-dec_-01_max_sampling_0_travel_",
+  suffix = "_sim_context",
+  reps = c("", "1", "2"),
+  values = c("2")
+) {
+  is_first <- T
+  for (value in values) {
+    for (rep in reps) {
+      fp <- paste(prefix, value, suffix, case_when(rep == "" ~ rep, T ~ paste("_rep_", rep, sep = "")), sep = "")
+      print(paste("Loading alternative chain results in", fp))
+      chain_dirs <- list.files(path = paste(fp, "tmp", sep = "/"), pattern = "chains_m")
+      for (dir in chain_dirs) {
+        chains_temp <- rbind(
+          load_chain_asr_data(s = T, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "min"),
+          load_chain_asr_data(s = F, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "max")) %>%
+          mutate(chain_desc = dir, res_desc = paste(value, "x_rep", case_when(rep == "" ~ "0", T ~ rep), sep = ""))
+        if (is_first) {
+          alternative_chains_all <- chains_temp
+          is_first <- F
+        } else {
+          alternative_chains_all <- rbind(alternative_chains_all, chains_temp)
+        }
+      }
+    }
+  }
+  return(alternative_chains_all)
+}
+
+alternative_chains_all <- load_alternative_chains()
+```
+
+# Compare transmission chain summary statistics across chain definitions, chains assumption
+
+```{r}
+to_plot_2 <- alternative_chains_all %>%
+  tidyr::separate(res_desc, into = c("sim_context", "rep"), sep = "x_rep") %>%
+  tidyr::separate(chain_desc, into = c("m", "p"), sep = "_p_") %>%
+  mutate(
+    sim_context = as.numeric(sim_context), rep = as.numeric(rep),
+    m = as.numeric(gsub(m, pattern = "chains_m_", replacement = "")), p = as.character(p)) %>%
+  group_by(rep, m, p, chains_assumption) %>%
+  summarize(
+    mean_size = mean(size),
+    median_size = median(size),
+    number_chains = n(),
+    number_trees = length(unique(tree)),
+    .groups = "drop")
+
+ggplot(
+  data = to_plot_2,
+  aes(x = m, shape = as.character(rep))) + 
+  geom_point(aes(y = mean_size, color = "Mean chain size")) + 
+  geom_point(aes(y = median_size, color = "Median chain size")) + 
+  geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) + 
+  facet_grid(
+    p ~ chains_assumption, 
+    labeller = as_labeller(x = c("0" = "0", "1" = "1", "2" = "2", "3" = "3", "4" = "4", chain_assumption_labs))) + 
+  shared_theme + 
+  scale_shape(name = "Replicate") + 
+  scale_color_discrete(name = "Value") + 
+  scale_y_continuous(sec.axis = dup_axis(
+    name = "Maximum consecutive exports in transmission chain",
+    breaks = NULL, labels = NULL)) + 
+  labs(x = "Maximum exported lineages in transmission chain", y = "Count")
+
+ggsave(
+  filename = "figures/fig_SX_sensitivity_chain_defn.png",
+  width = double_col_width,
+  height = single_col_width * 1.5, 
+  units = "cm"
+)
+```
+
