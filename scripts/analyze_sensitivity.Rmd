@@ -1,0 +1,109 @@
+---
+title: "Compare chains with different size context sets"
+author: "Sarah Nadeau"
+date: "17/05/2021"
+output: html_document
+---
+
+Note: I also tried running 5x and 10x size context sets, but Euler either timed out (5x) or ran out of memory (10x).
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+require(dplyr)
+require(ggplot2)
+```
+
+# Load data
+
+```{r}
+load_results <- function(
+  prefix = "results_all/jan-dec_-01_max_sampling_0_travel_",
+  suffix = "_sim_context",
+  reps = c("", "1", "2"),
+  values = c("1", "2", "3")
+) {
+  results <- list()
+  for (value in values) {
+    for (rep in reps) {
+      fp <- paste(prefix, value, suffix, case_when(rep == "" ~ rep, T ~ paste("_rep_", rep, sep = "")), sep = "")
+      print(paste("Loading results in", fp))
+      if (dir.exists(fp)) {
+        res_desc <- paste(value, "x_rep", case_when(rep == "" ~ "0", T ~ rep), sep = "")
+        results_temp <- load_grapevine_results(workdir = fp)
+        results[[res_desc]] <- results_temp
+      } else {
+        warning(paste("Directory", fp, "does not exist."))
+      }
+    }
+  }
+  return(results)
+}
+
+results <- load_results()
+```
+
+# Compare transmission chain summary statistics
+
+```{r}
+is_first <- T
+for (i in 1:length(results)) {
+  res_desc <- names(results)[i]
+  chains_temp <- results[[i]]$chains %>% mutate(res_desc = res_desc)
+  if (is_first) {
+    is_first <- F
+    chains_all <- chains_temp
+  } else {
+    chains_all <- rbind(chains_all, chains_temp)
+  }
+}
+
+to_plot <- chains_all %>%
+  tidyr::separate(res_desc, into = c("sim_context", "rep"), sep = "x_rep") %>%
+  mutate(sim_context = as.numeric(sim_context), rep = as.numeric(rep)) %>%
+  group_by(sim_context, rep, chains_assumption) %>%
+  summarize(
+    mean_size = mean(size),
+    median_size = median(size),
+    number_chains = n(),
+    number_trees = length(unique(tree)),
+    .groups = "drop")
+
+to_plot_w_runtime <- merge(
+  x = to_plot,
+  y = data.frame(
+    sim_context = c(rep(1, 3), rep(2, 3), rep(3, 3)),
+    rep = c(rep(0:2, 3)),
+    runtime_sec = c(13009, 10835, 11214, 11612, 11666, 11282, 20983, 26932, 27302)))  # collated from Euler job finished emails, see data/runtimes.pdf
+
+ggplot(
+  data = to_plot_w_runtime,
+  aes(x = sim_context, shape = as.character(rep))) + 
+  geom_point(aes(y = mean_size, color = "Mean chain size")) + 
+  geom_point(aes(y = median_size, color = "Median chain size")) + 
+  geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) + 
+  geom_point(aes(y = runtime_sec / 60^2, color = "Runtime (hours)")) + 
+  # geom_point(aes(y = number_trees / 5, color = "Number lineage trees / 5")) + 
+  facet_grid(. ~ chains_assumption, labeller = as_labeller(chain_assumption_labs)) + 
+  shared_theme + 
+  scale_shape(name = "Replicate") + 
+  scale_color_discrete(name = "Value") + 
+  scale_x_continuous(breaks = c(1, 2, 3), labels = c("1:1", "2:1", "3:1")) + 
+  labs(x = "Ratio of foreign context to focal Swiss sequences", y = "Count")
+
+ggsave(
+  filename = "figures/fig_SX_sensitivity_context_set_size.png",
+  width = double_col_width,
+  height = single_col_width * 0.75, 
+  units = "cm"
+)
+``` 
+
+# Compare to sensitivity due to chain definition
