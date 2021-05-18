@@ -1,0 +1,122 @@
+---
+title: "Explore alignment differences"
+author: "Sarah Nadeau"
+date: "26/04/2021"
+output: html_document
+---
+
+This script is to see if there are categorical differences in alignments to 
+explain why Re gets "stuck" using new alignment.
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetic")
+require(dplyr)
+require(ggplot2)
+```
+
+# Load alignments
+```{r}
+new_workdir <- "results_all/jan-dec_-01_max_sampling_1_travel_1_sim_context-sf_111_travel-wt"
+new_alignment <- ape::read.FASTA(
+  file = paste(new_workdir, "output/transmission_chain_alignments/min_chains.fasta", sep = "/"))
+old_workdir <- "results_all/jan-dec_-01_max_sampling_-5_context-sf"
+old_alignment <- ape::read.FASTA(
+  file = paste(old_workdir, "output/transmission_chain_alignments/min_chains.fasta", sep = "/"))
+
+new_alignment_data <- data.frame(
+  header = names(new_alignment)) %>%
+  tidyr::separate(
+    col = header, into = c("strain", "gisaid_epi_isl", "date", "cluster_idx"), sep = "\\|", remove = F) %>%
+  mutate(chains_assumption = "min", alignment = "new")
+old_alignment_data <- data.frame(
+  header = names(old_alignment)) %>%
+  tidyr::separate(
+    col = header, into = c("strain", "gisaid_epi_isl", "date", "cluster_idx"), sep = "\\|", remove = F) %>%
+  mutate(chains_assumption = "min", alignment = "old")
+
+alignment_data <- rbind(new_alignment_data, old_alignment_data) %>%
+  mutate(date = as.Date(date))
+```
+
+# Similar distribution of samples per month?
+* Distribution of samples is similar
+* Way more samples from Oct/Nov, probably because of back-sequencing efforts
+```{r}
+alignment_data %>%
+  mutate(month = format(date, "%Y-%m-01")) %>%
+  group_by(alignment) %>%
+  mutate(total_seqs = n()) %>%
+  group_by(alignment, month) %>%
+  summarize(frac_seqs = n() / total_seqs[1]) %>%
+  tidyr::pivot_wider(
+    names_from = alignment, values_from = frac_seqs, names_prefix = "frac_samples_alignment_")
+
+alignment_data %>%
+  mutate(month = format(date, "%Y-%m-01")) %>%
+  group_by(alignment, month) %>%
+  summarize(n_seqs = n()) %>%
+  tidyr::pivot_wider(
+    names_from = alignment, values_from = n_seqs, names_prefix = "n_samples_alignment_")
+```
+
+# Load sequence data from database
+```{r}
+source("../grapevine/utility_functions.R")
+db_connection <- open_database_connection(
+  "server", config_file = "../grapevine/workdir/input/config.yml")
+
+seq_data <- dplyr::tbl(db_connection, "gisaid_sequence") %>%
+  filter(gisaid_epi_isl %in% !! alignment_data$gisaid_epi_isl) %>%
+  select("gisaid_epi_isl", "nextclade_qc_overall_score", 
+         "nextclade_total_mutations", "nextclade_qc_mixed_sites_total",
+         "nextstrain_clade") %>%
+  collect()
+
+alignment_seq_data <- dplyr::left_join(
+  x = alignment_data, y = seq_data,
+  by = "gisaid_epi_isl")
+```
+
+# Similar QC, sequence divergence per month?
+* QC & divergence over time doesn't seem very different 
+```{r}
+alignment_seq_data %>%
+  mutate(month = format(date, "%Y-%m-01")) %>%
+  group_by(alignment, month) %>%
+  summarise(
+    mean_nextclade_qc_overall_score = mean(nextclade_qc_overall_score)) %>%
+  tidyr::pivot_wider(
+    names_from = alignment, values_from = mean_nextclade_qc_overall_score, 
+    names_prefix = "mean_qc_overall_score_alignment_")
+  
+alignment_seq_data %>%
+  mutate(month = format(date, "%Y-%m-01")) %>%
+  group_by(alignment, month) %>%
+  summarise(
+    mean_nextclade_qc_mixed_sites_total = mean(nextclade_qc_mixed_sites_total)) %>%
+  tidyr::pivot_wider(
+    names_from = alignment, values_from = mean_nextclade_qc_mixed_sites_total, 
+    names_prefix = "mean_qc_mixed_sites_total_alignment_") 
+
+ggplot(
+  data = alignment_seq_data,
+  aes(x = date, y = nextclade_total_mutations)) + 
+  geom_point(aes(color = nextstrain_clade)) + 
+  facet_grid(. ~ alignment)
+```
+
+# What's the sequence overlap?
+* New alignment is 60% not-previously-included sequences
+```{r}
+strains_in_new <- unlist(alignment_data %>% filter(alignment == "new") %>% select(strain))
+strains_in_old <- unlist(alignment_data %>% filter(alignment == "old") %>% select(strain))
+seqs_only_in_new <- setdiff(x = strains_in_new, y = strains_in_old)
+seqs_only_in_old <- setdiff(y = strains_in_new, x = strains_in_old)
+seqs_in_both <- intersect(x = strains_in_new, y = strains_in_old)
+
+length(seqs_only_in_new) / length(strains_in_new)
+```
+
+# What's the cluster size distribution?
+

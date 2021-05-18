@@ -1,0 +1,333 @@
+---
+title: "Plot Re estimates through time"
+author: "Sarah Nadeau"
+date: "30/04/2021"
+output: html_document
+---
+
+Adapted from Tim's "postprocessing.Rmd" script.
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r}
+library(tidyverse)
+library(lubridate)
+source("scripts/figures_shared_vars.R")
+source("../grapevine/utility_functions.R")
+db_connection <- open_database_connection("server", config_file = "../grapevine/workdir/input/config.yml")
+workdir <- "results_main"
+```
+
+## Load data
+
+```{r, echo=F}
+all_data <- NULL
+for (clusters in c("min", "max")) {
+    for (samples in c("all", "after May 1")) {
+        for (contact_tracing in c(TRUE, FALSE)) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ifelse(samples=="all", "", "_after_may_1"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+
+            data <- NULL
+            for (f in dir(paste(workdir, "output/phylodynamics/results", sep = "/"), pattern, full.names=TRUE)) {
+                data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+
+            re_data <- data %>%
+                pivot_longer(cols=starts_with("ReValues."),
+                             names_to="interval", values_to="value",
+                             names_prefix="ReValues.",
+                             names_transform=list(interval=as.integer)) %>%
+                select(Sample, interval, value) %>%
+                mutate(variable="Re")
+
+            skyline_data <- re_data %>%
+                group_by(interval, variable) %>%
+                summarize(median=median(value),
+                          low=quantile(value, 0.025),
+                          high=quantile(value, 0.975)) %>%
+                mutate(clusters=clusters,
+                       samples=samples,
+                       contact_tracing=contact_tracing)
+
+            all_data <- bind_rows(all_data, skyline_data)
+        }
+    }
+}
+```
+
+## Incoroporate Re interval dates
+
+```{r }
+dates <- tibble(interval=0:52) %>% mutate(date=ymd("2020-11-30")-3.5-interval*7)
+```
+
+## Load case count data
+
+```{r}
+LINE_LIST_RE_EST_LINK <- "https://raw.githubusercontent.com/covid-19-Re/dailyRe-Data/master/CHE-estimates.csv"
+line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
+  filter(
+    region == "CHE",
+    data_type %in% c("Confirmed cases / tests", "Confirmed cases"), 
+    estimate_type == "Cori_slidingWindow") %>%
+  select(c(date, , data_type, median_R_mean, median_R_highHPD, median_R_lowHPD)) %>%
+  mutate(date = as.Date(date)) %>%
+  rename(
+    median = median_R_mean,
+    yhigh = median_R_highHPD,
+    ylow = median_R_lowHPD)
+```
+
+## Plot all skylines
+
+```{r }
+re_all <- ggplot(all_data %>% left_join(dates) %>% filter(variable=="Re"),
+       aes(date, median, col=contact_tracing, fill=contact_tracing)) +
+  geom_ribbon(aes(x, ymin=ylow, ymax=yhigh),
+              data=tibble(x=c(ymd("2020-06-15"), ymd("2020-09-30")),
+                          ylow=c(0,0), yhigh=c(Inf,Inf),
+                          median=0.5, contact_tracing=TRUE),
+              fill="grey", col=NA, alpha=0.5) +
+  geom_ribbon(aes(ymin=low, ymax=high), alpha=0.5) +
+  geom_ribbon(
+    data = line_list_re_data, 
+    aes(date, ymin=ylow, ymax=yhigh, fill = data_type,
+        col = data_type),
+    alpha = 0.5) + 
+  geom_line() +
+  geom_hline(yintercept=1, linetype="dashed") +
+  facet_grid(rows=vars(samples), cols=vars(clusters), scales="free") +
+  scale_x_date(date_breaks="1 month", date_labels="%b %Y",
+               limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
+  ylab("Re") + ggtitle("Re estimates") +
+  theme(axis.text.x=element_text(angle=-45, hjust=0), legend.position = "bottom")
+
+show(re_all)
+
+ggsave(
+  plot = re_all, 
+  file = "figures/Re_with_conf_case_comparison.pdf", 
+  width = double_col_width, 
+  height = single_col_width, 
+  units = "cm")
+```
+
+## Plot skyline w/ all data compared to case count Re
+
+```{r }
+re_methods_comparison <- ggplot(
+  data = all_data %>% 
+    left_join(dates) %>% 
+    filter(
+      variable=="Re", 
+      samples == "all",
+      !contact_tracing)) +
+  geom_ribbon(
+    aes(date, ymin=low, ymax=high, fill = clusters),
+    alpha=0.5) +
+  geom_ribbon(
+    data = line_list_re_data, 
+    aes(date, ymin=ylow, ymax=yhigh, fill = data_type),
+    alpha = 0.5) + 
+  geom_hline(yintercept=1, linetype="dashed") +
+  scale_x_date(
+    date_breaks="1 month", date_labels="%b %Y",
+    limits = c(as.Date("2020-02-01"), as.Date("2020-12-01"))) +
+  ylab("Re") +
+  scale_fill_manual(
+    name = element_blank(),
+    labels = c(
+      "max" = "Phylodynamics with\nsmallest plausible chains",
+      "min" = "Phylodynamics with\nlargest plausible chains",
+      "Confirmed cases" = "estimateR with\nconfirmed cases",
+      "Confirmed cases / tests" = "estimateR with\nconfirmed cases / tests"),
+    values = c("#E69F00", "#D55E00", "#56B4E9", "#0072B2")) +
+  shared_theme + 
+  theme(
+    axis.text.x=element_text(angle=45, hjust=1),
+    axis.title.x = element_blank(),
+    legend.position = "bottom")
+
+show(re_methods_comparison)
+
+ggsave(
+  plot = re_methods_comparison, 
+  file = "figures/Re_all_data_with_conf_case_comparison.pdf", 
+  width = double_col_width, 
+  height = single_col_width * 0.75, 
+  units = "cm")
+```
+
+## Plot case count Re only for intro slide
+
+```{r }
+re_case_counts <- ggplot() +
+  geom_ribbon(
+    data = line_list_re_data, 
+    aes(date, ymin=ylow, ymax=yhigh, fill = data_type),
+    alpha = 0.5) + 
+  geom_hline(yintercept=1, linetype="dashed") +
+  scale_x_date(
+    date_breaks="1 month", date_labels="%b %Y",
+    limits = c(as.Date("2020-02-01"), as.Date("2020-12-01"))) +
+  ylab("Re") +
+  scale_fill_manual(
+    name = element_blank(),
+    labels = c(
+      "max" = "Phylodynamics with\nsmallest plausible chains",
+      "min" = "Phylodynamics with\nlargest plausible chains",
+      "Confirmed cases" = "estimateR with\nconfirmed cases",
+      "Confirmed cases / tests" = "estimateR with\nconfirmed cases / tests"),
+    values = c("#E69F00", "#D55E00", "#56B4E9", "#0072B2")) +
+  shared_theme + 
+  theme(
+    axis.text.x=element_text(angle=45, hjust=1),
+    axis.title.x = element_blank(),
+    legend.position = "bottom")
+
+show(re_case_counts)
+
+ggsave(
+  plot = re_case_counts, 
+  file = "figures/Re_conf_cases.pdf", 
+  width = double_col_width, 
+  height = single_col_width * 0.75, 
+  units = "cm")
+```
+
+## Plot datasets through time
+The genome samples don't have an obvious delay compared to confirmed cases
+
+```{r}
+source("../grapevine/generate_figures/functions.R")
+grapevine_results <- load_grapevine_results(
+  workdir = "results_all/jan-dec_-01_max_sampling_1_travel_1_sim_context-sf_111_travel-wt")
+samples_with_chain_sizes <- merge(
+  x = grapevine_results$samples,
+  y = grapevine_results$chains) %>%
+  select(strain, date, chains_assumption, size)
+
+sequence_dates <- samples_with_chain_sizes %>% 
+  mutate(singleton = size == 1) %>%
+  group_by(date, chains_assumption, singleton) %>%
+  summarize(new_cases = n()) %>%
+  mutate(type = "genome")
+case_dates <- dplyr::tbl(db_connection, "ext_owid_global_cases") %>%
+  filter(iso_country == "CHE") %>%
+  select(date, new_cases) %>%
+  collect() %>%
+  mutate(type = "confirmed",
+         chains_assumption = "Confirmed cases")
+
+case_data <- merge(
+  x = sequence_dates,
+  y = case_dates,
+  all = T) %>%
+  mutate(period = case_when(
+    date < as.Date("2020-04-01") ~ "Early period",
+    T ~ "Later period"))
+
+ggplot(
+  data = case_data %>% filter(period == "Early period"),
+  aes(x = date, y = new_cases)) + 
+  facet_grid(chains_assumption ~ period, scales = "free", 
+             labeller = labeller(chains_assumption = c(chain_assumption_labs, c("Confirmed cases" = "Confirmed cases")))) + 
+  geom_col(aes(fill = singleton)) + 
+  scale_x_date(
+    date_breaks="1 week", date_labels="%b %d") +
+  shared_theme + 
+  theme(
+    axis.text.x=element_text(angle=45, hjust=1),
+    axis.title.x = element_blank()) + 
+  labs(y = "Number of samples")
+
+ggsave("figures/early_period_samples.pdf")
+```
+
+## Plot after-chain-sampled damping factor posteriors
+
+```{r }
+CT_data <- NULL
+for (clusters in c("min", "max")) {
+    for (samples in c("all", "after May 1")) {
+        for (contact_tracing in c(TRUE, FALSE)) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ifelse(samples=="all", "", "_after_may_1"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+
+            data <- NULL
+            for (f in  dir(paste(workdir, "output/phylodynamics/results", sep = "/"), pattern, full.names=TRUE)) {
+                data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+
+            CT_data <- bind_rows(CT_data,
+                                 data %>%
+                                  slice_tail(prop=0.9) %>%
+                                  select(Sample, "CTFactor[0]", "CTFactor[1]", "CTFactor[2]") %>%
+                                  pivot_longer(cols=2:4) %>%
+                                  mutate(clusters=clusters,
+                                         samples=samples,
+                                         contact_tracing=contact_tracing))
+        }
+    }
+}
+
+ggplot(CT_data %>% filter(contact_tracing), aes(name, value, col=name, fill=name)) +
+    geom_violin(scale="width") +
+    facet_grid(rows=vars(samples), cols=vars(clusters), scales="free") +
+    scale_x_discrete(labels=c("After Sep 30", "Jun 15 to Sep 30", "Before Jun 15")) +
+    theme(axis.text.x=element_text(angle=-45, hjust=0)) +
+    theme(legend.position = "none") +
+    xlab("") + ylab("")
+ggsave("figures/CT_effectSizes.pdf")
+```
+
+```{r}
+data_to_plot <- CT_data %>% 
+  mutate(
+    period = factor(
+      x = name,
+      levels = c("CTFactor[2]", "CTFactor[1]", "CTFactor[0]"),
+      labels = c("Before\nJun 15", "Jun 15\nto Sep 30", "After\nSep 30")),
+    range = case_when(
+      value == 1 ~ "No difference",
+      value < 1 ~ "Re decrease")) %>%
+  filter(contact_tracing, samples == "all")
+data_labels <- data_to_plot %>%
+  group_by(period, clusters) %>%
+  mutate(n_samples = n()) %>%
+  group_by(period, clusters, range) %>%
+  summarize(posterior_prob = n() / n_samples[1],
+            median_decrease = median(value))
+
+ggplot() + 
+  facet_grid(. ~ clusters, labeller = labeller(clusters = chain_assumption_labs)) + 
+  geom_violin(
+    data = data_to_plot %>% filter(range == "Re decrease"),
+    aes(x = period, y = value),
+    scale="width",
+    fill = "grey",
+    alpha = 0.5) + 
+  geom_text(
+    data = data_labels %>% filter(range == "Re decrease"),
+    aes(
+      x = period, y = 0, 
+      label = paste("Inclusion\nprobability\n", signif(posterior_prob * 100, digits = 2), "%", sep = "")),
+    size = 2,
+    vjust = 0) + 
+  labs(x = element_blank(), y = "f") + 
+  shared_theme
+
+ggsave(
+  file = "figures/CT_all_data_effectSizes.pdf", 
+  width = single_col_width, 
+  height = single_col_width * 0.75, 
+  units = "cm")
+```

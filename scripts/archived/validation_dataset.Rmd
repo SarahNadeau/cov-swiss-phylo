@@ -145,8 +145,8 @@ exposure_locations_plot <- ggplot(
   coord_polar("y", start = 0) + 
   blank_theme + 
   geom_text(
-    aes(y = lab.ypos, x = 1.2, 
-    label = n_mkb_patients)) + 
+    aes(y = lab.ypos, x = jitter(rep(1, length = nrow(bag_exposure_locations)), factor = 10),
+    label = paste("n =", n_mkb_patients))) + 
   theme(legend.title = element_blank(), 
         axis.title.y = element_blank(),
         axis.text.x = element_blank())

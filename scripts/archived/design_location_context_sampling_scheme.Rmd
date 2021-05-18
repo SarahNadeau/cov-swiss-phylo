@@ -1,0 +1,80 @@
+---
+title: "Design travel context saturation sampling scheme"
+author: "Sarah Nadeau"
+date: "12/05/2021"
+output: html_document
+---
+
+This script is to see at the level of 1) country and 2) region how far I can increase desired sample numbers and still maintain and even distribution of actual number samples
+
+```{r, setup, include=False}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+```
+
+```{r}
+source("database/R/utility.R")
+source("utility_functions.R")
+require(dplyr)
+require(ggplot2)
+```
+
+```{r}
+# Set parameters of a typical grapevine analysis
+min_date <- "2020-01-01"
+max_date <- "2020-12-31"
+min_length <- 27000
+
+# Query for available location context sequences
+db_connection <- open_database_connection()
+qcd_gisaid_query <- dplyr::tbl(db_connection, "gisaid_sequence") %>%
+  filter(
+    date <= !! max_date,
+    date >= !! min_date,
+    length >= min_length,
+    host == 'Human',
+    nextclade_qc_snp_clusters_status == 'good',
+    nextclade_qc_private_mutations_status == 'good',
+    nextclade_qc_overall_status != 'bad')
+
+# Aggregate number sequences available by month and 1) country, 2) region
+available_location_context_by_country <- qcd_gisaid_query %>%
+    select(iso_country, date) %>%
+    mutate(month = date_trunc('month', date)) %>%
+    group_by(month, iso_country) %>%
+    summarize(n_seqs = n()) %>%
+    collect()
+
+available_location_context_by_region <- qcd_gisaid_query %>%
+    select(region, date) %>%
+    mutate(month = date_trunc('month', date)) %>%
+    group_by(month, region) %>%
+    summarize(n_seqs = n()) %>%
+    collect()
+
+available_location_context_to_plot <- rbind(
+    available_location_context_by_country %>% mutate(aggregation_level = "country"),
+    available_location_context_by_region %>% mutate(aggregation_level = "region"))
+
+print(head(available_location_context_to_plot))
+```
+
+```{r}
+# Plot distribution of sequences available per aggregation level
+ggplot(
+  data = available_location_context_to_plot %>%
+    mutate(
+      group = case_when(
+        n_seqs <= 100 ~ "<= 100 seqs", 
+        n_seqs <= 500 ~ "100 < seqs <= 500", 
+        T ~ "> 500 seqs"),
+      group = factor(group, levels = c("<= 100 seqs", "100 < seqs <= 500", "> 500 seqs"))),
+  aes(x = as.numeric(n_seqs))) +
+  geom_histogram(aes(fill = as.factor(month))) + 
+  facet_grid(aggregation_level ~ group, scales = "free")
+
+ggsave("~/Downloads/available_location_context.png")
+```
+Many countries have <100 seqs available from some months, all regions have at least 100 sequences each month beginning March 1st.
+Many regions have at least 500 samples as well. 
+

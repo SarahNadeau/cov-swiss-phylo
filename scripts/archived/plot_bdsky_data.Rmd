@@ -1,0 +1,91 @@
+---
+title: "Plot chain samples"
+author: "Sarah Nadeau"
+date: "15/04/2021"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+require(dplyr)
+require(ggplot2)
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+```{r}
+workdir <- "results_main"
+grapevine_results <- load_grapevine_results(
+  workdir = workdir, 
+  min_chain_size = 1,
+  viollier_only = F)
+```
+
+```{r}
+# Understand how many chains are pre/post-detection at various timepoints
+min_date <- as.Date("2020-02-15")
+max_date <- as.Date("2020-12-31")
+
+chain_data <- grapevine_results$samples %>%
+  group_by(chains_assumption, chain_idx) %>%
+  mutate(size = n()) %>%
+  ungroup() %>%
+  mutate(sample_date = date) %>%
+  tidyr::complete(
+    tidyr::nesting(chains_assumption, chain_idx),
+    date = seq.Date(from = min_date, to = max_date, by = "1 day")) %>%
+  group_by(chains_assumption, chain_idx) %>%
+  mutate(
+    size = unique(size[!is.na(size)]),
+    first_sample = min(sample_date, na.rm = T),
+    last_sample = max(sample_date, na.rm = T)) %>%
+  ungroup() %>%
+  select(chains_assumption, chain_idx, date, first_sample, last_sample, size) %>%
+  mutate(
+    chain_start = date == first_sample,
+    chain_ongoing = date > first_sample & date <= last_sample,
+    size_group = case_when(
+      size == 1 ~ "1",
+      size < 5 ~ "<5",
+      size < 15 ~ "<15",
+      size >= 15 ~ ">=15"
+    ),
+    size_group = factor(
+      size_group,
+      levels = c("1", "<5", "<15", ">=15")
+    ))
+ 
+chain_data_summary <- chain_data %>%
+  group_by(date, chains_assumption, size_group) %>%
+  summarize(
+    n_new = sum(chain_start),
+    n_ongoing = sum(chain_ongoing)) %>%
+  tidyr::pivot_longer(
+    cols = c("n_new", "n_ongoing"),
+    names_to = "chain_type",
+    values_to = "n_chains",
+    names_prefix = "n_")
+
+p <- ggplot(
+  data = chain_data_summary,
+  aes(x = date, y = n_chains)) + 
+  geom_col() + 
+  facet_grid(
+    chain_type ~ chains_assumption + size_group, 
+    scales = "free_y",
+    labeller = "label_both") + 
+  geom_vline(xintercept = as.Date("2020-06-15"), linetype = "dashed") + 
+  geom_vline(xintercept = as.Date("2020-09-30"), linetype = "dashed")
+show(p)
+ggsave(
+  plot = p,
+  file = "results_main/output/bdsky_data.png",
+  width = 15, height = 5
+)
+```

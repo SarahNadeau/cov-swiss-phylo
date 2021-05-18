@@ -1,5 +1,5 @@
 ---
-title: "Fig. S1"
+title: "Chain descriptions"
 output: pdf_document
 ---
 
@@ -100,7 +100,11 @@ ggsave(
   height = 0.5 * single_col_width,
   units = "cm"
 )
+```
 
+Fit power-law distribution to chain sizes
+
+```{r}
 # Plot lineages of at least size vs. size like in Louis' paper
 chain_size_dist_data <- chain_summary_stats %>%
     group_by(chains_assumption, size) %>%
@@ -192,17 +196,62 @@ pretty_p <- p +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 
 show(pretty_p)
-```
 
-Save plot
-
-```{r}
 ggsave(
   plot = pretty_p,
-  file = paste("figures", "fig_S1_chain_longevity.png", sep = "/"),
+  file = paste(outdir, "chain_size_dist.png", sep = "/"),
   width = single_col_width,
   height = single_col_width,
   units = "cm"
 )
 ```
 
+Write out stats for paper
+
+```{r}
+n_chains_min <- nrow(chain_summary_stats %>%
+  filter(chains_assumption == "min"))
+cat("\\newcommand\\nchainsmin{", n_chains_min, "}\n", sep = "")
+
+n_chains_max <- nrow(chain_summary_stats %>%
+  filter(chains_assumption == "max"))
+cat("\\newcommand\\nchainsmax{", n_chains_max, "}\n", sep = "")
+
+largest_chains_percent_min <- chain_summary_stats %>%
+  ungroup() %>%
+  filter(chains_assumption == "min") %>%
+  arrange(desc(size)) %>%
+  mutate(
+    cum_size = cumsum(size),
+    total_samples = sum(size),
+    cum_per_total = cum_size / total_samples)
+largest_chains_percent_min <- round(largest_chains_percent_min[[10, "cum_per_total"]] * 100)
+cat("\\newcommand\\minlargestchainsper{", largest_chains_percent_min, "}\n", sep = "")
+
+largest_chains_percent_max <- chain_summary_stats %>%
+  ungroup() %>%
+  filter(chains_assumption == "max") %>%
+  arrange(desc(size)) %>%
+  mutate(
+    cum_size = cumsum(size),
+    total_samples = sum(size),
+    cum_per_total = cum_size / total_samples)
+largest_chains_percent_max <- round(largest_chains_percent_max[[10, "cum_per_total"]] * 100)
+cat("\\newcommand\\maxlargestchainsper{", largest_chains_percent_max, "}\n", sep = "")
+
+n_spanning_chains_min <- unlist(chain_longevity_stats %>%
+  filter(chains_assumption == "min", 
+         first_sample_month == "Mar. 2020", 
+         date == "2020-12-01") %>%
+  ungroup() %>%
+  select(n_chains))
+cat("\\newcommand\\nspanningchainsmin{", n_spanning_chains_min, "}\n", sep = "")
+
+n_spanning_chains_max <- unlist(chain_longevity_stats %>%
+  filter(chains_assumption == "max", 
+         first_sample_month == "Mar. 2020", 
+         date == "2020-12-01") %>%
+  ungroup() %>%
+  select(n_chains))
+cat("\\newcommand\\nspanningchainsmax{", n_spanning_chains_max, "}\n", sep = "")
+```

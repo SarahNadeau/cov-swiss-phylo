@@ -1,7 +1,7 @@
 #!/bin/bash
 
 MAX_DATE=2020-12-31
-WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_main
+WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/jan-dec_-01_max_sampling_0_travel_2_sim_context
 CURRENT_DIR=`pwd`
 cd /Users/nadeaus/Repos/grapevine
 
@@ -9,9 +9,13 @@ Rscript generate_figures/generate_figures.R \
 --maxdate $MAX_DATE \
 --workdir $WORKDIR
 
-# Rscript analyze_clusters/get_bdsky_alignments.R \
-# --maxdate 2020-11-30 \
-# --workdir $WORKDIR
+Rscript analyze_clusters/get_bdsky_alignments.R \
+--maxdate 2020-11-30 \
+--workdir $WORKDIR
+
+Rscript analyze_clusters/get_date_to_week_for_bdsky.R \
+--outdir $WORKDIR/output/transmission_chain_alignments \
+--maxdate 2020-11-30
 
 cd $CURRENT_DIR
 

@@ -1,11 +1,12 @@
 ---
-title: "Accuracy check"
+title: "Generate accuracy statistics for normal run"
 author: "Sarah Nadeau"
-date: "08/04/2021"
+date: "21/04/2021"
 output: html_document
 ---
 
 Accuracy: check how much the deviations from the prior match known exposure locations.
+Normal run: without preference for samples with known BAG- or GISAID-recorded exposure location.
 
 ```{r, setup, include=False}
 knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/grapevine")
@@ -23,144 +24,9 @@ source("utility_functions.R")
 db_connection = open_database_connection()
 ```
 
-# Preference for including sequences with recorded GISAID or BAG-exposure locations
-
-## Copy data to local
-```{bash}
-WORKDIR=accuracy_validation 
-
-mkdir -p /Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-
-scp nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/*.log \
-/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-
-rsync -a --relative \
-nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./output/* \
-/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-
-rsync -a --relative \
-nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.csv \
-/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-
-rsync -a --relative \
-nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.txt \
-/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-
-rsync -a --relative \
-nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.nex \
-/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-
-rsync -a --relative \
-nadeaus@euler.ethz.ch:/cluster/scratch/nadeaus/grapevine/$WORKDIR/./tmp/*/*.png \
-/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/$WORKDIR
-```
-
-## Re-run with different chain-picking parameters
-```{bash, echo=F}
-cd ~/Repos/grapevine
-WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation
-
-TMP_ALIGNMENTS=$WORKDIR/tmp/alignments
-TMP_LSD=$WORKDIR/tmp/lsd
-TMP_CHAINS=$WORKDIR/tmp/chains_m_1_p_1
-TMP_ASR=$WORKDIR/tmp/asr_m_1_p_1
-
-mkdir -p $TMP_CHAINS
-mkdir -p $TMP_ASR
-
-MAX_NONFOCAL_SUBCLADES=1
-MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES=1
-
-# Pick chains
-for TREEFILE in $TMP_LSD/*.nex; do
-    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
-    Rscript analyze_tree/pick_swiss_transmission_chains.R \
-        --tree $TREEFILE \
-        --metadata $TMP_ALIGNMENTS/${PREFIX}_metadata.csv \
-        --outdir $TMP_CHAINS \
-        --maxtotalsubclades $MAX_NONFOCAL_SUBCLADES \
-        --maxconsecutivesubclades $MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES \
-        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T \
-        --polytomiesareswiss \
-        --dontplot
-done
-
-for TREEFILE in $TMP_LSD/*.nex; do
-    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
-    Rscript analyze_tree/pick_swiss_transmission_chains.R \
-        --tree $TREEFILE \
-        --metadata $TMP_ALIGNMENTS/${PREFIX}_metadata.csv \
-        --outdir $TMP_CHAINS \
-        --maxtotalsubclades $MAX_NONFOCAL_SUBCLADES \
-        --maxconsecutivesubclades $MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES \
-        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F \
-        --dontplot
-done
-
-# Reconstruct ancestral locations
-for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
-    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
-    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
-        --tree $TREEFILE \
-        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
-        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T_chains.txt \
-        --outdir $TMP_ASR \
-        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T
-done
-
-for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
-    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
-    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
-        --tree $TREEFILE \
-        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
-        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F_chains.txt \
-        --outdir $TMP_ASR \
-        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F
-done
-```
-
-```{bash, echo=False}
-cd ~/Repos/grapevine
-WORKDIR=/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation
-
-TMP_ALIGNMENTS=$WORKDIR/tmp/alignments
-TMP_LSD=$WORKDIR/tmp/lsd
-TMP_CHAINS=$WORKDIR/tmp/chains_m_1_p_1
-TMP_ASR=$WORKDIR/tmp/asr_m_1_p_1
-
-mkdir -p $TMP_CHAINS
-mkdir -p $TMP_ASR
-
-MAX_NONFOCAL_SUBCLADES=1
-MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES=1
-
-for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
-    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
-    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
-        --tree $TREEFILE \
-        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
-        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T_chains.txt \
-        --outdir $TMP_ASR \
-        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_T 
-done
-
-for TREEFILE in $WORKDIR/tmp/lsd/*.nex ; do
-    PREFIX="$(basename "${TREEFILE}" | sed 's/.timetree.nex//g')"
-    Rscript analyze_tree/reconstruct_ancestral_locations_weighted_parsimony.R \
-        --tree $TREEFILE \
-        --metadata $WORKDIR/tmp/alignments/${PREFIX}_metadata.csv \
-        --chains $TMP_CHAINS/${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F_chains.txt \
-        --outdir $TMP_ASR \
-        --prefix ${PREFIX}_m_${MAX_NONFOCAL_SUBCLADES}_p_${MAX_CONSECUTIVE_BUDDING_NONFOCAL_SUBCLADES}_s_F
-done
-```
-
 ## Load results into R
 ```{r}
-workdir <- paste(
-  "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation",
-  "accuracy_validation",
-  sep = "/")
+workdir <- "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_main"
 grapevine_results <- load_grapevine_results(workdir = workdir)
 bag_exposures <- get_bag_exposures(db_connection = db_connection)
 metadata <- load_sample_metadata(workdir = workdir)
@@ -215,9 +81,9 @@ plot_tree <- function(
   tree_data_to_plot <- tree_data_with_asr %>% 
     mutate(
       node_annotation = "",
-      # node_annotation = case_when(
-      #   node %in% chains$ch_mrca ~ "Swiss MRCA",
-      #   T ~ as.character(node)),
+      node_annotation = case_when(
+        node %in% chains$ch_mrca ~ "Swiss MRCA",
+        T ~ as.character(node)),
       tip_type  = case_when(
         travel_context ~ "travel context",
         similarity_context ~ "genetic context",
@@ -247,12 +113,12 @@ plot_tree <- function(
       label = node_annotation)) +
     geom_tiplab(aes(
       label = iso_code_to_country_name(iso_country),
-      # label = case_when(
-      #   tip_type != "" ~ paste(iso_code_to_country_name(iso_country), tip_type, sep = ": "),
-      #   iso_country == 'CHE' & iso_country_exposure != 'CHE' ~ paste(
-      #     iso_code_to_country_name(iso_country), " (", 
-      #     iso_code_to_country_name(iso_country_exposure), ")", sep = ""),
-      #   T ~ iso_code_to_country_name(iso_country)),
+      label = case_when(
+        iso_country == 'CHE' & iso_country_exposure != 'CHE' ~ paste(
+          iso_code_to_country_name(iso_country), " (",
+          iso_code_to_country_name(iso_country_exposure), ")", sep = ""),
+        tip_type != "" ~ paste(iso_code_to_country_name(iso_country), tip_type, sep = ": "),
+        T ~ iso_code_to_country_name(iso_country)),
       color = iso_country),
       hjust = -0.1) +
     scale_color_manual(values = country_colors) +
@@ -277,17 +143,18 @@ plot_tree <- function(
 ```
 
 ## Plot validation examples
+# TODO: doesn't plot exposure location right
 ```{r}
-# trees_with_foreign_exposure <- samples_with_chain_origin %>% 
-#   filter(has_foreign_exposure) %>%
-#   select(chains_assumption, tree, foreign_mrca, strain, iso_country_exposure, ends_with("_loc_weight")) %>%
-#   group_by(chains_assumption, tree) %>%
-#   summarize(n_foreign_exposures = n()) %>%
-# filter(n_foreign_exposures < 5)   ### TEMPORARY!!!
+trees_with_foreign_exposure <- samples_with_chain_origin %>%
+  filter(has_foreign_exposure) %>%
+  select(chains_assumption, tree, foreign_mrca, strain, iso_country_exposure, ends_with("_loc_weight")) %>%
+  group_by(chains_assumption, tree) %>%
+  summarize(n_foreign_exposures = n()) %>%
+filter(n_foreign_exposures < 5)   ### TEMPORARY!!!
 
 # trees_to_plot <- trees_with_foreign_exposure
 trees_to_plot <- samples_with_chain_origin %>%
-  filter(tree == "B.1.36_m_1_p_1") %>%
+  filter(tree == "B.1.1.266_m_3_p_1") %>%
   group_by(tree, chains_assumption) %>%
   summarise(n_samples = n())
 
@@ -297,15 +164,18 @@ country_colors[["AUT"]] <- "blue"
 for (i in 1:nrow(trees_to_plot)) {
   chains_assumption <- trees_to_plot[[i, "chains_assumption"]]
   tree <- trees_to_plot[[i, "tree"]]
-  lineage <- gsub(x = tree, pattern = "_m_1_p_1", replacement = "")
+  lineage <- gsub(x = tree, pattern = "_m_3_p_1", replacement = "")
   
   chains_assumption_TF <- case_when(
     chains_assumption == "min" ~ "T",
     chains_assumption == "max" ~ "F")
   
-  tree_file <- paste(workdir, "/tmp/lsd/", lineage, ".timetree.nex", sep = "")
-  tree_data_with_asr_file <- paste(workdir, "/tmp/asr/", tree, "_s_", chains_assumption_TF, "_tree_data_with_asr.txt", sep = "")
-  chains_file <- paste(workdir, "/tmp/chains/", tree, "_s_", chains_assumption_TF, "_chains.txt", sep = "")
+  tree_file <- paste(
+    workdir, "/tmp/lsd/", lineage, ".timetree.nex", sep = "")
+  tree_data_with_asr_file <- paste(
+    workdir, "/tmp/asr/", tree, "_s_", chains_assumption_TF, "_tree_data_with_asr.txt", sep = "")
+  chains_file <- paste(
+    workdir, "/tmp/chains/", tree, "_s_", chains_assumption_TF, "_chains.txt", sep = "")
   
   loaded_tree <- treeio::read.beast(file = tree_file)
   loaded_tree_data_with_asr <- read.delim(file = tree_data_with_asr_file, stringsAsFactors = F) 
@@ -329,7 +199,7 @@ for (i in 1:nrow(trees_to_plot)) {
     tree_data_with_asr = merge_tree_data_with_asr, 
     chains = loaded_chains, 
     country_colors = country_colors, 
-    outdir = "/Users/nadeaus/Documents/Presentations/21_04_14_TPH_science_behind_covid19/figures", 
+    outdir = NULL, 
     prefix = paste(chains_assumption, lineage, sep = "_")
   )
 }
@@ -367,7 +237,7 @@ p <- ggplot(
 
 ggsave(
   plot = p,
-  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation/accuracy_for_validation_samples_110.png",
+  file = paste(workdir, "output", "accuracy_for_validation_samples.png", sep = "/"),
   width = 5,
   height = 3, 
   units = "in")
@@ -411,7 +281,7 @@ p <- ggplot(
 
 ggsave(
   plot = p,
-  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/accuracy_validation/posterior_to_prior_for_validation_samples_110_max.png",
+  file = paste(workdir, "output", "posterior_to_prior_for_validation_samples_max.png", sep = "/"),
   width = 4, 
   height = 3, units = "in"
 )
@@ -461,12 +331,6 @@ validation_results_3 %>%
   group_by(chains_assumption, incongruent_foreign_exposures) %>%
   summarize(n_chains = n(), frac_chains = n() / n_chains_total[1])
 ```
-
-Under max chains assumption, <1% (7 / 750 chains) have incongruent foreign exposure data (> 1 unique foreign exposure location in the chain).
-
-Under min chains assumption, this increases to ~5% (14 / 260 chains).
-
-Therefore, accuracy results indicate max chains assumption is more realistic for getting the number of introductions right and the origin of introductions right.
 
 Are the exposure samples typically among the first sampled in the chain?
 ```{r}

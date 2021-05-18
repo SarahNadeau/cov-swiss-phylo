@@ -1,0 +1,168 @@
+---
+title: "Compare samples per week with different downsampling schemes"
+author: "Sarah Nadeau"
+date: "19/04/2021"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/grapevine")
+```
+
+```{r, include=FALSE}
+require(dplyr)
+require(ggplot2)
+source("database/R/utility.R")
+source("utility_functions.R")
+```
+
+```{r}
+db_connection <- open_database_connection("server")
+max_date <- "2020-12-31"
+min_date <- "2020-01-01"
+min_length <- 27000
+max_sampling_frac <- 0.01
+```
+
+Set up function to downsample swiss sequences
+
+```{r}
+qcd_gisaid_query <- dplyr::tbl(db_connection, "gisaid_sequence") %>%
+  filter(
+    date <= !! max_date,
+    date >= !! min_date, 
+    length >= min_length,
+    host == 'Human', 
+    nextclade_qc_snp_clusters_status == 'good', 
+    nextclade_qc_private_mutations_status == 'good', 
+    nextclade_qc_overall_status != 'bad')
+
+get_swiss_sequences <- function(
+  qcd_gisaid_query, db_connection, max_sampling_frac, favor_exposures, verbose = F
+)  {
+  qcd_gisaid_query_filtered <- downsample_swiss_sequences(
+    qcd_gisaid_query = qcd_gisaid_query,
+    db_connection = db_connection,
+    max_sampling_frac = max_sampling_frac,
+    favor_exposures = F,
+    verbose = verbose) 
+  
+  swiss_sequences <- qcd_gisaid_query_filtered %>%
+    filter(iso_country == 'CHE') %>%
+    select(date, strain, division) %>%
+    mutate(week = date_trunc('week', date)) %>%
+    collect()
+  return(swiss_sequences)
+} 
+
+cases <- dplyr::tbl(db_connection, "ext_owid_global_cases") %>%
+  filter(iso_country == "CHE") %>%
+  select(date, new_cases) %>%
+  collect() %>%
+  arrange(date) %>%
+  mutate(weekly_sum = zoo::rollsum(new_cases, k = 7, fill = NA))
+
+week_to_date <- data.frame(
+  date = seq.Date(
+    from = as.Date(min_date), 
+    to = as.Date(max_date),
+    by = "day")) %>% 
+  mutate(
+    week = lubridate::week(date)) %>%
+  group_by(week) %>%
+  arrange(date) %>%
+  mutate(idx = 1:n()) %>%
+  top_n(n = 1, wt = -idx) %>%
+  rename(week_start = date)
+
+date_to_week <- data.frame(
+  date = seq.Date(
+    from = as.Date(min_date), 
+    to = as.Date(max_date),
+    by = "day")) %>% 
+  mutate(
+    week = lubridate::week(date))
+
+date_to_week <- merge(
+  x = date_to_week,
+  y = week_to_date,
+  by = "week"
+)
+date_to_week$week_start <- format(date_to_week$week_start, "%Y-%m-%d")
+date_to_week$date <- format(date_to_week$date, "%Y-%m-%d")
+
+get_date_from_week <- function(week_to_date, week) {
+  return(unlist(week_to_date %>% filter(week == week) %>% select(date)))
+}
+get_week_start_from_date <- function(date_to_week, date) {
+  week_start <- date_to_week[date_to_week$date == date, "week_start"]
+  return(week_start)
+}
+
+plot_sequences <- function(
+  sequences, week_start
+) {
+  sequences$week_start <- unlist(lapply(
+    X = as.Date(sequences$date),
+    date_to_week = date_to_week,
+    FUN = get_week_start_from_date
+  ))
+  p <- ggplot(
+    data = sequences,
+    aes(x = as.Date(week_start, format = "%Y-%m-%d"))) +
+    geom_bar() + 
+    geom_line(
+      data = cases,
+      aes(x = as.Date(date, format = "%Y-%m-%d"), y = weekly_sum * max_sampling_frac),
+      color = "red") + 
+    scale_x_date(
+      limits = c(as.Date(min_date), as.Date(max_date)),
+      date_breaks = "1 month",
+      date_labels = "%b. %y") + 
+    labs(x = "'lubridate' week", y = "Weekly number cases")
+  p2 <- ggplot(
+    data = sequences,
+    aes(x = as.Date(week, format = "%Y-%m-%d"))) + 
+    geom_bar() + 
+    geom_line(
+      data = cases,
+      aes(x = as.Date(date, format = "%Y-%m-%d"), y = weekly_sum * max_sampling_frac),
+      color = "red") + 
+    scale_x_date(
+      limits = c(as.Date(min_date), as.Date(max_date)),
+      date_breaks = "1 month",
+      date_labels = "%b. %y") + 
+    labs(x = "'date_trunc' week", y = "Weekly number cases")
+  return(list(p, p2))
+}
+```
+
+Downsample sequences
+
+```{r}
+seqs_prev <- get_swiss_sequences(
+  qcd_gisaid_query = qcd_gisaid_query,
+  db_connection = db_connection,
+  max_sampling_frac = max_sampling_frac,
+  favor_exposures = F)
+```
+
+# Plot sequences w/ different week starts
+Seems to make a big difference - argues for aligning sampling weeks between 
+alignment generation and analysis
+
+```{r}
+plots <- plot_sequences(sequences = seqs_prev, week_start = NA)
+
+p <- gridExtra::grid.arrange(
+  plots[[1]],
+  plots[[2]],
+  nrow = 2
+)
+
+ggsave(
+  plot = p,
+  file = "~/Downloads/sampling_interval_comparison.png"
+)
+```

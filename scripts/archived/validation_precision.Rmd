@@ -19,6 +19,7 @@ require(ggtree)
 source("generate_figures/functions.R")
 source("database/R/utility.R")
 source("utility_functions.R")
+source("../cov-swiss-phylogenetics/scripts/figures_shared_vars.R")
 db_connection = open_database_connection()
 ```
 
@@ -179,11 +180,154 @@ ggsave(
 )
 ```
 
+# Plot precision final
+Plot only travel context sequences used and results from max chains (Smallest plausible) because this 
+definition appears to match the validation data the best (see accuracy validation).
 ```{r}
+# Load and merge data
+# Count each origin once per unique chain descending, use date of Swiss MRCA
+origins_per_chain_100 <- merge(
+    x = grapevine_results_100$origins,
+    y = grapevine_results_100$chains,
+    by = c("tree",  "chains_assumption", "foreign_mrca", "foreign_tmrca", "foreign_tmrca_CI"),
+    all = T)
+origins_data_per_chain_ch_mrca_100 <- get_origin_prior_vs_posterior_data(
+    workdir = workdir_100,
+    origins_representative = origins_per_chain_100,
+    posterior_date = "ch_tmrca")
+origins_per_chain_111 <- merge(
+    x = grapevine_results_111$origins,
+    y = grapevine_results_111$chains,
+    by = c("tree",  "chains_assumption", "foreign_mrca", "foreign_tmrca", "foreign_tmrca_CI"),
+    all = T)
+origins_data_per_chain_ch_mrca_111 <- get_origin_prior_vs_posterior_data(
+    workdir = workdir_111,
+    origins_representative = origins_per_chain_111,
+    posterior_date = "ch_tmrca")
 
+origins_data_per_chain_ch_mrca_combined <- rbind(
+  origins_data_per_chain_ch_mrca_100 %>% mutate(travel_context_weights = "100"),
+  origins_data_per_chain_ch_mrca_111 %>% mutate(travel_context_weights = "111")
+)
+
+# Massage data for plot
+origins_data_to_plot <- origins_data_per_chain_ch_mrca_combined %>%
+  filter(
+    est_type %in% c("prior_sequences_used", "posterior"),
+    (is.na(chains_assumption) | chains_assumption == "max")) %>%
+  mutate(
+    origin_to_plot = case_when(
+      iso_country %in% origins_to_color ~ iso_country,
+      T ~ "OTHER")) %>%
+  tidyr::unite(
+    col = "group", origin_to_plot, n_inds_type, remove = F) %>% 
+  group_by(
+    date, origin_to_plot, group, travel_context_weights, n_inds_type) %>%
+  summarize(n_inds = sum(n_inds)) 
+
+origins_data_to_plot$travel_context_weights <- factor(
+  x = origins_data_to_plot$travel_context_weights,
+  levels = c(
+    "111",
+    "100"),
+  labels = c(
+    "Location context set 1",
+    "Location context set 2"))
+origins_data_to_plot$n_inds_type <- factor(
+  x = origins_data_to_plot$n_inds_type,
+  levels = c(
+    "n_seqs",
+    "sum_fractional_lineage_asr"),
+  labels = c(
+    "Number samples\nin location context set",
+    "Esimated number imports"))
+
+# Make plot
+plot <- ggplot(
+  data = origins_data_to_plot,
+  aes(x = as.Date(date), y = n_inds)) + 
+  facet_grid(
+    n_inds_type ~ travel_context_weights,
+    scales = "free",
+    switch = "y") + 
+  geom_area(
+    aes(group = group, fill = as.factor(origin_to_plot)),
+    position = "stack") +  # 'fill' means height corresponds to percentage of all classifiable foreign mrcas in month
+  scale_fill_manual(
+    values = country_colors,
+    labels = iso_code_to_country_name,
+    name = "Origin country") +
+  labs(
+    x = element_blank(), y = element_blank()) + 
+  scale_x_date(date_labels = "%b. %Y", date_breaks = "1 month") + 
+  theme_bw() + 
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    strip.placement.y = "outside")
+
+plot
+
+ggsave(
+  plot = plot,
+  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/precision_validation/prior_weights_comparision_max_chains_ch_mrca_date.png",
+  width = double_col_width,
+  height = single_col_width, units = "cm")
 ```
 Conclusion: the phylogenetic signal is not so strong - the posteriors look much more
 similar to the priors than to one another).
+
+# Plot quarantine period onto precision plot
+```{r}
+# Load quarantine data
+travel_quarantine_by_country_month <- get_travel_quarantine_by_country_day(
+  db_connection = db_connection) %>% 
+  rename(iso_country = iso_code) %>%
+  mutate(month = format(date, "%Y-%m-01")) %>%
+  group_by(iso_country, month) %>%
+  summarize(percent_in_quarantine = sum(quarantine_order) / n()) %>%
+  rename(date = month, origin_to_plot = iso_country)
+
+origins_data_to_plot_w_quarantine <- merge(
+  x = origins_data_to_plot,
+  y = travel_quarantine_by_country_month,
+  all.x = T) %>%
+  mutate(percent_in_quarantine = replace_na(percent_in_quarantine, 0))
+
+# Make plot
+plot <- ggplot(
+  data = origins_data_to_plot_w_quarantine %>% 
+    filter(n_inds_type == "Esimated number imports"),
+  aes(x = as.Date(date), y = n_inds)) + 
+  facet_grid(
+    n_inds_type ~ travel_context_weights,
+    scales = "free",
+    switch = "y") + 
+  geom_col(
+    aes(group = group, fill = as.factor(origin_to_plot), alpha = percent_in_quarantine),
+    position = "stack") +  # 'fill' means height corresponds to percentage of all classifiable foreign mrcas in month
+  scale_alpha_continuous(
+    name = "Percent of month\ncountry is on quarantine list",
+    breaks = c(0, 0.5, 1)) + 
+  scale_fill_manual(
+    values = country_colors,
+    labels = iso_code_to_country_name,
+    name = "Origin country", 
+    guide = F) +
+  labs(
+    x = element_blank(), y = element_blank()) + 
+  scale_x_date(date_labels = "%b. %Y", date_breaks = "1 month") + 
+  theme_bw() + 
+  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+    strip.placement.y = "outside",
+    legend.box = "horizontal")
+
+ggsave(
+  plot = plot,
+  file = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/validation/precision_validation/prior_weights_comparision_max_chains_ch_mrca_date_with_quarantine.png",
+  width = double_col_width,
+  height = single_col_width * 0.65, units = "cm")
+```
 
 # Table differences bewteen prior and posterior for both travel context sets
 ```{r}
