@@ -183,3 +183,6 @@ ggsave(
 )
 ```
 
+Why is there such a big chain in the 2:1 ratio trees?
+A: this comes from the B.1.177 tree, where all the genetically similar context are a huge block of UK sequences.
+Previously, the travel context sequences broke up the swiss portion of the tree. See FigTree screenshots in OneNote notes from 18.05.21.

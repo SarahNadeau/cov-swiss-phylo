@@ -1,7 +1,7 @@
 .idea
 .Rhistory
 .DS_Store
-results_main/
-results_all/
+results_main
+results_all
 data/
 notes.txt
