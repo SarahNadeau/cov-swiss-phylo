@@ -9,12 +9,12 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 ```
 
 ```{r, include=FALSE}
+require(dplyr)
+require(ggplot2)
 source("../grapevine/database/R/utility.R")
 source("../grapevine/utility_functions.R")
 source("../grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
-require(dplyr)
-require(ggplot2)
 ```
 
 Load data
@@ -209,13 +209,14 @@ ggsave(
 Write out stats for paper
 
 ```{r}
+con <- file("manuscript/chain_summary_variables.tex", open = "w")
 n_chains_min <- nrow(chain_summary_stats %>%
   filter(chains_assumption == "min"))
-cat("\\newcommand\\nchainsmin{", n_chains_min, "}\n", sep = "")
+writeLines(text = paste0("\\newcommand\\nchainsmin{", n_chains_min, "}"), con = con)
 
 n_chains_max <- nrow(chain_summary_stats %>%
   filter(chains_assumption == "max"))
-cat("\\newcommand\\nchainsmax{", n_chains_max, "}\n", sep = "")
+writeLines(text = paste0("\\newcommand\\nchainsmax{", n_chains_max, "}"), con = con)
 
 largest_chains_percent_min <- chain_summary_stats %>%
   ungroup() %>%
@@ -226,7 +227,7 @@ largest_chains_percent_min <- chain_summary_stats %>%
     total_samples = sum(size),
     cum_per_total = cum_size / total_samples)
 largest_chains_percent_min <- round(largest_chains_percent_min[[10, "cum_per_total"]] * 100)
-cat("\\newcommand\\minlargestchainsper{", largest_chains_percent_min, "}\n", sep = "")
+writeLines(text = paste0("\\newcommand\\minlargestchainsper{", largest_chains_percent_min, "}"), con = con)
 
 largest_chains_percent_max <- chain_summary_stats %>%
   ungroup() %>%
@@ -237,7 +238,7 @@ largest_chains_percent_max <- chain_summary_stats %>%
     total_samples = sum(size),
     cum_per_total = cum_size / total_samples)
 largest_chains_percent_max <- round(largest_chains_percent_max[[10, "cum_per_total"]] * 100)
-cat("\\newcommand\\maxlargestchainsper{", largest_chains_percent_max, "}\n", sep = "")
+writeLines(text = paste0("\\newcommand\\maxlargestchainsper{", largest_chains_percent_max, "}"), con = con)
 
 n_spanning_chains_min <- unlist(chain_longevity_stats %>%
   filter(chains_assumption == "min", 
@@ -245,7 +246,7 @@ n_spanning_chains_min <- unlist(chain_longevity_stats %>%
          date == "2020-12-01") %>%
   ungroup() %>%
   select(n_chains))
-cat("\\newcommand\\nspanningchainsmin{", n_spanning_chains_min, "}\n", sep = "")
+writeLines(text = paste0("\\newcommand\\nspanningchainsmin{", n_spanning_chains_min, "}"), con = con)
 
 n_spanning_chains_max <- unlist(chain_longevity_stats %>%
   filter(chains_assumption == "max", 
@@ -253,5 +254,6 @@ n_spanning_chains_max <- unlist(chain_longevity_stats %>%
          date == "2020-12-01") %>%
   ungroup() %>%
   select(n_chains))
-cat("\\newcommand\\nspanningchainsmax{", n_spanning_chains_max, "}\n", sep = "")
+writeLines(text = paste0("\\newcommand\\nspanningchainsmax{", n_spanning_chains_max, "}"), con = con)
+close(con)
 ```
