@@ -7,7 +7,8 @@ cd /Users/nadeaus/Repos/grapevine
 
 Rscript generate_figures/generate_figures.R \
 --maxdate $MAX_DATE \
---workdir $WORKDIR
+--workdir $WORKDIR \
+--maxsamplingfrac 0.05
 
 Rscript analyze_clusters/get_bdsky_alignments.R \
 --maxdate 2020-11-30 \
