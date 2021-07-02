@@ -1,0 +1,3 @@
+[submodule "bdsky/swiss_chains"]
+	path = bdsky/swiss_chains
+	url = https://cevo-git.ethz.ch/tgvaughan/swiss_chains.git
