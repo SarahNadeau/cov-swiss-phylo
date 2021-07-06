@@ -275,6 +275,8 @@ chain_longevity_stats_tmp <- chain_longevity_stats %>%
   mutate(
     first_sample_month = as.Date(first_sample_month),
     date = as.Date(date)) %>%
+  tidyr::complete(first_sample_month, date) %>%
+  filter(date >= first_sample_month) %>%
   tidyr::pivot_wider(names_from = chains_assumption, names_prefix = "chains_assumption_", values_from = n_chains) %>%
   mutate(
     chains_assumption_max = tidyr::replace_na(chains_assumption_max, 0),
@@ -286,7 +288,7 @@ chain_longevity_stats_tmp <- chain_longevity_stats %>%
 p <- ggplot(
   data = chain_longevity_stats_tmp,
   aes(x = date, y = first_sample_month)) + 
-  geom_raster(aes(fill = log10(mean_n_chains))) + 
+  geom_raster(aes(fill = case_when(mean_n_chains == 0 ~ -0.5, T ~ log10(mean_n_chains)))) + 
   geom_text(aes(label = n_chains_range), lineheight = .7, hjust = 0.5, vjust = 0.5) + 
   scale_y_date(date_breaks = "1 month", date_labels = "%b", expand = c(0,0)) + 
   scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0,0)) + 
