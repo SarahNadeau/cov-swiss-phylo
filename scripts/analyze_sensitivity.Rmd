@@ -25,15 +25,15 @@ source("scripts/figures_shared_vars.R")
 
 ```{r}
 load_results <- function(
-  prefix = "results_all/jan-dec_-01_max_sampling_0_travel_",
-  suffix = "_sim_context",
-  reps = c("", "1", "2"),
+  prefix = "results_all/2021-07-05_for_supplement_sim_",
+  suffix = "_rep_",
+  reps = c("1", "2", "3"),
   values = c("1", "2", "3")
 ) {
   results <- list()
   for (value in values) {
     for (rep in reps) {
-      fp <- paste(prefix, value, suffix, case_when(rep == "" ~ rep, T ~ paste("_rep_", rep, sep = "")), sep = "")
+      fp <- paste(prefix, value, suffix, rep, sep = "")
       print(paste("Loading results in", fp))
       if (dir.exists(fp)) {
         res_desc <- paste(value, "x_rep", case_when(rep == "" ~ "0", T ~ rep), sep = "")
@@ -48,6 +48,93 @@ load_results <- function(
 }
 
 results <- load_results()
+```
+
+# Add main analysis run
+
+```{r}
+fp <- "results_main"
+print(paste("Loading results in", fp))
+if (dir.exists(fp)) {
+  res_desc <- "2x_repMain analysis"
+  results_temp <- load_grapevine_results(workdir = fp)
+  results[[res_desc]] <- results_temp
+} else {
+  warning(paste("Directory", fp, "does not exist."))
+}
+```
+
+# Load runtime info
+
+```{r}
+prefix <- "2021-06-02_for_supplement_sim_"
+run_info <- read.csv(file = "results_all/run_info.csv")
+relevant_run_info <- run_info %>%
+  mutate(tmp = gsub(pattern = prefix, x = run_name, replacement = "")) %>%
+  tidyr::separate(col = tmp, into = c("sim_context", "rep"), sep = "_rep_") %>%
+  filter(metric == "CPU time") %>%
+  select(value, sim_context, rep) %>%
+  rename("runtime_sec" = value) %>%
+  mutate(runtime_sec = as.numeric(runtime_sec),
+         runtime_hr = runtime_sec / 60^2)
+```
+
+# Compare number of introductions across down-sampling of Swiss sequences
+
+```{r}
+max_sampling_frac <- 0.05
+subsample_fractions <- seq(from = 0.01, to = 0.05, by = 0.01)
+n_reps <- 50
+n_focal_sequences <- nrow(
+  results$`2x_repMain analysis`$samples %>%
+    filter(chains_assumption == "min"))
+n_seqs_to_keep <- round(subsample_fractions * n_focal_sequences / max_sampling_frac)
+full_samples <- results$`2x_repMain analysis`$samples
+
+for (i in 1:length(subsample_fractions)) {
+  for (j in 1:n_reps) {
+    n_seqs <- n_seqs_to_keep[i]
+    subsample <- full_samples %>% sample_n(size = n_seqs, replace = F)
+    size_dist <- subsample %>% 
+      group_by(chains_assumption, chain_idx) %>%
+      summarize(size = n(), .groups = "drop")
+    subsample_results_tmp <- size_dist %>%
+      group_by(chains_assumption) %>%
+      summarize(n_singletons = sum(size == 1),
+                n_chains = sum(size > 1),
+                .groups = "drop") %>%
+      mutate(subsample = subsample_fractions[i],
+             n_focal_seqs = n_seqs,
+             rep = j)
+    if (i == 1) {
+      subsample_results <- subsample_results_tmp
+    } else {
+      subsample_results <- rbind(subsample_results, subsample_results_tmp)
+    }
+  }
+}
+
+# Plot # introductions with increasing # focal sequences
+p <- ggplot(
+  data = subsample_results,
+  aes(x = paste0(subsample, "%;\nn=", n_focal_seqs))) + 
+  geom_boxplot(aes(y = n_singletons, color = "Singletons")) +
+  geom_boxplot(aes(y = n_chains, color = "Chains")) + 
+  geom_boxplot(aes(y = n_chains + n_singletons, color = "Introductions")) + 
+  labs(x = "Sub-sampling intensity", y = "Count") + 
+  scale_color_discrete(name = "Value") + 
+  facet_grid(. ~ chains_assumption, labeller = as_labeller(chain_assumption_labs)) + 
+  shared_theme + 
+  scale_y_continuous(limits = c(0, NA))
+
+show(p)
+
+ggsave(
+  filename = "figures/fig_SX_sensitivity_subsampling.png",
+  width = double_col_width,
+  height = single_col_width * 0.75, 
+  units = "cm"
+)
 ```
 
 # Compare transmission chain summary statistics across context set sizes, chains assumption
@@ -67,7 +154,7 @@ for (i in 1:length(results)) {
 
 to_plot <- chains_all %>%
   tidyr::separate(res_desc, into = c("sim_context", "rep"), sep = "x_rep") %>%
-  mutate(sim_context = as.numeric(sim_context), rep = as.numeric(rep)) %>%
+  mutate(sim_context = as.numeric(sim_context)) %>%
   group_by(sim_context, rep, chains_assumption) %>%
   summarize(
     mean_size = mean(size),
@@ -78,19 +165,18 @@ to_plot <- chains_all %>%
 
 to_plot_w_runtime <- merge(
   x = to_plot,
-  y = data.frame(
-    sim_context = c(rep(1, 3), rep(2, 3), rep(3, 3)),
-    rep = c(rep(0:2, 3)),
-    runtime_sec = c(13009, 10835, 11214, 11612, 11666, 11282, 20983, 26932, 27302)))  # collated from Euler job finished emails, see data/runtimes.pdf
+  y = relevant_run_info,
+  all.x = T)  # collated from Euler job finished emails, see results_all/run_info.csv
 
+n_chain_scale_factor <- 200
 ggplot(
   data = to_plot_w_runtime,
   aes(x = sim_context, shape = as.character(rep))) + 
   geom_point(aes(y = mean_size, color = "Mean chain size")) + 
   geom_point(aes(y = median_size, color = "Median chain size")) + 
-  geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) + 
-  geom_point(aes(y = runtime_sec / 60^2, color = "Runtime (hours)")) + 
-  # geom_point(aes(y = number_trees / 5, color = "Number lineage trees / 5")) + 
+  geom_point(aes(y = number_chains / n_chain_scale_factor, color = paste("Number chains /", n_chain_scale_factor))) + 
+  geom_point(aes(y = runtime_hr, color = "Runtime (hours)")) + 
+  # geom_point(aes(y = number_trees / 5, color = "Number lineage trees / 5")) +
   facet_grid(. ~ chains_assumption, labeller = as_labeller(chain_assumption_labs)) + 
   shared_theme + 
   scale_shape(name = "Replicate") + 
@@ -110,17 +196,18 @@ ggsave(
 
 ```{r}
 load_alternative_chains <- function(
-  prefix = "results_all/jan-dec_-01_max_sampling_0_travel_",
-  suffix = "_sim_context",
-  reps = c("", "1", "2"),
+  prefix = "results_all/2021-07-05_for_supplement_sim_",
+  suffix = "_rep_",
+  reps = c("1", "2", "3"),
   values = c("2")
 ) {
   is_first <- T
   for (value in values) {
     for (rep in reps) {
-      fp <- paste(prefix, value, suffix, case_when(rep == "" ~ rep, T ~ paste("_rep_", rep, sep = "")), sep = "")
+      fp <- paste(prefix, value, suffix, rep, sep = "")
       print(paste("Loading alternative chain results in", fp))
       chain_dirs <- list.files(path = paste(fp, "tmp", sep = "/"), pattern = "chains_m")
+      print(chain_dirs)
       for (dir in chain_dirs) {
         chains_temp <- rbind(
           load_chain_asr_data(s = T, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "min"),
@@ -154,6 +241,7 @@ to_plot_2 <- alternative_chains_all %>%
   summarize(
     mean_size = mean(size),
     median_size = median(size),
+    max_size = max(size),
     number_chains = n(),
     number_trees = length(unique(tree)),
     .groups = "drop")
@@ -161,7 +249,8 @@ to_plot_2 <- alternative_chains_all %>%
 ggplot(
   data = to_plot_2,
   aes(x = m, shape = as.character(rep))) + 
-  geom_point(aes(y = mean_size, color = "Mean chain size")) + 
+  geom_point(aes(y = mean_size, color = "Mean chain size")) +
+  # geom_point(aes(y = max_size, color = "Largest chain")) +
   geom_point(aes(y = median_size, color = "Median chain size")) + 
   geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) + 
   facet_grid(
@@ -182,7 +271,3 @@ ggsave(
   units = "cm"
 )
 ```
-
-Why is there such a big chain in the 2:1 ratio trees?
-A: this comes from the B.1.177 tree, where all the genetically similar context are a huge block of UK sequences.
-Previously, the travel context sequences broke up the swiss portion of the tree. See FigTree screenshots in OneNote notes from 18.05.21.

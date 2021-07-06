@@ -1,0 +1,93 @@
+---
+title: "Sample descriptions"
+author: "Sarah Nadeau"
+date: "6/4/2021"
+output: pdf_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+require(dplyr)
+require(ggplot2)
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+Load data
+
+```{r}
+workdir <- "results_main"
+outdir <- paste(workdir, "output", sep = "/")
+outdir <- "figures"
+grapevine_results <- load_grapevine_results(
+  workdir = workdir, 
+  min_chain_size = 1,
+  viollier_only = F)
+samples <- grapevine_results$samples
+metadata <- load_sample_metadata(workdir = "results_main")
+swiss_downsampling <- read.csv(file = "results_main/tmp/alignments/swiss_downsampling_data.csv")
+```
+
+Summarize data
+
+```{r}
+sample_summary <- metadata %>%
+  tidyr::pivot_longer(
+    cols = c(travel_context, similarity_context, focal_sequence),
+    names_to = "sequence_set",
+    values_to = "in_sequence_set") %>%
+  group_by(sequence_set) %>%
+  summarize(
+    n_samples = sum(in_sequence_set),
+    n_swiss_samples = sum(in_sequence_set & iso_country == "CHE"))
+
+swiss_downsampling_summary <- swiss_downsampling %>%
+  group_by(week) %>%
+  summarize(
+    n_samples = sum(n_to_sample),
+    n_cases = sum(n_conf_cases)) %>%
+  mutate(empirical_sampling_proportion = n_samples / n_cases)
+```
+
+Write out stats for paper
+
+```{r}
+con <- file("manuscript/sample_summary_variables.tex", open = "w")
+
+n_focal_sequences <- unlist(
+  sample_summary %>% 
+    filter(sequence_set == "focal_sequence") %>% 
+    select(n_samples))
+writeLines(text = paste0("\\newcommand\\nfocalsamples{", n_focal_sequences, "}"), con = con)
+
+n_similarity_context_sequences <- unlist(
+  sample_summary %>% 
+    filter(sequence_set == "similarity_context") %>% 
+    select(n_samples))
+writeLines(text = paste0("\\newcommand\\nsimcontext{", n_similarity_context_sequences, "}"), con = con)
+
+n_travel_context_sequences <- unlist(
+  sample_summary %>% 
+    filter(sequence_set == "travel_context") %>% 
+    select(n_samples))
+writeLines(text = paste0("\\newcommand\\ntravelcontext{", n_travel_context_sequences, "}"), con = con)
+
+mean_weekly_sampling_per <- signif(mean(swiss_downsampling_summary$empirical_sampling_proportion) * 100, 2)
+writeLines(text = paste0("\\newcommand\\meanweeklysamplingpercent{", mean_weekly_sampling_per, "}"), con = con)
+
+min_weekly_sampling_per <- signif(min(swiss_downsampling_summary$empirical_sampling_proportion) * 100, 2)
+writeLines(text = paste0("\\newcommand\\minweeklysamplingpercent{", min_weekly_sampling_per, "}"), con = con)
+
+max_weekly_sampling_per <- signif(max(swiss_downsampling_summary$empirical_sampling_proportion) * 100, 2)
+writeLines(text = paste0("\\newcommand\\maxweeklysamplingpercent{", max_weekly_sampling_per, "}"), con = con)
+
+overall_sampling_per <- signif(sum(swiss_downsampling$n_to_sample) / sum(swiss_downsampling$n_conf_cases) * 100, 2)
+writeLines(text = paste0("\\newcommand\\overallsamplingpercent{", overall_sampling_per, "}"), con = con)
+close(con)
+```

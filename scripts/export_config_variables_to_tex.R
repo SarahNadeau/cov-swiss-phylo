@@ -3,6 +3,8 @@
 # Created by: nadeaus
 # Created on: 02.06.21
 
+setwd("~/Repos/cov-swiss-phylogenetics")
+
 # Write out run configuration parameters
 CONFIG <- "results_main/input/grapevine_config.yaml"
 config <- yaml::read_yaml(file = CONFIG)
