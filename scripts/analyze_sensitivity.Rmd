@@ -24,8 +24,10 @@ source("scripts/figures_shared_vars.R")
 # Load data
 
 ```{r}
+date <- "2021-07-05"
+
 load_results <- function(
-  prefix = "results_all/2021-07-05_for_supplement_sim_",
+  prefix = paste0("results_all/", date, "_for_supplement_sim_"),
   suffix = "_rep_",
   reps = c("1", "2", "3"),
   values = c("1", "2", "3")
@@ -67,8 +69,9 @@ if (dir.exists(fp)) {
 # Load runtime info
 
 ```{r}
-prefix <- "2021-06-02_for_supplement_sim_"
+prefix <- paste0(date, "_for_supplement_sim_")
 run_info <- read.csv(file = "results_all/run_info.csv")
+sim_context_to_replace <- paste0(date, "_for_manuscript")
 relevant_run_info <- run_info %>%
   mutate(tmp = gsub(pattern = prefix, x = run_name, replacement = "")) %>%
   tidyr::separate(col = tmp, into = c("sim_context", "rep"), sep = "_rep_") %>%
@@ -77,6 +80,10 @@ relevant_run_info <- run_info %>%
   rename("runtime_sec" = value) %>%
   mutate(runtime_sec = as.numeric(runtime_sec),
          runtime_hr = runtime_sec / 60^2)
+
+# Annotate main analysis
+relevant_run_info[relevant_run_info$sim_context == sim_context_to_replace, "rep"] <- "Main analysis"
+relevant_run_info[relevant_run_info$sim_context == sim_context_to_replace, "sim_context"] <- 2
 ```
 
 # Compare number of introductions across down-sampling of Swiss sequences

@@ -13,6 +13,7 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 ```{r, include=FALSE}
 require(dplyr)
 require(ggplot2)
+require(xtable)
 source("../grapevine/database/R/utility.R")
 source("../grapevine/utility_functions.R")
 source("../grapevine/generate_figures/functions.R")
@@ -32,6 +33,44 @@ grapevine_results <- load_grapevine_results(
 samples <- grapevine_results$samples
 metadata <- load_sample_metadata(workdir = "results_main")
 swiss_downsampling <- read.csv(file = "results_main/tmp/alignments/swiss_downsampling_data.csv")
+```
+
+Load pangolin lineage table & format for supplement
+
+```{r}
+lineages_data <- read.csv("results_main/tmp/alignments/pangolin_lineages_aggregated.csv")
+analyzed_lineages <- metadata %>%
+  group_by(tree_pangolin_lineage) %>%
+  summarize(
+    n_focal_samples = sum(iso_country == "CHE"),
+    n_context_samples = sum(iso_country != "CHE"))
+lineage_data_summary <- merge(
+  x = analyzed_lineages,
+  y = lineages_data %>% select(pangolin_lineage, lineages_aggregated, n_lineages_aggregated, is_swiss_FALSE, is_swiss_TRUE),
+  by.x = "tree_pangolin_lineage", by.y = "pangolin_lineage",
+  all.x = T) %>%
+  mutate("% lineage Swiss" = signif(is_swiss_TRUE * 100 / (is_swiss_TRUE + is_swiss_FALSE), digits = 2)) %>%
+  select(tree_pangolin_lineage, n_focal_samples, lineages_aggregated, `% lineage Swiss`) %>%
+  arrange(desc(n_focal_samples)) %>%
+  rename(
+    "Lineage analyzed" = tree_pangolin_lineage,
+    "Lineages aggregated" = lineages_aggregated,
+    "No. Swiss samples analyzed" = n_focal_samples)
+
+x_lineage_data_summary <- xtable(
+  x = lineage_data_summary,
+  caption = "Summary of Pango lineages analyzed. A separate phylogeny was constructed for each set of analyzed lineages.",
+  label = "tab:lineage-data-summary",
+  align = "llcp{4cm}c")
+print(
+  x = x_lineage_data_summary,
+  type = "latex",
+  file = "figures/lineage_data_summary.tex",
+  floating = F,
+  tabular.environment="longtable")
+write.csv(
+  x = lineage_data_summary, 
+  file = "figures/lineage_data_summary.csv")
 ```
 
 Summarize data
