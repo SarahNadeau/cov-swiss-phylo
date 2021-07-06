@@ -35,6 +35,12 @@ metadata <- load_sample_metadata(workdir = "results_main")
 swiss_downsampling <- read.csv(file = "results_main/tmp/alignments/swiss_downsampling_data.csv")
 ```
 
+Copy swiss downsampling figure for supplement
+
+```{r}
+system(command = paste0("cp ", workdir, "/tmp/alignments/swiss_downsampling.png ", "figures"))
+```
+
 Load pangolin lineage table & format for supplement
 
 ```{r}
