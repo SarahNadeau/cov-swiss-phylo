@@ -25,9 +25,6 @@
 \input{manuscript/sample_summary_variables}
 
 \templatetype{pnasresearcharticle} % Choose template 
-% {pnasresearcharticle} = Template for a two-column research article
-% {pnasmathematics} %= Template for a one-column mathematics article
-% {pnasinvited} %= Template for a PNAS invited submission
 
 \title{SARS-CoV-2 Genome surveillance in Switzerland: Can we quantify the effects of policy?}
 
@@ -99,7 +96,7 @@ Based on our phylogenetic analysis, we show the dynamics of virus introductions 
 
 \subsection{Introductions composing the Swiss epidemic}
 
-We analyzed \nfocalsamples\ SARS-CoV-2 genomes collected in Switzerland, representing the Swiss epidemic from the first detected case on 25. Feb. through 31. Dec. 2020 \ref{fig:downsampling_representativeness}. We estimate these samples came from between \nchainsmin\ and \nchainsmax\ independent introductions into Switzerland. The resulting Swiss transmission chains are roughly power law-distributed in size, with the 10 largest chains accounting for \maxlargestchainsper\ to \minlargestchainsper \% of genome samples \ref{fig:chain-size-dist}. From a down-sampling analysis, we see that we do not reach saturation - if we were to include more genomes, we would likely identify more introductions \ref{fig:sensitivity_downsampling}. 
+We analyzed \nfocalsamples\ SARS-CoV-2 genomes collected in Switzerland, representing the Swiss epidemic from the first detected case on 25. Feb. through 31. Dec. 2020 \ref{fig:downsampling_representativeness}. We estimate these samples came from between \nchainsmin\ and \nchainsmax\ independent introductions into Switzerland. The resulting Swiss transmission chains are roughly power law-distributed in size, with the 10 largest chains accounting for \maxlargestchainsper\ to \minlargestchainsper \% of genome samples \ref{fig:chain_size_dist}. From a down-sampling analysis, we see that we do not reach saturation - if we were to include more genomes, we would likely identify more introductions \ref{fig:sensitivity_downsampling}. 
 
 % section on geographic distribution of chains
 
@@ -109,7 +106,7 @@ We analyzed \nfocalsamples\ SARS-CoV-2 genomes collected in Switzerland, represe
 % Similar to Louis, I see chain sizes as power-law distributed, with a change in scale factor at ~ chain size 50. 
 % The scaling factors I estimate are higher than his though (~1.2 for <= 50 and ~1.4 for >50). So, our Swiss chain sizes decay more sharply (fewer larger chains) than his UK chains.
 
-\subsection{Temporal dynamics of introductions}
+\subsection{Resulting Swiss transmission chains}
 We show the number and longevity of transmission chains by the month they were fist sampled in \ref{fig:chain-longevity}. From \ref{fig:chain-longevity} we see that the number and longevity of transmission chains is affected by phylogenetic uncertainty. A small number of transmission chains - between \nspanningchainsmax\ and \nspanningchainsmin\ - appear to have persisted in Switzerland from the start of the epidemic in Mar. 2020 until the end of the sampling period in Dec. 2020. Fewer new transmission chains were sampled in the months following the partial closure of Swiss borders bewteen 25. Mar. and 14. Jun. 2020. 
 \begin{figure}[tbhp]
 \centering
@@ -118,7 +115,7 @@ We show the number and longevity of transmission chains by the month they were f
 \label{fig:chain-longevity}
 \end{figure}
 
-\subsection{Temporal dynamics of local spread}
+\subsection{Time-varying transmission dynamics within Switzerland}
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=.8\linewidth]{figures/Re_noSampUB.pdf}
@@ -126,7 +123,7 @@ We show the number and longevity of transmission chains by the month they were f
 \label{fig:scale-factor}
 \end{figure}
 
-\subsection{Testing for a contact tracing effect on local spread}
+\subsection{Testing for slowed transmission upon transmission chain detection}
 
 \begin{figure}[tbhp]
 \centering
@@ -147,6 +144,22 @@ We show the number and longevity of transmission chains by the month they were f
 % \end{itemize}
 
 \section{Discussion}
+\begin{itemize}
+    \item Estimates on introductions and transmission chains are sensitive to phylogenetic uncertainty
+    \begin{itemize}
+        \item TODO: How does this compare to other studies?
+        \item Recommend caution in trying to show who-infected-who when transmission timescale faster than mutational timescale
+    \end{itemize}
+    \item We treat the time-varying sampling proportion as a fitting parameter
+    \begin{itemize}
+        \item 
+    \end{itemize}
+    \item Contact tracing at the national level isn't as effective for new introductions.
+    \begin{itemize}
+        \item We find robust signal for decrease in transmission after chain detection in Summer 2020 compared to Spring 2020. Fall 2020 inference is not robust to phylogenetic uncertainty. 
+        \item This slow correlates with the approximate start to contact tracing efforts, but an alternate explanation could be that sampled transmission chains originate in early super-spreading events.
+    \end{itemize}
+\end{itemize}
 % MAJOR QUESTION: was the summer epidemic growing in size due to travel (ie import of strains which seeded local transmission chains)?
 % Contact tracing factor could also be catching superspreading events that found transmission chains
 
