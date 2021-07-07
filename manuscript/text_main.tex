@@ -1,6 +1,21 @@
 \documentclass[9pt,twocolumn,twoside,lineno]{pnas-new}
 % Use the lineno option to display guide line numbers if required.
 
+\makeatletter
+\newcommand*{\addFileDependency}[1]{% argument=file name and extension
+  \typeout{(#1)}
+  \@addtofilelist{#1}
+  \IfFileExists{#1}{}{\typeout{No file #1.}}
+}
+\makeatother
+\newcommand*{\myexternaldocument}[1]{%
+    \externaldocument{#1}%
+    \addFileDependency{#1.tex}%
+    \addFileDependency{#1.aux}%
+}
+\usepackage{xr}
+\myexternaldocument{manuscript/text_supporting}
+
 \usepackage{todonotes}
 \usepackage{biblatex}
 \addbibresource{references}
@@ -84,7 +99,7 @@ Based on our phylogenetic analysis, we show the dynamics of virus introductions 
 
 \subsection{Introductions composing the Swiss epidemic}
 
-We analyzed \nfocalsamples\ SARS-CoV-2 genomes collected in Switzerland, representing the Swiss epidemic from the first detected case on 25. Feb. through 31. Dec. 2020. We estimate these samples came from between \nchainsmin\ and \nchainsmax\ independent introductions into Switzerland. The resulting Swiss transmission chains are roughly power law-distributed in size, with the 10 largest chains accounting for \maxlargestchainsper\ to \minlargestchainsper \% of genome samples \ref{fig:chain-size-dist}. From a down-sampling analysis, we see that we do not reach saturation - if we were to include more genomes, we would likely identify more introductions \ref{fig:sensitivity_downsampling}. 
+We analyzed \nfocalsamples\ SARS-CoV-2 genomes collected in Switzerland, representing the Swiss epidemic from the first detected case on 25. Feb. through 31. Dec. 2020 \ref{fig:downsampling_representativeness}. We estimate these samples came from between \nchainsmin\ and \nchainsmax\ independent introductions into Switzerland. The resulting Swiss transmission chains are roughly power law-distributed in size, with the 10 largest chains accounting for \maxlargestchainsper\ to \minlargestchainsper \% of genome samples \ref{fig:chain-size-dist}. From a down-sampling analysis, we see that we do not reach saturation - if we were to include more genomes, we would likely identify more introductions \ref{fig:sensitivity_downsampling}. 
 
 % section on geographic distribution of chains
 
