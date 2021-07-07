@@ -259,13 +259,13 @@ pretty_p <- p +
 
 show(pretty_p)
 
-ggsave(
-  plot = pretty_p,
-  file = paste(outdir, "chain_size_dist.png", sep = "/"),
-  width = single_col_width,
-  height = single_col_width,
-  units = "cm"
-)
+# ggsave(
+#   plot = pretty_p,
+#   file = paste(outdir, "chain_size_dist.png", sep = "/"),
+#   width = single_col_width,
+#   height = single_col_width,
+#   units = "cm"
+# )
 ```
 
 Plot chain longevity differently
