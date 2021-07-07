@@ -1,3 +1,5 @@
+$dvipdf = 'dvipdfmx %O -o %D %S';
+
 add_cus_dep( 'tex', 'aux', 0, 'makeexternaldocument' );
 
 sub makeexternaldocument {
