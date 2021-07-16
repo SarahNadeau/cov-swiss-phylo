@@ -11,6 +11,7 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 ```{r, include=FALSE}
 require(dplyr)
 require(ggplot2)
+require(xtable)
 source("../grapevine/database/R/utility.R")
 source("../grapevine/utility_functions.R")
 source("../grapevine/generate_figures/functions.R")
@@ -41,7 +42,8 @@ chain_summary_stats <- samples %>%
     first_sample_month = format(first_sample_date, "%Y-%m-01"),
     last_sample_month = format(last_sample_date, "%Y-%m-01"),
     size = n(),
-    .groups = "drop") 
+    .groups = "drop") %>%
+  mutate(time_to_last_sample = difftime(last_sample_date, first_sample_date, units = "days"))
 
 chain_longevity_stats <- chain_summary_stats %>%
   mutate(first_sample_month_2 = first_sample_month) %>%
@@ -64,6 +66,7 @@ Write out stats for paper
 
 ```{r}
 con <- file("manuscript/chain_summary_variables.tex", open = "w")
+
 n_chains_min <- nrow(chain_summary_stats %>%
   filter(chains_assumption == "min"))
 writeLines(text = paste0("\\newcommand\\nchainsmin{", n_chains_min, "}"), con = con)
@@ -94,21 +97,43 @@ largest_chains_percent_max <- chain_summary_stats %>%
 largest_chains_percent_max <- round(largest_chains_percent_max[[10, "cum_per_total"]] * 100)
 writeLines(text = paste0("\\newcommand\\maxlargestchainsper{", largest_chains_percent_max, "}"), con = con)
 
-n_spanning_chains_min <- unlist(chain_longevity_stats %>%
+tbl <- chain_longevity_stats %>%
   filter(chains_assumption == "min", 
-         first_sample_month == "Mar. 2020", 
-         date == "2020-12-01") %>%
+         first_sample_month == "2020-02-01", 
+         date == as.Date("2020-11-01")) %>%
   ungroup() %>%
-  select(n_chains))
-writeLines(text = paste0("\\newcommand\\nspanningchainsmin{", n_spanning_chains_min, "}"), con = con)
+  select(n_chains)
+n_spanning_chains_min <- ifelse(test = nrow(tbl) > 0, yes = unlist(tbl), no = 0)
+writeLines(text = paste0("\\newcommand\\nspanningchainsfebnovmin{", n_spanning_chains_min, "}"), con = con)
 
-n_spanning_chains_max <- unlist(chain_longevity_stats %>%
+tbl <- chain_longevity_stats %>%
   filter(chains_assumption == "max", 
-         first_sample_month == "Mar. 2020", 
-         date == "2020-12-01") %>%
+         first_sample_month == "2020-02-01", 
+         date == as.Date("2020-11-01")) %>%
   ungroup() %>%
-  select(n_chains))
-writeLines(text = paste0("\\newcommand\\nspanningchainsmax{", n_spanning_chains_max, "}"), con = con)
+  select(n_chains)
+n_spanning_chains_max <- ifelse(test = nrow(tbl) > 0, yes = unlist(tbl), no = 0)
+writeLines(text = paste0("\\newcommand\\nspanningchainsfebnovmax{", n_spanning_chains_max, "}"), con = con)
+
+ggplot(
+  data = chain_summary_stats,
+  aes(x = time_to_last_sample)) + 
+  geom_histogram() + 
+  facet_wrap(. ~ chains_assumption)
+
+time_to_last_sample_summary <- chain_summary_stats %>%
+  group_by(chains_assumption) %>%
+  summarize(
+    mean_time_to_last_sample = round(mean(time_to_last_sample)),
+    median_time_to_last_sample = median(time_to_last_sample))
+
+writeLines(text = paste0("\\newcommand\\meantimetolastsamplemax{", 
+                         time_to_last_sample_summary[time_to_last_sample_summary$chains_assumption == "max", "mean_time_to_last_sample"], 
+                         "}"), con = con)
+writeLines(text = paste0("\\newcommand\\meantimetolastsamplemin{", 
+                         time_to_last_sample_summary[time_to_last_sample_summary$chains_assumption == "min", "mean_time_to_last_sample"],
+                         "}"), con = con)
+
 close(con)
 ```
 
@@ -306,4 +331,106 @@ ggsave(
   units = "cm"
 )
 ```
+# Set up contingency table to evaluate whether lockdowns contained transmission chains 
+contingency table: is/is not lockdown vs. is/is not singleton transmission chain
+
+```{r}
+tmp <- grapevine_results$chains %>%
+  mutate(
+    is_singleton = case_when(size == 1 ~ "Singleton", T ~ "Transmission chain"),
+    is_lockdown = case_when(
+      ch_tmrca >= as.Date("2020-03-17") & ch_tmrca < as.Date("2020-04-27") ~ "MRCA during lockdown", 
+      T ~ "MRCA not during lockdown")) %>%
+  group_by(chains_assumption, is_singleton, is_lockdown) %>%
+  summarise(n_introductions = n(), .groups = "drop")
+
+max_chains_contingency_table <- tmp %>%
+  filter(chains_assumption == "max") %>%
+  tidyr::pivot_wider(
+    names_from = "is_singleton", 
+    values_from = "n_introductions") %>%
+  select(-chains_assumption)
+
+min_chains_contingency_table <- tmp %>%
+  filter(chains_assumption == "min") %>%
+  tidyr::pivot_wider(
+    names_from = "is_singleton", 
+    values_from = "n_introductions") %>%
+  select(-chains_assumption)
+```
+
+# Run Fischer's exact test
+H0: the odds ratio of an introduction generating a transmission chain > size 1
+during lockdown compared to outside of lockdown is 1
+H0: whether an introduction generates a transmission chain > size 1
+is independent of whether introduction occured during lockdown or not.
+
+```{r}
+print("Max chains contingency table:")
+max_fisher_test <- fisher.test(x = max_chains_contingency_table %>% select(-is_lockdown))
+print(max_fisher_test)
+
+print("Min chains contingency table:")
+min_fisher_test <- fisher.test(x = min_chains_contingency_table %>% select(-is_lockdown))
+print(min_fisher_test)
+
+# Format contingency tables nicely
+max_chains_contingency_table_with_marginals <- max_chains_contingency_table %>%
+  mutate(Total = Singleton + `Transmission chain`) %>%
+  bind_rows(summarise(.,
+                      across(where(is.numeric), sum),
+                      across(where(is.character), ~"Total")))
+
+min_chains_contingency_table_with_marginals <- min_chains_contingency_table %>%
+  mutate(Total = Singleton + `Transmission chain`) %>%
+  bind_rows(summarise(.,
+                      across(where(is.numeric), sum),
+                      across(where(is.character), ~"Total")))
+```
+
+Write out stats for paper
+
+```{r}
+con <- file("manuscript/chain_summary_variables.tex", open = "a")
+
+writeLines(text = paste0("\\newcommand\\maxfisherpval{", 
+                         signif(max_fisher_test$p.value, 2),
+                         "}"), con = con)
+writeLines(text = paste0("\\newcommand\\minfisherpval{", 
+                         signif(min_fisher_test$p.value, 2),
+                         "}"), con = con)
+
+close(con)
+
+colnames(max_chains_contingency_table_with_marginals)[1] <- "" 
+x_max_chains_contingency_table_with_marginals <- xtable(
+  x = max_chains_contingency_table_with_marginals,
+  caption = "Contingency table for singleton introductions and transmission chains by time period.",
+  label = "tab:max-chains-contingency",
+  align = "lcccc")
+print(
+  x = x_max_chains_contingency_table_with_marginals,
+  type = "latex",
+  file = "figures/max_chains_contingency.tex",
+  floating = F)
+write.csv(
+  x = max_chains_contingency_table_with_marginals, 
+  file = "figures/max_chains_contingency.csv")
+
+colnames(min_chains_contingency_table_with_marginals)[1] <- "" 
+x_min_chains_contingency_table_with_marginals <- xtable(
+  x = min_chains_contingency_table_with_marginals,
+  caption = "Contingency table for singleton introductions and transmission chains by time period.",
+  label = "tab:min-chains-contingency",
+  align = "lcccc")
+print(
+  x = x_min_chains_contingency_table_with_marginals,
+  type = "latex",
+  file = "figures/min_chains_contingency.tex",
+  floating = F)
+write.csv(
+  x = min_chains_contingency_table_with_marginals, 
+  file = "figures/min_chains_contingency.csv")
+```
+
 
