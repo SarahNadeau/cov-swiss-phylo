@@ -64,6 +64,13 @@ After deciding on a ratio of foreign to Swiss sequences, we investigated the sen
 
 \begin{figure}
 \centering
+\includegraphics[width = 11.4cm]{figures/Samp_noSampUB.png}
+\caption{Estimated sampling proportion from Bayesian phylodynamic analysis.}  
+\label{fig:chain_size_dist}
+\end{figure}
+
+\begin{figure}
+\centering
 \includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_subsampling.png}
 \caption{Number of estimated introductions as a function of the fraction of Swiss confirmed cases analyzed.}  
 \label{fig:sensitivity_downsampling}
@@ -83,18 +90,27 @@ After deciding on a ratio of foreign to Swiss sequences, we investigated the sen
 \label{fig:sensitivity_m_p}
 \end{figure}
 
+\begin{table}%[tbhp]
+\centering
+\caption{Sampling proportion change-points in the Bayesian phylodynamic analysis.}
+\begin{tabular}{lp{6cm}rr}
+Start date & Description & Reference & TODO: Estimated sampling proportion \\
+\midrule
+ & Epidemic start & $-$ & 0.1 \\
+23. Apr 2020 & All symptomatic individuals can get tested &  & 0.03 \\
+25. Jun 2020 & Government pays for tests for symptomatic individuals & \cite{govt-pays-tests} & 0.08 \\
+14. Sept 2020 & Genome sampling $<<$ 5\% of confirmed cases & & 0.001 \\
+28. Sept 2020 & Number of tests conducted and \% positivity dramatically increase, genome sampling also increases & & 0.1 \\
+19. Oct 2020 & Genome sampling $<<$ 5\% of confirmed cases again & & 0.06 \\
+11. Nov 2020 & Genome sampling improves again & & 0.45 \\
+\bottomrule
+\end{tabular}
+% \newline
+% \addtabletext{}
+\end{table}
+
 \newpage
 \input{figures/lineage_data_summary}
-
-% \begin{tabular}{lrrr}
-% Species & CBS & CV & G3 \\
-% \midrule
-% 1. Acetaldehyde & 0.0 & 0.0 & 0.0 \\
-% 2. Vinyl alcohol & 9.1 & 9.6 & 13.5 \\
-% 3. Hydroxyethylidene & 50.8 & 51.2 & 54.0\\
-% \bottomrule
-% \end{tabular}
-% \end{table}
 
 % %%% Add this line AFTER all your figures and tables
 % \FloatBarrier
