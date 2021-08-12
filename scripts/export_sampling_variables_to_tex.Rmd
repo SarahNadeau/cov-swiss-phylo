@@ -32,13 +32,13 @@ grapevine_results <- load_grapevine_results(
   viollier_only = F)
 samples <- grapevine_results$samples
 metadata <- load_sample_metadata(workdir = "results_main")
-swiss_downsampling <- read.csv(file = "results_main/tmp/alignments/swiss_downsampling_data.csv")
+swiss_downsampling <- read.csv(file = "results_main/tmp/alignments/CHE_downsampling_data.csv")
 ```
 
 Copy swiss downsampling figure for supplement
 
 ```{r}
-system(command = paste0("cp ", workdir, "/tmp/alignments/swiss_downsampling.png ", "figures"))
+system(command = paste0("cp ", workdir, "/tmp/alignments/CHE_downsampling.png ", "figures"))
 ```
 
 Load pangolin lineage table & format for supplement
@@ -48,14 +48,14 @@ lineages_data <- read.csv("results_main/tmp/alignments/pangolin_lineages_aggrega
 analyzed_lineages <- metadata %>%
   group_by(tree_pangolin_lineage) %>%
   summarize(
-    n_focal_samples = sum(iso_country == "CHE"),
-    n_context_samples = sum(iso_country != "CHE"))
+    n_focal_samples = sum(country == "CHE"),
+    n_context_samples = sum(country != "CHE"))
 lineage_data_summary <- merge(
   x = analyzed_lineages,
-  y = lineages_data %>% select(pangolin_lineage, lineages_aggregated, n_lineages_aggregated, is_swiss_FALSE, is_swiss_TRUE),
+  y = lineages_data %>% select(pangolin_lineage, lineages_aggregated, n_lineages_aggregated, is_focal_FALSE, is_focal_TRUE),
   by.x = "tree_pangolin_lineage", by.y = "pangolin_lineage",
   all.x = T) %>%
-  mutate("% lineage Swiss" = signif(is_swiss_TRUE * 100 / (is_swiss_TRUE + is_swiss_FALSE), digits = 2)) %>%
+  mutate("% lineage Swiss" = signif(is_focal_TRUE * 100 / (is_focal_TRUE + is_focal_FALSE), digits = 2)) %>%
   select(tree_pangolin_lineage, n_focal_samples, lineages_aggregated, `% lineage Swiss`) %>%
   arrange(desc(n_focal_samples)) %>%
   rename(
@@ -90,7 +90,7 @@ sample_summary <- metadata %>%
   group_by(sequence_set) %>%
   summarize(
     n_samples = sum(in_sequence_set),
-    n_swiss_samples = sum(in_sequence_set & iso_country == "CHE"))
+    n_swiss_samples = sum(in_sequence_set & country == "CHE"))
 
 swiss_downsampling_summary <- swiss_downsampling %>%
   group_by(week) %>%

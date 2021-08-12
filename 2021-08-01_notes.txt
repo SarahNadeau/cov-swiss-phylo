@@ -1,0 +1,12 @@
+Original run with commit 61ab0b00 "update README, run notes".
+
+Got error at inferring ancestral locations step because of improperly interpreted escaped double-quotes in metadata file.
+Fixed the code, re-started the runs from the chain-picking step with commit 27bb38a "fixed metadata escaped double quotes with read_delim, re-started runs".
+
+Got an additional error at generating plots because ggarrange opens a graphics device that Euler can't handle.
+Fixed the code, re-started the runs from the figure-generating step with commit  46cfbaa "restore main.sh to do full run; eliminate call to ggarrange because this opens a graphics device on Euler that causes an error" (commit is after restoring main.sh to full run, but everything before figure generating was commented out).
+
+For the NZL run, noticed that down-sampling by confirmed cases was not actually active.
+Fixed the code by removing a hard-coded "CHE" in alignment filter and re-ran entire run with commit f5b7c50 "fix uncommented comment line:".
+
+Then, noticed that the confirmed case numbers were too high. This is because upon merging sequence counts with confirmed case counts, the confirmed case rows get repeated for every unique division in the sequencing count data. Fixed by aggregating non-Swiss sequence counts across divisions before merging. Re-ran entire run with commit  529cb7a "Fix that conf case counts were too high for non-CHE runs due to duplicate national conf cases across all gisaid divisions upon merge of seq and case count data".

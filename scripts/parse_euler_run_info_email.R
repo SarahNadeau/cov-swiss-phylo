@@ -14,5 +14,10 @@ run_info_clean <- as.data.frame(apply(
   whitespace = "[\\h\\v]")) %>%
   tidyr::separate(col = value, into = c("value", "unit"), sep = " ", fill = "right")
 
+run_info_clean <- run_info_clean %>%
+  mutate(value = as.numeric(value)) %>%
+  group_by(run_name, metric, unit) %>%
+  summarise(value = sum(value), .groups = "drop")
+
 write.csv(x = run_info_clean, file = OUTFILE, row.names = F)
   

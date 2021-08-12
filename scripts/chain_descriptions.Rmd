@@ -339,7 +339,7 @@ tmp <- grapevine_results$chains %>%
   mutate(
     is_singleton = case_when(size == 1 ~ "Singleton", T ~ "Transmission chain"),
     is_lockdown = case_when(
-      ch_tmrca >= as.Date("2020-03-17") & ch_tmrca < as.Date("2020-04-27") ~ "MRCA during lockdown", 
+      tmrca >= as.Date("2020-03-17") & tmrca < as.Date("2020-04-27") ~ "MRCA during lockdown",
       T ~ "MRCA not during lockdown")) %>%
   group_by(chains_assumption, is_singleton, is_lockdown) %>%
   summarise(n_introductions = n(), .groups = "drop")

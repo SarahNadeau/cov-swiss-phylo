@@ -8,6 +8,7 @@ output: html_document
 Note: I also tried running 5x and 10x size context sets, but Euler either timed out (5x) or ran out of memory (10x).
 
 ```{r, setup, include=FALSE}
+date <- "2021-08-10"
 knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 ```
@@ -24,8 +25,6 @@ source("scripts/figures_shared_vars.R")
 # Load data
 
 ```{r}
-date <- "2021-07-05"
-
 load_results <- function(
   prefix = paste0("results_all/", date, "_for_supplement_sim_"),
   suffix = "_rep_",
@@ -203,7 +202,7 @@ ggsave(
 
 ```{r}
 load_alternative_chains <- function(
-  prefix = "results_all/2021-07-05_for_supplement_sim_",
+  prefix = paste0("results_all/", date, "_for_supplement_sim_"),
   suffix = "_rep_",
   reps = c("1", "2", "3"),
   values = c("2")
@@ -217,8 +216,8 @@ load_alternative_chains <- function(
       print(chain_dirs)
       for (dir in chain_dirs) {
         chains_temp <- rbind(
-          load_chain_asr_data(s = T, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "min"),
-          load_chain_asr_data(s = F, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "max")) %>%
+          load_chain_asr_data(l = T, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "min"),
+          load_chain_asr_data(l = F, workdir = fp, chains_only = T, chains_dirname = dir) %>% mutate(chains_assumption = "max")) %>%
           mutate(chain_desc = dir, res_desc = paste(value, "x_rep", case_when(rep == "" ~ "0", T ~ rep), sep = ""))
         if (is_first) {
           alternative_chains_all <- chains_temp
@@ -255,11 +254,11 @@ to_plot_2 <- alternative_chains_all %>%
 
 ggplot(
   data = to_plot_2,
-  aes(x = m, shape = as.character(rep))) + 
+  aes(x = m, shape = as.character(rep))) +
   geom_point(aes(y = mean_size, color = "Mean chain size")) +
   # geom_point(aes(y = max_size, color = "Largest chain")) +
   geom_point(aes(y = median_size, color = "Median chain size")) + 
-  geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) + 
+  geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) +
   facet_grid(
     p ~ chains_assumption, 
     labeller = as_labeller(x = c("0" = "0", "1" = "1", "2" = "2", "3" = "3", "4" = "4", chain_assumption_labs))) + 
@@ -268,7 +267,7 @@ ggplot(
   scale_color_discrete(name = "Value") + 
   scale_y_continuous(sec.axis = dup_axis(
     name = "Maximum consecutive exports in transmission chain",
-    breaks = NULL, labels = NULL)) + 
+    breaks = NULL, labels = NULL)) +   # produces lots of warnings about min(x) and max(x) but the points/axes on the plot are not affected
   labs(x = "Maximum exported lineages in transmission chain", y = "Count")
 
 ggsave(
