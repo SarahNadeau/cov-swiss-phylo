@@ -3,6 +3,8 @@
 
 \templatetype{pnassupportinginfo}
 \usepackage{longtable}
+% \usepackage{biblatex}
+% \addbibresource{references.bib}
 
 \title{Your main manuscript title}
 \author{Author1, Author2 and Author3 (complete author list)}
@@ -66,7 +68,7 @@ After deciding on a ratio of foreign to Swiss sequences, we investigated the sen
 \centering
 \includegraphics[width = 11.4cm]{figures/Samp_noSampUB.png}
 \caption{Estimated sampling proportion from Bayesian phylodynamic analysis.}  
-\label{fig:chain_size_dist}
+\label{fig:samp-prop}
 \end{figure}
 
 \begin{figure}
@@ -90,6 +92,31 @@ After deciding on a ratio of foreign to Swiss sequences, we investigated the sen
 \label{fig:sensitivity_m_p}
 \end{figure}
 
+\newpage
+\begin{table}
+\caption{Phylodynamic models.}
+\label{tab:phylo-models}
+\begin{tabular}{cccccc}
+Data set & Polytomy resolution & Base model & Damping factor & Damping factor + 2-Deme & Damping factor + upper-bounded $s$ \\
+\midrule
+Swiss & Maximum introductions & Y & Y & Y & Y \\
+Swiss & Minimum introductions & Y & Y & Y & Y \\
+New Zealand & Maximum introductions & Y & Y & & \\
+New Zealand & Minimum introductions & Y & Y & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\newpage
+\begin{table}
+\caption{Contingency table for singleton introductions and transmission chains by time period for smallest (right) and largest (left) plausible introductions.}
+\input{figures/max_chains_contingency}
+\input{figures/min_chains_contingency}
+\label{tab:lockdown-contingency}
+\end{table}
+
+\newpage
 \begin{table}%[tbhp]
 \centering
 \caption{Sampling proportion change-points in the Bayesian phylodynamic analysis.}
@@ -98,7 +125,7 @@ Start date & Description & Reference & TODO: Estimated sampling proportion \\
 \midrule
  & Epidemic start & $-$ & 0.1 \\
 23. Apr 2020 & All symptomatic individuals can get tested &  & 0.03 \\
-25. Jun 2020 & Government pays for tests for symptomatic individuals & \cite{govt-pays-tests} & 0.08 \\
+25. Jun 2020 & Government pays for tests for symptomatic individuals &  & 0.08 \\
 14. Sept 2020 & Genome sampling $<<$ 5\% of confirmed cases & & 0.001 \\
 28. Sept 2020 & Number of tests conducted and \% positivity dramatically increase, genome sampling also increases & & 0.1 \\
 19. Oct 2020 & Genome sampling $<<$ 5\% of confirmed cases again & & 0.06 \\
@@ -125,6 +152,6 @@ Start date & Description & Reference & TODO: Estimated sampling proportion \\
 
 % \dataset{dataset_two.txt}{Type or paste legend here. Adding longer text to show what happens, to decide on alignment and/or indentations for multi-line or paragraph captions.}
 
-% \bibliography{pnas-sample}
+\bibliography{references}
 
 \end{document}
