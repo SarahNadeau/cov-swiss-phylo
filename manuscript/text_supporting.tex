@@ -38,6 +38,11 @@ We investigated the sensitivity of transmission chain summary statistics to diff
 \subsection{Transmission chain criteria}
 After deciding on a ratio of foreign to Swiss sequences, we investigated the sensitivity of transmission chain summary statistics to our criteria for picking transmission chains. Figure \ref{fig:sensitivity_m_p} shows that increasing the maximum number of exported lineages decreases the number of transmission chains and increases their size. Increasing the maximum consecutive exports has a much smaller effect. But again, these differences are smaller than those resulting from the different assumptions about how to resolve phylogenetic uncertainty (smallest vs. largest plausible chains). Therefore, we chose our criteria to be maximum 3 exported lineages and maximum one consecutive export to allow for some exports but not arbitrarily many. 
 
+\subsection{Upper-bounding sampling proportion}
+Genome-based estimates for the effective reproductive number in Switzerland are for the most part robust to the different transmission chain definitions and largely match estimates based on confirmed case counts (Figure \ref{fig:re}). One exception is in October 2020, when genome-based estimates are lower than confirmed case counts unless the sampling proportion is treated as a fitting parameter. A drop in genome diversity during this period might explain the discrepancy. 
+
+\subsection{Including a ``super-spreader'' deme}
+
 % \section*{Heading}
 % \subsection*{Subhead}
 % Type or paste text here. You may break this section up into subheads as needed (e.g., one section on ``Materials'' and one on ``Methods'').
@@ -52,8 +57,8 @@ After deciding on a ratio of foreign to Swiss sequences, we investigated the sen
 % %%% Each figure should be on its own page
 \begin{figure}
 \centering
-\includegraphics[width = 11.4cm]{figures/swiss_downsampling.png}
-\caption{Spatio-temporal representativeness of analyzed genome sequences. The mirror y-axis aims to contrast temporal trends in confirmed cases (red) versus analyzed sequences (blue); all values are positive counts. Facet titles are standard abbreviations for Swiss cantons. Case count reporting by canton began late Spring 2020, so 'NA' represents Swiss-wide cases and sequences.}  
+\includegraphics[width = 11.4cm]{figures/CHE_downsampling.png}
+\caption{Spatio-temporal representativeness of analyzed genome sequences. The mirror y-axis aims to contrast temporal trends in confirmed cases (red) versus analyzed sequences (blue); all values are positive counts. Facet titles are standard abbreviations for Swiss cantons. 'CHE' represents Swiss-wide cases and sequences, since case count reporting by canton began mid-May 2020.}  
 \label{fig:downsampling_representativeness}
 \end{figure}
 
@@ -66,16 +71,16 @@ After deciding on a ratio of foreign to Swiss sequences, we investigated the sen
 
 \begin{figure}
 \centering
-\includegraphics[width = 11.4cm]{figures/Samp_noSampUB.png}
-\caption{Estimated sampling proportion from Bayesian phylodynamic analysis.}  
-\label{fig:samp-prop}
+\includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_subsampling.png}
+\caption{Number of estimated introductions as a function of the fraction of Swiss confirmed cases analyzed.}  
+\label{fig:sensitivity_downsampling}
 \end{figure}
 
 \begin{figure}
 \centering
-\includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_subsampling.png}
-\caption{Number of estimated introductions as a function of the fraction of Swiss confirmed cases analyzed.}  
-\label{fig:sensitivity_downsampling}
+\includegraphics[width = 11.4cm]{figures/Samp_noSampUB.png}
+\caption{Estimated sampling proportion from Bayesian phylodynamic analysis.}  
+\label{fig:samp-prop}
 \end{figure}
 
 \begin{figure}
@@ -106,6 +111,13 @@ New Zealand & Minimum introductions & Y & Y & & \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\begin{figure}[tbhp]
+\centering
+\includegraphics[width=.8\linewidth]{figures/Re_noSampUB.pdf}
+\caption{Effective reproductive number estimated under the largest and smallest plausible introductions scenarios in analyses with and without a ``contact tracing'' scale factor.}  
+\label{fig:re}
+\end{figure}
 
 
 \newpage
