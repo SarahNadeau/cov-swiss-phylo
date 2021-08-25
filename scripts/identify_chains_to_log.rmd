@@ -1,0 +1,103 @@
+---
+title: "Identify chains to log"
+author: nadeaus
+date: 19.08.21
+output: html_notebook
+---
+
+
+```{r}
+date <- "2021-08-10"
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+```{r}
+require(dplyr)
+source("../grapevine/generate_figures/functions.R")
+```
+Hardcoded info
+```{r}
+workdir <- "results_main"
+viollier_only <- T
+```
+Load data
+```{r}
+outdir <- paste(workdir, "output", sep = "/")
+grapevine_results <- load_grapevine_results(
+  workdir = workdir,
+  min_chain_size = 1,
+  no_asr = T)
+samples <- grapevine_results$samples %>%
+  filter(date <= as.Date("2020-11-30"))  # get_bdsky_alignments filters to samples taken on or before this date
+
+# get_bdsky_alignments filters to only Viollier samples _after_ assigning chain_idx, so do the same here
+if (viollier_only) {
+  samples <- samples %>%
+      filter(originating_lab == "Viollier AG",
+             submitting_lab == "Department of Biosystems Science and Engineering, ETH Zürich")
+}
+```
+Identify chains to log
+```{r}
+chain_summary_stats <- samples %>%
+  group_by(tree, chains_assumption, chain_idx) %>%
+  summarize(
+    first_sample_date = min(date),
+    last_sample_date = max(date),
+    first_sample_month = format(first_sample_date, "%Y-%m-01"),
+    last_sample_month = format(last_sample_date, "%Y-%m-01"),
+    size = n(),
+    .groups = "drop") %>%
+  mutate(time_to_last_sample = difftime(last_sample_date, first_sample_date, units = "days"))
+
+# For each chain assumption and for each month, take the 50th, and 95th percentile largest chain?
+candidate_chains <- chain_summary_stats %>%
+  filter(size > 2) %>%
+  group_by(first_sample_month, chains_assumption) %>%
+  arrange(size, .by_group = T) %>%
+  mutate(size_quantile = 1:n() / n()) %>%
+  mutate(dist_to_50 = abs(0.50 - size_quantile)) %>%
+  mutate(dist_to_95 = abs(0.95 - size_quantile))
+
+selected_chains <- rbind(
+  candidate_chains %>%
+    group_by(first_sample_month, chains_assumption) %>%
+    arrange(dist_to_50, .by_group = T) %>%
+    slice(1, .preserve = T),
+  candidate_chains %>%
+    group_by(first_sample_month, chains_assumption) %>%
+    arrange(dist_to_95, .by_group = T) %>%
+    slice(1, .preserve = T))
+```
+Double-check chain sizes match chain sizes in BDSKY alignment files.
+```{r}
+max_chains_alignment <- ape::read.FASTA(
+  file = paste(workdir, "output/transmission_chain_alignments/max_chains.fasta", sep = "/"))
+min_chains_alignment <- ape::read.FASTA(
+  file = paste(workdir, "output/transmission_chain_alignments/min_chains.fasta", sep = "/"))
+
+alignment_chain_details <- rbind(
+  data.frame(header = names(max_chains_alignment)) %>%
+    tidyr::separate(col = header, into = c("strain", "gisaid_epi_isl", "date", "chain_idx"), sep = "\\|") %>%
+    mutate(chains_assumption = "max"),
+  data.frame(header = names(min_chains_alignment)) %>%
+    tidyr::separate(col = header, into = c("strain", "gisaid_epi_isl", "date", "chain_idx"), sep = "\\|") %>%
+    mutate(chains_assumption = "min"))
+
+alignment_chain_sizes <- alignment_chain_details %>%
+    group_by(chains_assumption, chain_idx) %>%
+    summarize(size = n(), .groups = "drop")
+
+comparison <- merge(
+  x = alignment_chain_sizes,
+  y = chain_summary_stats,
+  by = c("chain_idx", "chains_assumption"))
+
+if (any(comparison$size.x != comparison$size.y)) {
+  print(comparison %>% filter(`size.x` != `size.y`))
+  stop("Chain sizes don't match between alignment and chain summary data from metadata!")
+}
+```
+```{r}
+write.csv(x = selected_chains, file = paste(outdir, "chains_to_log.csv", sep = "/"))
+```
