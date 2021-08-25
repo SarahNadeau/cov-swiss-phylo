@@ -320,7 +320,7 @@ p <- ggplot(
   scale_fill_gradientn(colors = c("white", "red")) + 
   shared_theme + 
   theme(legend.position = "none") + 
-  labs(x = "Month of ongoing sampling", y = "Month of chain discovery")
+  labs(x = "Month of ongoing sampling", y = "Month of first sampling")
 show(p)
 
 ggsave(
