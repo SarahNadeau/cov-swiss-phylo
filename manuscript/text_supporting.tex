@@ -83,9 +83,8 @@ We checked whether our estimate of a transmission slow-down upon introduction sa
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/Re_CHE_1deme.pdf}
-% \caption{Effective reproductive number estimated under the largest and few introductions scenarios in analyses with and without a ``contact tracing'' scale factor.}  
 \vfill
-\includegraphics[width = \linewidth]{figures/bdsky_2021-08-18/sampProp_CHE_1deme.pdf}
+\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/sampProp_CHE_1deme.pdf}
 \caption{Phylodynamic estimates for the time-varying effective reproductive number (top) and sampling proportion (bottom) in Switzerland under the base model with a damping factor, with and without bounded sampling.}  
 \label{fig:1DemeCHResults}
 \end{figure}
@@ -93,57 +92,63 @@ We checked whether our estimate of a transmission slow-down upon introduction sa
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/Re_CHE_1deme.pdf}
-% \caption{Effective reproductive number estimated under the largest and few introductions scenarios in analyses with and without a ``contact tracing'' scale factor.}  
-\vfill
-\includegraphics[width = \linewidth]{figures/bdsky_2021-08-18/sampProp_CHE_1deme.pdf}
-\caption{Phylodynamic estimates for the time-varying effective reproductive number (top) and sampling proportion (bottom) in Switzerland under the base model with a damping factor, with and without bounded sampling.}  
-\label{fig:1DemeCHResults}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_CHE_1deme.pdf}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_CHE_1deme.pdf}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
+\caption{Phylodynamic estimates for the damping factor in Switzerland. Top is inclusion probability for the damping factor, bottom is dampling factor estimate conditioned on inclusion. Left are inferences under the base model and right are inferences under the base model with a SS (super-spreading) deme.}  
+\label{fig:1vs2demeDampingFactorResults}
 \end{figure}
-
 \newpage
-\begin{table}
-\caption{Various phylodynamic models employed for the main analysis and sensitivity checks. The ``Base model'' was used to generate the main text figures. Models with a ``Damping factor'' include a parameter representing a possible transmission slow-down upon sampling. Models with a ``SS deme'' include a second deme representing super-spreaders. Models with ``Bounded sampling'' have the sampling proportion restricted to be less than the number of genomes divided by the number of confirmed cases.}
+
+\begin{figure}[tbhp]
+\centering
+\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_NZL.pdf}
+\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_NZL.pdf}
+\caption{Phylodynamic estimates for the damping factor in New Zealand. Top is inclusion probability for the damping factor, bottom is dampling factor estimate conditioned on inclusion.}  
+\label{fig:1vs2demeDampingFactorResults}
+\end{figure}
+\newpage
+
+\begin{table}[H]
+\caption{Various phylodynamic models employed for the main analysis and sensitivity checks.}
 \label{tab:phylo-models}
 \begin{tabular}{cccccc}
-Data set & Polytomy resolution & Base model & Damping factor & Damping factor + SS Deme & Damping factor + Bounded sampling \\
+Data set & Polytomy resolution & Damping factor (contact\_tracing) & Damping factor + SS Deme & Damping factor + Sampling bound \\
 \midrule
-Swiss & Many introductions & Y & Y & Y & Y \\
-Swiss & Few introductions & Y & Y & Y & Y \\
-New Zealand & Many introductions & Y & Y & & \\
-New Zealand & Few introductions & Y & Y & & \\
+Swiss & Many introductions (max) & Y & Y & Y \\
+Swiss & Few introductions (min) & Y & Y & Y \\
+New Zealand & Many introductions (max) & Y & & \\
+New Zealand & Few introductions (min) & Y & & \\
+\bottomrule
+\end{tabular}
+\newline
+\addtabletext{Models with a ``Damping factor'' include a parameter representing a possible transmission slow-down upon sampling. Models with a ``SS deme'' include a second deme representing super-spreaders. Models with ``Sampling bound'' have the sampling proportion restricted to be less than the number of genomes divided by the number of confirmed cases.}
+\end{table}
+
+\newpage
+\begin{table}[H]
+\centering
+\caption{Sampling proportion change-points in the phylodynamic analyses.}
+\begin{tabular}{lp{6cm}rr}
+Start date & Description \\
+\midrule
+23. Apr 2020 & All symptomatic individuals can get tested \\
+25. Jun 2020 & Government pays for tests for symptomatic individuals \\
+14. Sept 2020 & Genome sampling $<<$ 5\% of confirmed cases \\
+28. Sept 2020 & Number of tests conducted and \% positivity dramatically increase, genome sampling also increases \\
+19. Oct 2020 & Genome sampling $<<$ 5\% of confirmed cases again \\
+11. Nov 2020 & Genome sampling improves again \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-
-
 \newpage
-\begin{table}
+\begin{table}[H]
 \caption{Contingency table for singleton introductions and transmission chains by time period assuming many (right) and few (left)  introductions.}
 \input{figures/max_chains_contingency}
 \input{figures/min_chains_contingency}
 \label{tab:lockdown-contingency}
-\end{table}
-
-\newpage
-\begin{table}%[tbhp]
-\centering
-\caption{Sampling proportion change-points in the Bayesian phylodynamic analysis.}
-\begin{tabular}{lp{6cm}rr}
-Start date & Description & Reference & TODO: Estimated sampling proportion \\
-\midrule
- & Epidemic start & $-$ & 0.1 \\
-23. Apr 2020 & All symptomatic individuals can get tested &  & 0.03 \\
-25. Jun 2020 & Government pays for tests for symptomatic individuals &  & 0.08 \\
-14. Sept 2020 & Genome sampling $<<$ 5\% of confirmed cases & & 0.001 \\
-28. Sept 2020 & Number of tests conducted and \% positivity dramatically increase, genome sampling also increases & & 0.1 \\
-19. Oct 2020 & Genome sampling $<<$ 5\% of confirmed cases again & & 0.06 \\
-11. Nov 2020 & Genome sampling improves again & & 0.45 \\
-\bottomrule
-\end{tabular}
-% \newline
-% \addtabletext{}
 \end{table}
 
 \newpage
