@@ -3,7 +3,7 @@
 % Transmission chains - degree of super-spreading (we don't currently address this)
 % Transmission chains - efficacy of contact tracing (observational and modelling studies give a range of values for efficacy, depending on implementation success. We get at CH implementation success, possibly compared to other countries, here.)
 
-\documentclass[9pt,twocolumn,twoside,lineno]{pnas-new}
+\documentclass[9pt,twoside,lineno]{pnas-new} % was: twocolumn
 % Use the lineno option to display guide line numbers if required.
 
 \makeatletter
@@ -12,18 +12,11 @@
   \@addtofilelist{#1}
   \IfFileExists{#1}{}{\typeout{No file #1.}}
 }
-\makeatother
-\newcommand*{\myexternaldocument}[1]{%
-    \externaldocument{#1}%
-    \addFileDependency{#1.tex}%
-    \addFileDependency{#1.aux}%
-}
-\usepackage{xr}
-\myexternaldocument{manuscript/text_supporting}
 
-\usepackage{todonotes}
-% \usepackage{biblatex}
-% \addbibresource{references.bib}
+\usepackage{xr}
+\addFileDependency{manuscript/text_supporting.tex}%
+\addFileDependency{manuscript/text_supporting.aux}%
+\externaldocument{manuscript/text_supporting}%
 
 \input{manuscript/config_variables}
 \input{manuscript/chain_summary_variables}
@@ -31,7 +24,7 @@
 
 \templatetype{pnasresearcharticle} % Choose template 
 
-\title{SARS-CoV-2 Genome surveillance in Switzerland: Can we quantify the effects of policy?}
+\title{Can we quantify the effects of public health measures on SARS-CoV-2 transmission in Switzerland?}
 
 % Use letters for affiliations, numbers to show equal authorship (if applicable) and to indicate the corresponding author
 \author[a,c,1]{Author One}
@@ -46,7 +39,7 @@
 \leadauthor{Lead author last name} 
 
 % Please add a significance statement to explain the relevance of your work
-\significancestatement{Authors must submit a 120-word maximum statement about the significance of their research paper written at a level understandable to an undergraduate educated scientist outside their field of speciality. The primary goal of the significance statement is to explain the relevance of the work in broad context to a broad readership. The significance statement appears in the paper itself and is required for all research papers.}
+% \significancestatement{Authors must submit a 120-word maximum statement about the significance of their research paper written at a level understandable to an undergraduate educated scientist outside their field of speciality. The primary goal of the significance statement is to explain the relevance of the work in broad context to a broad readership. The significance statement appears in the paper itself and is required for all research papers.}
 
 % Please include corresponding author, author contribution and author declaration information
 \authorcontributions{Please provide details of author contributions here.}
@@ -59,7 +52,7 @@
 
 \begin{abstract}
 % Please provide an abstract of no more than 250 words in a single paragraph. Abstracts should explain to the general reader the major contributions of the article. References in the abstract must be cited in full within the abstract itself and cited in the text.
-Pathogen genome sequences can provide information on transmission chains and, potentially, how public health measures effect transmission. Here we use SARS-CoV-2 sequences from approximately \overallsamplingpercent\% of all confirmed cases in Switzerland from the first case on 25. Feb. through \maxdate\ to quantify transmission dynamics in Switzerland. We developed a two-step pyhylogenetic/phylodynamic analysis framework to analyze \nfocalsamples\ genomes from Switzerland in $\sim$12 hours. We report estimates across the range of plausible phylogenies, since sampling exceeds viral diversity and the SARS-CoV-2 phylogeny is uncertain. Using our approach, we show robust signal in SARS-CoV-2 transmission chains for a 40-60\% slow-down in transmission upon sampling when overall case counts are low. This effect is potentially due to test-trace-isolate measures, though we cannot exclude other unknown mechanisms. These analyses aim to help us understand the importance of international travel towards a national epidemic, an increasingly relevant topic as global vaccination campaigns continue at an uneven pace and new variants of concern spread internationally.
+Pathogen genome sequences can provide information on transmission chains and, potentially, how public health measures effect transmission. Here we use SARS-CoV-2 sequences from approximately \overallsamplingpercent\% of all confirmed cases in Switzerland from the first case on 25. Feb. through \maxdate\ to quantify transmission dynamics in Switzerland. We developed a two-step pyhylogenetic/phylodynamic analysis framework to analyze \nfocalsamples\ genomes from Switzerland in $\sim$12 hours. We report estimates across two extreme resolutions of phylogenetic uncertainty, since SARS-CoV-2 sampling exceeds viral diversity. Using our approach, we show robust signal in SARS-CoV-2 transmission chains for a 40-60\% slow-down in transmission upon sampling in Summer 2020. We hypothesize this summertime ``burst-and-bust'' transmission pattern may be due to  test-trace-isolate measures or denser contact networks surrounding returning travellers. Our analysis aims to help understand the importance of international travel towards a national epidemic, an increasingly relevant topic as global vaccination campaigns continue at an uneven pace and new variants of concern spread internationally.
 \end{abstract}
 
 \dates{This manuscript was compiled on \today}
@@ -103,7 +96,7 @@ Using our framework, we aim to quantify transmission dynamics in Switzerland, wi
 
 We analyzed \nfocalsamples\ SARS-CoV-2 genomes collected in Switzerland, representing the Swiss epidemic from the first detected case on 25. Feb. through \maxdate. These data are a sub-sample of all available Swiss genomes aimed to be more spatio-temporally representative of the Swiss epidemic while maintaining a large sample size (Figure  \ref{fig:downsampling_representativeness}). 
 
-First, we constructed an approximate maximum-likelihood phylogeny for each SARS-CoV-2 Pango lineage, including Swiss sequences and the most genetically similar foreign sequences available on GISAID \ref{tab:lineage-data-summary}. Within these lineage phylogenies, we identified introductions and subsequent transmission chains (hereafter: ``introductions'') as described in the Materials and Methods. Importantly, we generate estimates under two extreme resolutions of phylogenetic uncertainty, which allows us to report estimates across the range of strictly bifurcating phylogenies consistent with the genome data. We refer to these extremes as the ``smallest'' and ``largest'' plausible introductions.
+First, we constructed an approximate maximum-likelihood phylogeny for each SARS-CoV-2 Pango lineage, including Swiss sequences and the most genetically similar foreign sequences available on GISAID \ref{tab:lineage-data-summary}. Within these lineage phylogenies, we identified introductions and subsequent transmission chains (hereafter: ``introductions'') as described in the Materials and Methods. Importantly, we generate estimates under two extreme resolutions of phylogenetic uncertainty, which allows us to report estimates across the range of strictly bifurcating phylogenies consistent with the genome data. We refer to these extremes as ``few'' or ``many'' introductions.
 
 We estimate the analyzed samples came from between \nchainsmin\ and \nchainsmax\ independent introductions into Switzerland. These introductions are roughly power law-distributed in size, with the 10 largest introductions accounting for \maxlargestchainsper\ to \minlargestchainsper \% of genome samples \ref{fig:chain_size_dist}. From a down-sampling analysis, we see that we do not reach saturation - if we were to include more genomes, we would identify more introductions \ref{fig:sensitivity_downsampling}. 
 
@@ -111,77 +104,61 @@ We estimate the analyzed samples came from between \nchainsmin\ and \nchainsmax\
 % Similar to Louis, I see chain sizes as power-law distributed, with a change in scale factor at ~ chain size 50. 
 % The scaling factors I estimate are higher than his though (~1.2 for <= 50 and ~1.4 for >50). So, our Swiss chain sizes decay more sharply (fewer larger chains) than his UK transmission lineages.
 
-The absolute number of introductions is very uncertain due to phylogenetic uncertainty and incomplete sampling. However, the trends through time in new introductions versus persistent transmission chains are more robust (Figure \ref{fig:chain-longevity}). A few transmission chains were quite persistent, including \nspanningchainsfebnovmin\ that may have persisted from the start of the Swiss epidemic in Feb. 2020 until Nov. 2020. But on average, Swiss introductions persisted \meantimetolastsamplemax\ - \meantimetolastsamplemin\ days from first to last sampling. Newly sampled introductions dropped from Mar. to Apr. 2020 and rose again from Jun. to Jul. 2020 (Figure \ref{fig:chain-longevity}). The Swiss borders were largely closed from 25. Mar. to 14. Jun. 2020. Finally, we can roughly estimate when introductions arrived as the date of the samples' most recent common ancestor (for transmission chains) or the sample date (for singletons). Introductions estimated to have arrived in the Swiss lockdown from 17. Mar. to 27. Apr. 2020 were more often singletons (63 - 85\% of introductions) than outside this period (31 - 72\%) \ref{tab:lockdown-contingency}.
+The absolute number of introductions is very uncertain due to phylogenetic uncertainty and incomplete sampling. However, the trends through time in new introductions versus persistent transmission chains are more robust (Figure \ref{fig:chain-longevity}). Several transmission chains were quite persistent, including \nspanningchainsfebnovmin\ that may have persisted from the start of the Swiss epidemic in Feb. 2020 until Nov. 2020. But on average, Swiss introductions persisted \meantimetolastsamplemax\ - \meantimetolastsamplemin\ days from first to last sampling. Newly sampled introductions dropped from Mar. to Apr. 2020 and rose again from Jun. to Jul. 2020 (Figure \ref{fig:chain-longevity}). The Swiss borders were largely closed from 25. Mar. to 14. Jun. 2020. Finally, we can roughly estimate when introductions arrived as the date of the samples' most recent common ancestor (for transmission chains) or the sample date (for singletons). Introductions estimated to have arrived in the Swiss lockdown from 17. Mar. to 27. Apr. 2020 were more often singletons (63 - 85\% of introductions) than outside this period (31 - 72\%) \ref{tab:lockdown-contingency}.
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=.8\linewidth]{figures/chain_longevity_matrix.png}
-\caption{Number of sampled introductions by the month they were fist sampled, in Switzerland. Estimate ranges are between analyses assuming the largest and smallest plausible introductions. The red color scales with the log of the midpoint of the range. So, darker red means more sampled introductions and lighter red means fewer.}
+\includegraphics[width=.4\linewidth]{figures/chain_longevity_matrix.png}
+\caption{Number of sampled introductions by the month they were fist sampled, in Switzerland. Estimate ranges are between analyses assuming the largest and few introductions. The red color scales with the log of the midpoint of the range. So, darker red means more sampled introductions and lighter red means fewer.}
 \label{fig:chain-longevity}
 \end{figure}
 
 \subsection{Transmission dynamics within Switzerland}
 
-Next, we jointly inferred time-varying transmission dynamics of the Swiss epidemic in a Bayesian phylodynamic framework. To test robustness, we repeated this analysis under several different model configurations (Table \ref{tab:phylo-models}). For each model, we replicated the analysis conditioning on either the smallest or largest plausible introductions. 
+Next, we jointly inferred time-varying transmission dynamics of the Swiss epidemic in a Bayesian phylodynamic framework. To test robustness, we repeated this analysis under several different model configurations (Table \ref{tab:phylo-models}). For each model, we replicated the analysis conditioning on either few or many introductions. 
 
 The basic birth-death skyline model we used is parameterized by a time-varying sampling probability and a time-varying effective reproductive number, which is a function of transmission and becoming-uninfectious rate parameters. We fixed the becoming-uninfectious rate, so the effective reproductive number varies only with the transmission rate. Here, we do not focus on estimating the effective reproductive number or the sampling proportion. Instead, we concentrate on insights that can only be generated by considering individual transmission chains (below). The effective reproductive number can be well-estimated using confirmed case data in Switzerland \cite{shinyRe}. Further, we argue the sampling proportion should be treated as a fitting parameter, since testing strategies varied through time in Switzerland and information from serological studies in different regions and at different time-points are difficult to harmonize. However, we did test for robustness to a strong prior on the sampling probability based on confirmed case counts (see Supporting Text).
 
-We included an additional factor in the model to test whether test-trace-isolate measures in Switzerland succeeded in slowing transmission. We reason that test-trace-isolate programs cannot have an effect before an introduction is identified, but ideally should help slow transmission shortly after the first case tests positive. So, along with the baseline time-varying effective reproductive number, we introduced a reduction factor to quantify if and how much transmission decreased beginning 2 days post-sampling for each transmission chain.  We used a spike-and-slab prior on this factor to include the possibility of no transmission slow-down. We estimate a strong slow-down in transmission after chain detection during Summer 2020. This result is robust to phylogenetic uncertainty and whether or not the sampling proportion is upper-bounded based on confirmed case counts. In contrast, the data favor a model in which transmission is not reduced from the baseline post-sampling during Fall 2020. Estimates in Spring 2020 are not robust to phylogenetic uncertainty. This could be explained by low genomic diversity in SARS-CoV-2 at this time contributing to high phylogenetic uncertainty.
+We included an additional factor in the model to test whether test-trace-isolate measures in Switzerland succeeded in slowing transmission. We reason that test-trace-isolate programs cannot have an effect before an introduction is identified, but ideally should help slow transmission shortly after the first case tests positive. So, along with the baseline time-varying effective reproductive number, we introduced a reduction factor to quantify if and how much transmission decreased beginning 2 days post-sampling for each introduction.  We used a spike-and-slab prior on this factor to include the possibility of no transmission slow-down. We estimate a strong slow-down in transmission after chain detection during Summer 2020. This result is robust to phylogenetic uncertainty and whether or not the sampling proportion is upper-bounded based on confirmed case counts. In contrast, the data favor a model in which transmission is not reduced from the baseline post-sampling during Fall 2020. Estimates in Spring 2020 are not robust to phylogenetic uncertainty. This could be explained by low genomic diversity in SARS-CoV-2 at this time contributing to high phylogenetic uncertainty.
 
 \subsection{Comparision to the New Zealand epidemic}
 While Switzerland is centrally located in Europe and well-connected to other countries, especially those in the (normally) barrier-free Schengen travel zone, New Zealand is a relatively isolated island nation. Additionally, New Zealand aimed to eradicate SARS-CoV-2 throughout 2020 using strong measures, such as keeping it's borders closed, while Switzerland re-opened to Europe in early Summer 2020. We compared our estimates for the transmission slow-down factor between Switzerland in Spring, Summer, and Fall 2020 with New Zealand before and after local transmission was all but eradicated there in mid-May 2020. Similar to Switzerland, estimates for New Zealand are not robust to phylogenetic uncertainty prior to 15. May. After 15. May we estimate a similar or stronger transmission chain slow-down in New Zealand compared to Switzerland. 
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=.8\linewidth]{figures/CT_conditionedDamping_noSampUB.pdf}
-\caption{``Contact tracing'' scale factor estimated in three different time periods under the largest and smallest plausible introductions scenarios.}  
+\includegraphics[width=0.8\linewidth]{figures/CT_combined.pdf}
+\caption{Estimated slow-down in transmission once introductions are sampled during different time periods in (a) Switzerland and (b) New Zealand. (c) shows the support for including a slow-down factor in the model during each time period. The two facets are for analyses run assuming few or many introductions.}  
 \label{fig:scale-factor}
 \end{figure}
 
-% \begin{itemize}
-%     \item Spike and slab prior for Re multiplier
-%     \item Bounded time-frame for Re multiplier
-%     \item Sampling proportion upper bound 0.01 instead of 0.1 - Tim will rerun
-%     \item Prior on cluster origins is not unique to each cluster, it's a big lognormal blob throughout 2020 - Tim will switch to unif(Jan 1 - Dec 31) so that our prior assumption is that the rate of introductions is constant from when the pandemic started spreading internationally until end of sampling period
-%     \item How indep are Re estimates from phylo when I select seqs based on conf case \#s? - Tanja's not concerned, the genomes can still tell us what they tell us within what we already know from cases
-%     \item 50\% prior y/n need Re factor, if y then unif(0, 1) on the factor 
-%     \item Tim puts independent spike & slab priors in spring, summer, and fall and infers three Re reduction factors so we can see if Summer is really different
-%     \item Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
-% \end{itemize}
+
 
 \section{Discussion}
-\begin{itemize}
-    \item Quantified effects of policy:
-    \begin{itemize}
-        \item Introductions were 47 - 51\% less likely to have spread to $>1$ sampled individual during the Swiss lockdown compared to outside the lockdown period.
-        \item Reproductive number of introductions dropped 40 - 60\% after sampling during Summer 2020, possibly due to test-trace-isolate success upon case detection. 
-    \end{itemize}
-    \item Estimates on introductions and transmission chains are sensitive to phylogenetic uncertainty
-    \begin{itemize}
-        \item TODO: How does this compare to other studies?
-        \item Recommend caution in trying to show who-infected-who when transmission timescale faster than mutational timescale
-    \end{itemize}
-    \item We treat the time-varying sampling proportion as a fitting parameter
-    \begin{itemize}
-        \item The temporal trends make sense according to know changes in testing and genome sampling programs
-        \item Exception is initially high sampling proportion and unrealistically high end sampling proportion
-        \item Cite supplemental figure where we upper-bounded the sampling proportion and discuss that results consistent except for double-spike at end
-    \end{itemize}
-    \item Contact tracing at the national level isn't as effective for new introductions.
-    \begin{itemize}
-        \item We find robust signal for decrease in transmission after chain detection in Summer 2020 compared to Spring 2020. Fall 2020 inference is not robust to phylogenetic uncertainty. 
-        \item This slow correlates with the approximate start to contact tracing efforts, but an alternate explanation could be that sampled transmission chains originate in early super-spreading events.
-    \end{itemize}
-    \item Novel insights on patterns of SARS-CoV-2 spread?
-    \item Are our transmission chains geographically constrained? How do we explain if not?
-    \item Address transmission dynamics with regard to lockdown and travel restriction policies
-\end{itemize}
-% MAJOR QUESTION: was the summer epidemic growing in size due to travel (ie import of strains which seeded local transmission chains)?
-% Contact tracing factor could also be catching superspreading events that found transmission chains
+% Re-state the goal and the main results
+We aimed to assess genomic evidence for the impact of public health measures on SARS-CoV-2 transmission in Switzerland. The most conservative interpretation of our results indicates that after Swiss borders were partially closed from 25. Mar. 2020, the number of newly sampled lineages per month dropped 83\% from Mar. to Jun. 2020. These measures were mostly lifted again on 14. Jun 2020. Correspondingly, we estimate at least a 31\% increase in newly sampled lineages from Jun. to Jul. 2020. Further, during the Swiss lockdown from 17. Mar. to 27. Apr. 2020, introductions were 13 or 32\% more likely to be singletons than outside this period. Finally, we estimate that the reproductive number of introductions dropped 40 - 60\% after sampling during Summer 2020 in Switzerland, possibly due to test-trace-isolate success upon detection. We interrogate and contextualize this result below, as we cannot exclude other possible explanations for this estimated transmission slow-down.
+
+% Argue for utility
+First, we argue the two-step analysis framework we developed may be useful to others since it enables rapid analysis of national-size data sets. In particular, the phylogenetic analysis uses semi-public data from GISAID and requires limited computational resources. To reduce data set size and computation time, one can increase sub-sampling, reduce the time-frame of interest, or specify a subset of Pango lineages using a yaml-formatted configuration file. The implementation currently relies on an in-house database based on GISAID and other external data sources. Soon, we will adapt it to use a public API based on fully public data from GenBank hosted by Nextstrain (LAPIS). Users will set configurations via the single configuration file and then the analysis can be run via Docker or Singularity without further modification.
+
+% Contextualize the results: caveats
+Next, we seek to interrogate limitations of the applied phylogenetic and phylodynamic methods. Most obviously, estimates on the number, timing, and duration of introductions are very uncertain due to multifurcations in the phylogeny. Others have struggled with the same challenge \cite{Morel2021} and we support their conclusion: one should consider estimates generated across the range of plausible phylogenies, as estimates based on any one phylogeny may be misleading. In our analysis, we present estimate ranges based on two extreme resolutions of multifurcations. This is less computationally intensive, but perhaps overly conservative, compared to generating a larger set of plausible phylogenies as in Bayesian analyses and as \cite{Morel2021} suggested for maximum-likelihood analyses.
+
+Further, genomic data are observational data subject to potential sampling biases. The benefit of genome data is that we can aim to quantify the real-world effect of public health measures like test-trace-isolate. This distinguishes our work from simulation studies aiming to quantify a theoretical effect. However, genome data may not represent the overall infected population due to time-varying testing regimes, geographic sampling biases, and demographic skew in disease severity. In particular, we expect severe cases, contacts of positive cases, and large transmission chains are more likely to be sampled. If we assume these biases are constant through time, we can focus on interpreting trends in transmission dynamics through time. 
+
+Finally, we cannot unequivocally attribute the estimated slow-down in transmission upon sampling to test-trace-isolate success. Returning travellers have been implicated in transmitting more than non-travellers \cite{Hodcroft2021}. A passive slow-down in transmission might happen as the virus moves into the non-traveller population. To this end, we repeated our analysis using data from New Zealand, where all travellers were quarantined since TODO. In the period from 15. May to \maxdate, we estimated a similar or stronger slow-down in transmission compared to Switzerland in Summer 2020. Since New Zealand travellers could not mix normally with non-travellers, at least in New Zealand the slow-down appears to be from quarantine mitigating down-stream transmission from introductions. We also noted that contacts of positive cases and members of large transmission chains are more likely to be sampled. This means we might sample bursts of transmission, possibly due to super-spreading, which are again followed by a passive slow-down in transmission once a super-spreading event is over or a super-spreader is no longer infectious. However, in this case we would expect periodic bursts of super-spreading-related samples to occur regardless of whether an introduction is recently sampled or not. We would also expect super-spreading to continue into Fall 2020, when case counts were high in Switzerland, but the slow-down factor is only significant in Summer 2020, when case counts were low. Therefore, we suspect test-trace-isolate and quarantine measures help mitigate onward transmission from introductions when case counts were low in Switzerland and New Zealand. Phrased more conservatively, we robust genomic signal for bursts of transmission corresponding to newly sampled introductions followed by a slow-down in subsequent transmission.
+
+% TODO: Contextualize: other studies on bursty SARS-CoV-2 phylogenies?
+% TODO: Contextualize: do we address any points from TTIQ simulation studies?
+
+% Argue for importance
+Our findings are important because they highlight the effect of public health measures on the Swiss epidemic. We show that strict public health measures like the partial border closure and lockdown in Spring 2020 helped prevent and contain new introductions. However, these measures are naturally unsustainable. We show that when case counts are maintained at a low level, as in Summer 2020 in Switzerland and after 15. May in New Zealand, new introductions initially spread more quickly, but then slow down. Estimates from Fall 2020 in Switzerland indicate that no such slow-down occurs when case counts are high. We speculate this is due to test-trace-isolate resources being overwhelmed. In conclusion, our results argue for the benefits of continued test-trace-isolate effects, thoughtful quarantine policies, and aiming to maintain case counts at a low level.
 
 \section{Acknowledgments}
 
-
+\begin{itemize}
+    \item Jana: discussions about how test-trace-isolate affects sampling
+    \item Viollier: in particular Christiane for providing data and logistical support
+\end{itemize}
 
 % \subsection*{Submitting Manuscripts}
 
@@ -334,10 +311,11 @@ We refer to any Swiss sequence not falling into a Swiss transmission chain as a 
 
 \subsection*{Phylodynamic analysis}
 
-We jointly inferred the effective reproductive number and the sampling proportion from all introductions as in \cite{Muller2020}. We performed inference using the BDSKY model \cite{stadler2013birth} in BEAST2 \cite{Bouckaert2019}, which assumes a birth-death population dynamical model. Each introduction is assumed to result from an independent birth-death process having its own start time, but sharing all other parameters with the processes associated with the other introductions. We fixed the expected become-uninfectious rate to 36.5 per year, which corresponds to an average time to becoming uninfectious of 10 days. We assumed an HKY \cite{Hasegawa1985} nucleotide substitution model with 4 gamma rate categories to account for site-to-site rate heterogeneity \cite{Yang1994}. We assumed a strict clock with a rate fixed to 8x10-4 substitutions per site per year. We applied a uniform prior from 01. Jan to 31. Dec 2020 to the time of origin for each introduction, so that we are assuming a uniform rate of introductions through time. The effective reproductive number (Fig. \ref{}) was allowed to vary according to an Ornstein-Uhlenbeck prior with a LogNormal(0.8, 0.5) stationary distribution. An Exp(1) hyperprior was applied to the variance of the Gaussian component of the smoothing prior. This prior constrains both the relative sizes of the change between weeks and the absolute reproductive number. The sampling proportion (Fig. ) was allowed to vary at time points when Swiss testing or genome sampling regimes changed significantly (Table \ref{}). An ??? prior was applied to the sampling proportion.
+We performed inference under several different models, all implemented using the BDSKY package \cite{stadler2013birth} in BEAST2 \cite{Bouckaert2019}, which assumes a birth-death population dynamical model. In all the models, we conditioned on identified introductions, as in \cite{Muller2020}, and estimated parameters jointly from the different introductions. More concretely, each introduction is assumed to result from an independent birth-death process having its own start time, but sharing all other parameters with the processes associated with the other introductions. To avoid model mis-specification due to the more transmissible alpha variant, we analyzed data only through 30. Nov. 2020. We fixed the expected become-uninfectious rate to 36.5 per year, which corresponds to an average time to becoming uninfectious of 10 days. We assumed an HKY \cite{Hasegawa1985} nucleotide substitution model with 4 gamma rate categories to account for site-to-site rate heterogeneity \cite{Yang1994}. We assumed a strict clock, also with rate 8x10-4 substitutions per site per year. We applied a uniform prior from 01. Jan to 31. Dec 2020 to the time of origin for each introduction, so that our prior expectation is a uniform rate of introductions through time. The effective reproductive number (Fig. \ref{}) was allowed to vary according to an Ornstein-Uhlenbeck prior with a LogNormal(0.8, 0.5) stationary distribution. An Exp(1) hyperprior was applied to the variance of the Gaussian component of the smoothing prior. This prior constrains both the relative sizes of the change between weeks and the absolute reproductive number. The sampling proportion (Fig. ) was allowed to vary at time points when Swiss testing or genome sampling regimes changed significantly (Table \ref{}). Depending on the analysis, we specified either a LogUniform(0, 1) or LogUniform(0, 0.05) prior on the sampling proportion, since we upper-bounded our sampling to 5\% of confirmed cases each week.
 
-We set up an additional analysis with one additional parameter to test our hypothesis that contact tracing reduced the effective reproductive number shortly after each introduction was discovered. The ``contact tracing factor'' parameter is a multiplicative scaling of the effective reproductive number applied to each introduction from 2 days after the first sample date until the last sample in the introduction. Since we suspected contact tracing was not functioning as well during periods of high case loads, we estimated a separate value in each of three periods: before 15. Jun 2020, 15. Jun to 30. Sept 2020, and 30. Sept to 31. Dec 2020. The same spike and slab prior was applied to the contact tracing factor in each period, with a prior inclusion probability of ?? and a uniform prior if included between 0 and 1. The XML file including these modification is available at TODO.
+Our ``contact tracing'' model included one additional parameter, a multiplicative down-scaling of the effective reproductive number applied to each introduction from 2 days after the first sample date until the last sample in the introduction. Since we suspected contact tracing was not functioning as well during periods of high case numbers, we estimated a separate value in each of three periods: before 15. Jun 2020, 15. Jun to 30. Sept 2020, and 30. Sept to \maxdate. The same spike and slab prior was applied to the contact tracing factor in each period, with a prior inclusion probability of ?? and a uniform prior if included between 0 and 1. The XML file including these modification is available at TODO.
 
+Our ``super-spreading'' model included an additional deme, representing a fraction of the population that transmits faster. A multiplicative up-scaling of the effective reproductive number is applied to individuals in this deme.
 }
 
 \showmatmethods{} % Display the Materials and Methods section
