@@ -32,10 +32,10 @@ In this section, we describe our decision-making process to choose parameters fo
 \subsection{Down-sampling Swiss sequences}
 We aim to include Swiss sequences that are spatio-temporally representative of the Swiss epidemic. Therefore, we down-sample available Swiss sequences proportional to confirmed case counts at the regional (cantonal) level. To assess whether the number of transmission chains saturates as we add more and more sequences, we did a saturation analysis. TODO: add figure and discuss implications.
 
-\subsection{Ratio of foreign to Swiss sequences}
+\subsection{Ratio of foreign to Swiss sequences analyzed}
 We investigated the sensitivity of transmission chain summary statistics to different ratios of genetically similar context sequences from abroad to focal Swiss sequences. Figure \ref{fig:sensitivity_context_set_size} shows that increasing the ratio of context to focal sequences from 1:1 to 3:1 increases the number of estimated transmission chains and decreases their mean size. However, the greatest differences in estimated transmission chains result from the different assumptions about how to resolve phylogenetic uncertainty (few vs. many introductions), not the ratio of foreign to Swiss sequences. Therefore, we chose the 2:1 ratio as a balance of speed (smaller dataset = faster tree search convergence) and information content (larger dataset = more precise estimates of introduction dates). We rely on the difference between the few and many introductions assumptions to represent uncertainty in the transmission chains.
 
-\subsection{Transmission chain criteria}
+\subsection{Criteria for identifying introductions}
 After deciding on a ratio of foreign to Swiss sequences, we investigated the sensitivity of transmission chain summary statistics to our criteria for picking transmission chains. Figure \ref{fig:sensitivity_m_p} shows that increasing the maximum number of exported lineages decreases the number of transmission chains and increases their size. Increasing the maximum consecutive exports has a much smaller effect. But again, these differences are smaller than those resulting from the different assumptions about how to resolve phylogenetic uncertainty (few vs. many introductions). Therefore, we chose our criteria to be maximum 3 exported lineages and maximum one consecutive export to allow for some exports but not arbitrarily many. 
 
 \subsection{Upper-bounding sampling proportion}
@@ -43,6 +43,9 @@ Genome-based estimates for the effective reproductive number in Switzerland are 
 
 \subsection{Including a ``super-spreader'' deme}
 We checked whether our estimate of a transmission slow-down upon introduction sampling was robust to the inclusion of super-spreading individuals in the model. Therefore, we included a second deme in the analysis. Let $\pi_N$ be the fraction of normal individuals and $\pi_{SS}$ be the fraction of super-spreading individuals in the population. Super-spreading individuals transmit according to the master time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. $\pi_N$, $\pi_{SS}$, and $r_{SS}$ are all inferred parameters. 
+
+\section{Sanity checks}
+From the phylodynamic analyses, we are primarily interested in estimating a transmission damping factor upon introductions being sampled. To generate this result, we are integrating over the actual introduction phylogenies using MCMC. However, as a sanity-check we logged the MCMC-sampled phylogenies for several introductions under each model. We chose which introductions to log based on selecting in each month the 50th and 75th percentile largest introductions that were first sampled that month and eventually yielded > 2 samples. We look at a summary visualization of the logged phylogenies to get an idea how much transmission happended before versus after the first sample and whether there is obvious signal in the phylogenies for a transmission slow-down after sampling.
 
 % %%% Each figure should be on its own page
 \begin{figure}
@@ -106,7 +109,7 @@ We checked whether our estimate of a transmission slow-down upon introduction sa
 \includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_NZL.pdf}
 \includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_NZL.pdf}
 \caption{Phylodynamic estimates for the damping factor in New Zealand. Top is inclusion probability for the damping factor, bottom is dampling factor estimate conditioned on inclusion.}  
-\label{fig:1vs2demeDampingFactorResults}
+\label{fig:NZLDampingFactorResults}
 \end{figure}
 \newpage
 
