@@ -342,12 +342,19 @@ introductions_and_persistors_summary_stats <- chain_summary_stats %>%
             # frac_80_day_persistor = sum(time_to_last_sample >= 80) / n(),
             .groups = "drop") %>%
    tidyr::pivot_longer(names_to = "statistic", cols = c("n_introductions", ends_with("_day_persistor"))) %>%
-   tidyr::pivot_wider(names_from = "chains_assumption", values_from = "value")
+   tidyr::pivot_wider(names_from = "chains_assumption", values_from = "value") %>%
+   mutate(grey_out = case_when(
+   statistic == "n_introductions" & first_sample_month == "2020-12-01" ~ T,
+   statistic == "frac_60_day_persistor" & first_sample_month %in% c("2020-10-01", "2020-11-01", "2020-12-01") ~ T,
+   T ~ F))
 
 statistic_labels <- c("Number of newly sampled introductions", "Fraction of introductions still spreading after 60 days")
 names(statistic_labels) <- c("n_introductions", "frac_60_day_persistor")
 
-p <- ggplot(data = introductions_and_persistors_summary_stats, aes(x = as.Date(first_sample_month))) +
+p <- ggplot(data = introductions_and_persistors_summary_stats,
+            aes(x = as.Date(first_sample_month),
+                alpha = grey_out)) +
+  scale_alpha_manual(values = c("TRUE" = 0.3, "FALSE" = 1)) +
   geom_errorbar(aes(ymin = min, ymax = max)) +
   facet_wrap(
     . ~ statistic,
@@ -356,7 +363,8 @@ p <- ggplot(data = introductions_and_persistors_summary_stats, aes(x = as.Date(f
     labeller = labeller(statistic = statistic_labels)) +
   labs(x = "Month first sampled", y = element_blank()) +
   scale_x_date(date_labels = "%b", date_breaks = "1 month") +
-  shared_theme
+  shared_theme +
+  theme(legend.position = "none")
 show(p)
 
 ggsave(
