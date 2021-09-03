@@ -46,20 +46,19 @@ chain_summary_stats <- samples %>%
   mutate(time_to_last_sample = difftime(last_sample_date, first_sample_date, units = "days"))
 
 chain_longevity_stats <- chain_summary_stats %>%
-  mutate(first_sample_month_2 = first_sample_month) %>%
+  mutate(first_sample_month_tmp = first_sample_month) %>%
   tidyr::pivot_longer(
-    cols = c("first_sample_month_2", "last_sample_month"),
-    names_to = "date_type",
+    cols = c("first_sample_month_tmp", "last_sample_month"),
+    names_to = "start_or_end_date",
     values_to = "date") %>%
   mutate(date = as.Date(date)) %>%
-  tidyr::unite(col = "tree_chain", tree, chain_idx) %>%
-  group_by(tree_chain, chains_assumption) %>%
-  tidyr::complete(
-    date = seq.Date(min(date), max(date), by = "month")) %>%
+  group_by(chains_assumption, tree, chain_idx) %>%
+  tidyr::complete(date = seq.Date(min(date), max(date), by = "month")) %>%
+  distinct(chains_assumption, tree, chain_idx, date, .keep_all = TRUE) %>%  # remove duplicate rows from when first sample month = last sample month
   tidyr::fill(first_sample_month) %>%
   group_by(chains_assumption, first_sample_month, date) %>%
   summarize(n_chains = n(), .groups = "drop") %>%
-  filter(first_sample_month < "2020-12-01")
+  filter(first_sample_month <= "2020-12-01")
 ```
 
 Write out stats for paper
@@ -331,7 +330,44 @@ ggsave(
   units = "cm"
 )
 ```
-# Set up contingency table to evaluate whether lockdowns contained transmission chains 
+
+Plot introductions and persistance through time
+```{r}
+introductions_and_persistors_summary_stats <- chain_summary_stats %>%
+  group_by(chains_assumption, first_sample_month) %>%
+  summarise(n_introductions = n(),
+            # frac_20_day_persistor = sum(time_to_last_sample >= 20) / n(),
+            # frac_40_day_persistor = sum(time_to_last_sample >= 40) / n(),
+            frac_60_day_persistor = sum(time_to_last_sample >= 60) / n(),
+            # frac_80_day_persistor = sum(time_to_last_sample >= 80) / n(),
+            .groups = "drop") %>%
+   tidyr::pivot_longer(names_to = "statistic", cols = c("n_introductions", ends_with("_day_persistor"))) %>%
+   tidyr::pivot_wider(names_from = "chains_assumption", values_from = "value")
+
+statistic_labels <- c("Number of newly sampled introductions", "Fraction of introductions still spreading after 60 days")
+names(statistic_labels) <- c("n_introductions", "frac_60_day_persistor")
+
+p <- ggplot(data = introductions_and_persistors_summary_stats, aes(x = as.Date(first_sample_month))) +
+  geom_errorbar(aes(ymin = min, ymax = max)) +
+  facet_wrap(
+    . ~ statistic,
+    scales = "free_y",
+    ncol = 1,
+    labeller = labeller(statistic = statistic_labels)) +
+  labs(x = "Month first sampled", y = element_blank()) +
+  scale_x_date(date_labels = "%b", date_breaks = "1 month") +
+  shared_theme
+show(p)
+
+ggsave(
+    plot = p,
+    file = paste(outdir, "introductions_and_persistance.png", sep = "/"),
+    width = single_col_width,
+    height = single_col_width,
+    units = "cm")
+```
+
+# Set up contingency table to evaluate whether lockdowns contained transmission chains
 contingency table: is/is not lockdown vs. is/is not singleton transmission chain
 
 ```{r}
