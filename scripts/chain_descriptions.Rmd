@@ -343,9 +343,10 @@ introductions_and_persistors_summary_stats <- chain_summary_stats %>%
             .groups = "drop") %>%
    tidyr::pivot_longer(names_to = "statistic", cols = c("n_introductions", ends_with("_day_persistor"))) %>%
    tidyr::pivot_wider(names_from = "chains_assumption", values_from = "value") %>%
-   mutate(grey_out = statistic == "frac_60_day_persistor" & first_sample_month %in% c("2020-10-01", "2020-11-01"))
+   mutate(grey_out = statistic == "frac_60_day_persistor" & first_sample_month %in% c("2020-10-01", "2020-11-01"),
+          statistic = factor(statistic, levels = c("n_introductions", "frac_60_day_persistor")))
 
-statistic_labels <- c("Number of newly sampled introductions", "Fraction of introductions still spreading after 60 days")
+statistic_labels <- c("New introductions (number newly sampled per month)", "Persistent introductions (fraction still sampled after 60 days)")
 names(statistic_labels) <- c("n_introductions", "frac_60_day_persistor")
 
 p <- ggplot(data = introductions_and_persistors_summary_stats,
