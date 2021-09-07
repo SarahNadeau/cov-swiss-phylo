@@ -1,0 +1,255 @@
+---
+title: post-processing
+---
+
+* need to have run "preprocessing.Rmd" first to generate files "sampPropChangeTimes.txt" and "ReChangeTimes.txt"
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/SwissTransmissionChains/")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/SwissTransmissionChains/")
+```
+
+
+```{r }
+library(tidyverse)
+library(lubridate)
+library(ggdist)
+
+source("../../../../scripts/figures_shared_vars.R")
+system(command = "mkdir -p figures")
+```
+
+## Load data
+
+```{r }
+skyline_data <- NULL
+for (clusters in c("min", "max")) {
+    for (contact_tracing in c(TRUE, FALSE)) {
+        for (sampUB in c("With sampling bound", "Without sampling bound" )) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ".sampUB", ifelse(sampUB=="With sampling bound", "0.05", "1.0"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+
+            data <- NULL
+            for (f in dir("results/", pattern, full.names=TRUE)) {
+                data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+
+            Re_temp_data <- data %>%
+                pivot_longer(cols=starts_with("ReValues."),
+                             names_to="interval", values_to="value",
+                             names_prefix="ReValues.",
+                             names_transform=list(interval=as.integer)) %>%
+                select(Sample, interval, value) %>%
+                mutate(variable="Re")
+
+            sampProp_temp_data <- data %>%
+                pivot_longer(cols=starts_with("sampValues."),
+                             names_to="interval", values_to="value",
+                             names_prefix="sampValues.",
+                             names_transform=list(interval=as.integer)) %>%
+                select(Sample, interval, value) %>%
+                mutate(variable="sampProp")
+
+            skyline_temp_data <- bind_rows(Re_temp_data, sampProp_temp_data) %>%
+                group_by(interval, variable) %>%
+                summarize(median=median(value),
+                          low=quantile(value, 0.025),
+                          high=quantile(value, 0.975)) %>%
+                mutate(clusters=clusters,
+                       contact_tracing=contact_tracing,
+                       sampUB=sampUB)
+
+            skyline_data <- bind_rows(skyline_data, skyline_temp_data)
+        }
+    }
+}
+```
+
+## Incoroporate interval dates
+
+```{r }
+
+## dates <- tibble(interval=0:52) %>% mutate(date=ymd("2020-11-30")-3.5-interval*7)
+
+finalSampleDate <- ymd("2020-11-30")
+Re_dates <- read_csv("sequences/date_to_week.csv") %>%
+    distinct(week) %>%
+    filter(week<finalSampleDate) %>%
+    arrange(desc(row_number())) %>%
+    transmute(interval=row_number(), date=week+3.5)
+
+
+sampProp_dates <- read_csv("sampPropChangeTimes.txt", col_names=c("age")) %>%
+    add_row(age=0) %>%
+    mutate(date=finalSampleDate - 365.25*age) %>%
+    arrange(age) %>%
+    mutate(interval=row_number())
+```
+## Load case count data
+
+```{r}
+LINE_LIST_RE_EST_LINK <- "https://raw.githubusercontent.com/covid-19-Re/dailyRe-Data/master/CHE-estimates.csv"
+line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
+  filter(
+    region == "CHE",
+    data_type %in% c("Confirmed cases / tests", "Confirmed cases"), 
+    estimate_type == "Cori_slidingWindow") %>%
+  select(c(date, data_type, median_R_mean, median_R_highHPD, median_R_lowHPD)) %>%
+  mutate(date = as.Date(date)) %>%
+  rename(
+    median = median_R_mean,
+    yhigh = median_R_highHPD,
+    ylow = median_R_lowHPD)
+```
+
+## Plot skylines
+
+**In the final plots, make sure to add monthly/bi-weekly axis ticks.**
+
+```{r }
+color_values <- c("conf_case_counts" = "grey", "TRUE" = "#56B4E9", "FALSE" = "#F0E442")
+color_labels <- c("conf_case_counts" = "Confirmed cases", 
+                  "TRUE" = "Model with damping factor", 
+                  "FALSE" = "Model without damping factor")
+
+ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
+       aes(date, median, fill = contact_tracing, color = contact_tracing)) +
+    geom_ribbon(
+        aes(ymin=low, ymax=high), alpha=0.5) +
+    geom_ribbon(
+        data = line_list_re_data, 
+        aes(date, ymin=ylow, ymax=yhigh, fill = 'conf_case_counts', color = 'conf_case_counts'), alpha = 0.5) + 
+    geom_line(alpha = 0.5) +
+    geom_line(data = line_list_re_data, aes(color = 'conf_case_counts'), alpha = 0.5) +
+    scale_color_manual(name = NULL, values = color_values, labels = color_labels) + 
+    scale_fill_manual(name = NULL, values = color_values, labels = color_labels) + 
+    geom_hline(yintercept=1, linetype="dashed") +
+    facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
+    scale_x_date(date_breaks="1 month", date_labels="%b.", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
+    labs(y = "Effective reproductive number", x = element_blank()) + 
+    shared_theme +
+    theme(axis.text.x=element_text(angle=-45, hjust=0))
+ggsave("figures/Re.pdf", width=15, height=5, units="in")
+
+ggplot(skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates),
+       aes(date, median, col=contact_tracing, fill=contact_tracing)) +
+    geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +
+    scale_color_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
+    scale_fill_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
+    facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
+    scale_x_date(date_breaks="1 month", date_labels="%b.") +
+    labs(y = "Sampling probability", x = element_blank()) + 
+    shared_theme + 
+    theme(axis.text.x=element_text(angle=-45, hjust=0))
+ggsave("figures/sampProp.pdf", width=15, height=5, units="in")
+```
+
+## Contact tracing effect size
+
+```{r }
+
+CT_data <- NULL
+for (clusters in c("min", "max")) {
+    for (contact_tracing in c(TRUE, FALSE)) {
+        for (sampUB in c("With sampling bound", "Without sampling bound" )) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ".sampUB", ifelse(sampUB=="With sampling bound", "0.05", "1.0"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+
+            data <- NULL
+            for (f in dir("results", pattern, full.names=TRUE)) {
+                data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+
+            CT_data <- bind_rows(CT_data,
+                                 data %>%
+                                 slice_tail(prop=0.9) %>%
+                                 select(Sample, "CTFactor[0]", "CTFactor[1]", "CTFactor[2]") %>%
+                                 pivot_longer(cols=2:4) %>%
+                                 mutate(lessThanOne=(value<1.0)) %>%
+                                 mutate(clusters=clusters,
+                                        contact_tracing=contact_tracing,
+                                        sampUB=sampUB))
+        }
+    }
+}
+
+```
+
+## All-analyses damping factor figure for supplemental
+
+```{r}
+
+CT_data <- CT_data %>%
+  mutate(season = case_when(
+    name == "CTFactor[0]" ~ "Fall",
+    name == "CTFactor[1]" ~ "Summer",
+    name == "CTFactor[2]" ~ "Spring"), 
+  season = factor(season, levels = c("Spring", "Summer", "Fall")))
+
+ggplot() +  
+  geom_histogram(
+    data = CT_data %>% filter(contact_tracing == "TRUE", clusters == "max"), 
+    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+  geom_histogram(
+    data = CT_data %>% filter(contact_tracing == "TRUE", clusters == "min"), 
+    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+  facet_grid(season ~ sampUB) + 
+  scale_fill_manual(values = c("#009E73", "#E69F00"), labels = chain_assumption_labs, name = "Data set") + 
+  shared_theme + 
+  labs(x = "Value of tranmission rate damping factor", y = "Posterior support")
+
+ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
+```
+
+## Selected analyses damping factor figure for main text
+
+```{r}
+ggplot() +  
+  geom_histogram(
+    data = CT_data %>% filter(contact_tracing == "TRUE", sampUB == "Without sampling bound", clusters == "max"), 
+    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+  geom_histogram(
+    data = CT_data %>% filter(contact_tracing == "TRUE", sampUB == "Without sampling bound", clusters == "min"), 
+    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+  facet_grid(season ~ .) + 
+  scale_fill_manual(values = c("#009E73", "#E69F00"), labels = chain_assumption_labs, name = "Data set") + 
+  shared_theme + 
+  labs(x = "Value of tranmission rate damping factor", y = "Posterior support")
+
+ggsave("figures/contact_tracing_factor_no_sampUB.pdf", width = single_col_width, height = single_col_width * 0.75, units = "cm")
+```
+
+## Write out variables for manuscript, copy figures into manuscript figure directory
+
+```{r}
+con <- file("../../../../manuscript/damping_factor_variables.tex", open = "w")
+
+dampling_factor_medians <- CT_data %>%
+  filter(contact_tracing == "TRUE") %>%
+  group_by(sampUB, clusters, season) %>%
+  summarize(median_dampling_factor = median(value), .groups = "drop")
+
+summer_max_dampling_percent_median_CHE_no_sampUB <- round(unlist(dampling_factor_medians %>%
+  filter(sampUB == "Without sampling bound", clusters == "max", season == "Summer") %>%
+  select(median_dampling_factor)) * 100, digits = 0)
+
+writeLines(text = paste0("\\newcommand\\summer_max_dampling_percent_median_CHE_no_sampUB{", 
+                         summer_max_dampling_percent_median_CHE_no_sampUB, "}"), con = con)
+
+summer_min_dampling_percent_median_CHE_no_sampUB <- round(unlist(dampling_factor_medians %>%
+  filter(sampUB == "Without sampling bound", clusters == "min", season == "Summer") %>%
+  select(median_dampling_factor)) * 100, digits = 0)
+
+writeLines(text = paste0("\\newcommand\\summer_min_dampling_percent_median_CHE_no_sampUB{", 
+                         summer_min_dampling_percent_median_CHE_no_sampUB, "}"), con = con)
+
+close(con)
+
+system("cp figures/contact_tracing_factor_no_sampUB.pdf ../../../../figures/")
+system("cp figures/contact_tracing_factor.pdf ../../../../figures/")
+```
+

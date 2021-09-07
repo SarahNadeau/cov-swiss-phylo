@@ -1,6 +1,6 @@
 # This script stores variables shared across all figures
 
-chain_assumption_labs <- c("Smallest plausible chains", "Largest pluasible chains")  # use like: labeller = labeller(chains_assumption = chain_assumption_labs)
+chain_assumption_labs <- c("Many introductions", "Few introductions")  # use like: labeller = labeller(chains_assumption = chain_assumption_labs)
 names(chain_assumption_labs) <- c("max", "min")
 shared_theme <- theme_bw()
 last_sample_to_extinction_delay <- 14  # days
