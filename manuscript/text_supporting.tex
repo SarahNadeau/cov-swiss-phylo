@@ -64,6 +64,13 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 
 \begin{figure}
 \centering
+\includegraphics[width = 11.4cm]{figures/chain_longevity_matrix.png}
+\caption{Heatmap of the number of newly sampled introductions each month (diagonal entries) and the number continuing to persisting into each following month (off-diagonal entries). Introduction are counted once in the month they are first sampled (``Month of first sampling'') and one every following month (``Month of ongoing sampling'') until the date of the latest sample. The ranges are between two point estimates generated assuming either few or many introductions.}  
+\label{fig:chain-longevity-matrix}
+\end{figure}
+
+\begin{figure}
+\centering
 \includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_subsampling.png}
 \caption{Number of estimated introductions as a function of the fraction of Swiss confirmed cases analyzed.}  
 \label{fig:sensitivity_downsampling}
@@ -96,6 +103,17 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_CHE_1deme.pdf}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_CHE_1deme.pdf}
+\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
+\caption{Phylodynamic estimates for the damping factor in Switzerland. Top is inclusion probability for the damping factor, bottom is dampling factor estimate conditioned on inclusion. Left are inferences under the base model and right are inferences under the base model with a SS (super-spreading) deme.}  
+\label{fig:1vs2demeDampingFactorResults}
+\end{figure}
+\newpage
+
+\begin{figure}[tbhp]
+\centering
+\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_CHE_1deme.pdf}
 \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
 \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_CHE_1deme.pdf}
 \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
