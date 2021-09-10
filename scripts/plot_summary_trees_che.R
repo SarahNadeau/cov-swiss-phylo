@@ -50,7 +50,7 @@ for (chains in c("min","max")) {
                 
                 tree_plot <- ggtree(tree, mrsd = latest_sample, as.Date = T) %<+% node_data +
                     scale_x_date(
-                        date_labels = "%b.", 
+                        date_labels = "%b", 
                         limits = c(as.Date("2020-02-01"), as.Date("2020-12-15")),
                         date_breaks = "1 month") +
                     theme_tree2() + 
@@ -84,3 +84,6 @@ for (chains in c("min","max")) {
         }
     }
 }
+
+system("cp figures/trees/Re_skyline.max_chains.sampUB1.0.ctEst1.summary_trees.pdf ../../../../../../figures/")
+system("cp figures/trees/Re_skyline.min_chains.sampUB1.0.ctEst1.summary_trees.pdf ../../../../../../figures/")

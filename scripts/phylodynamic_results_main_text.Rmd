@@ -1,0 +1,238 @@
+---
+title: "Untitled"
+author: "Sarah Nadeau"
+date: "9/8/2021"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/")
+```
+
+
+```{r }
+library(tidyverse)
+library(lubridate)
+library(ggdist)
+
+source("../../../scripts/figures_shared_vars.R")
+```
+
+# Load CT data
+
+```{r}
+NZL_CT_data <- NULL
+for (clusters in c("min", "max")) {
+    for (contact_tracing in c(TRUE, FALSE)) {
+        for (sampUB in c("With sampling bound", "Without sampling bound" )) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ".sampUB", ifelse(sampUB=="With sampling bound", "0.4", "1.0"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+            print(pattern)
+
+            data <- NULL
+            for (f in dir("NZTransmissionChains/results", pattern, full.names=TRUE)) {
+                data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+
+            NZL_CT_data <- bind_rows(
+              NZL_CT_data,
+              data %>%
+                slice_tail(prop=0.9) %>%
+                select(Sample, "CTFactor[0]", "CTFactor[1]") %>%
+                pivot_longer(cols=2:3) %>%
+                mutate(lessThanOne=(value<1.0)) %>%
+                mutate(clusters=clusters,
+                       contact_tracing=contact_tracing,
+                       sampUB=sampUB))
+        }
+    }
+}
+
+NZL_CT_data <- NZL_CT_data %>%
+  mutate(season = case_when(
+    name == "CTFactor[0]" ~ "After 15. May",
+    name == "CTFactor[1]" ~ "Before 15. May"), 
+  season = factor(season, levels = c("Before 15. May", "After 15. May")))
+
+CHE_CT_data <- NULL
+for (clusters in c("min", "max")) {
+    for (contact_tracing in c(TRUE, FALSE)) {
+        for (sampUB in c("With sampling bound", "Without sampling bound" )) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ".sampUB", ifelse(sampUB=="With sampling bound", "0.05", "1.0"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+            
+            data <- NULL
+            for (f in dir("SwissTransmissionChains/results", pattern, full.names=TRUE)) {
+              data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+            
+            CHE_CT_data <- bind_rows(
+              CHE_CT_data,
+              data %>%
+                slice_tail(prop=0.9) %>%
+                select(Sample, "CTFactor[0]", "CTFactor[1]", "CTFactor[2]") %>%
+                pivot_longer(cols=2:4) %>%
+                mutate(lessThanOne=(value<1.0)) %>%
+                mutate(clusters=clusters,
+                       contact_tracing=contact_tracing,
+                       sampUB=sampUB))
+        }
+    }
+}
+
+CHE_CT_data <- CHE_CT_data %>%
+  mutate(season = case_when(
+    name == "CTFactor[0]" ~ "Fall",
+    name == "CTFactor[1]" ~ "Summer",
+    name == "CTFactor[2]" ~ "Spring"), 
+  season = factor(season, levels = c("Spring", "Summer", "Fall")))
+```
+
+## Combine NZL and CHE data
+
+```{r}
+CT_data <- rbind(NZL_CT_data %>% mutate(country = "New Zealand"),
+                 CHE_CT_data %>% mutate(country = "Switzerland")) %>%
+  mutate(country = factor(country, levels = c("Switzerland", "New Zealand")))
+```
+
+## Compare all damping factors for the supplement (no sampling upper bound)
+
+```{r}
+ggplot() +  
+  geom_histogram(
+    data = CT_data %>% filter(contact_tracing == "TRUE", sampUB == "Without sampling bound", clusters == "max"), 
+    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+  geom_histogram(
+    data = CT_data %>% filter(contact_tracing == "TRUE", sampUB == "Without sampling bound", clusters == "min"), 
+    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+  facet_wrap(country ~ season, ncol = 2, dir = "v") + 
+  scale_fill_manual(values = c("#009E73", "#E69F00"), labels = chain_assumption_labs, name = "Data set conditioning") + 
+  shared_theme + 
+  labs(x = "Value of tranmission rate damping factor", y = "Posterior support")
+
+ggsave("../../../figures/contact_tracing_factors_no_sampUB.pdf", width = double_col_width, height = double_col_width * 0.75, units = "cm")
+```
+
+## Load case data
+
+```{r}
+CASE_COUNT_LINK <- "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+cases <- read.csv(url(CASE_COUNT_LINK)) %>%
+  filter(location == "Switzerland") %>%
+  select(date, new_cases) %>%
+  group_by(date) %>%
+  summarize(new_cases = sum(new_cases, na.rm = T)) %>%
+  arrange(date) %>%
+  mutate(weekly_average_new_cases = zoo::rollmean(x = new_cases, k = 7, na.pad = T)) %>%
+  mutate(date = as.Date(date),
+         season = case_when(date < as.Date("2020-06-15") ~ "Spring",
+                            date <= as.Date("2020-09-30") ~ "Summer",
+                            date <= as.Date("2020-12-31") ~ "Fall"),
+         season = factor(season, levels = c("Spring", "Summer", "Fall")))
+```
+
+## Plot case data 
+
+```{r}
+case_plot <- ggplot(
+  data = cases %>% filter(date >= as.Date("2020-02-01"), date <= as.Date("2020-11-30")),
+  aes(x = date, y = weekly_average_new_cases)) + 
+  geom_col() + 
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") + 
+  labs(x = element_blank(), y = "New cases (7 day average)") + 
+  geom_rect(
+    data = subset(cases, season == "Summer")[1, ], 
+    fill = "orange",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(cases, season == "Fall")[1, ], 
+    fill = "blue",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(cases, season == "Spring")[1, ],
+    fill = "green",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  facet_wrap(. ~ season, scales = "free_x") +
+  theme_bw() +
+  theme(
+    panel.spacing.x = unit(0, "lines"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank())
+show(case_plot)
+```
+## Main text figure: contact tracing factor in the three different periods
+
+```{r}
+
+# force_panelsizes(cols = c(1, 0.2), 
+#                    rows = c(0.5),
+#                    respect = TRUE)
+
+library(ggh4x)
+CT_data_main_text <- CT_data %>% filter(country == "Switzerland", contact_tracing == "TRUE", sampUB == "Without sampling bound")
+binwidth <- 0.01
+
+ct_plot <- ggplot() +  
+  geom_histogram(
+    data = CT_data_main_text %>% filter(clusters == "max"), 
+    aes(x = value, y = ..density..), binwidth = binwidth) + 
+  geom_histogram(
+    data = CT_data_main_text %>% filter(clusters == "max"), 
+    aes(x = value, y = -..density..), binwidth = binwidth) + 
+  geom_histogram(
+    data = CT_data_main_text %>% filter(clusters == "min"), 
+    aes(x = value, y = ..density..), binwidth = binwidth) + 
+  geom_histogram(
+    data = CT_data_main_text %>% filter(clusters == "min"), 
+    aes(x = value, y = -..density..), binwidth = binwidth) + 
+  geom_rect(
+    data = subset(CT_data_main_text, season == "Spring" & clusters == "max")[1, ], 
+    fill = "green",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(CT_data_main_text, season == "Summer" & clusters == "max")[1, ], 
+    fill = "orange",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(CT_data_main_text, season == "Fall" & clusters == "max")[1, ], 
+    fill = "blue",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(CT_data_main_text, season == "Spring" & clusters == "min")[1, ],
+    fill = "green",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(CT_data_main_text, season == "Summer" & clusters == "min")[1, ],
+    fill = "orange",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  geom_rect(
+    data = subset(CT_data_main_text, season == "Fall" & clusters == "min")[1, ],
+    fill = "blue",
+    xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf, alpha = 0.1) +
+  coord_flip() +
+  facet_nested(. ~ season + clusters, labeller = labeller(clusters = chain_assumption_labs)) + 
+  theme_bw() + 
+  theme(
+    panel.spacing.x = unit(0, "lines"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()) + 
+  labs(x = "Re reduction", y = element_blank())
+
+p <- gridExtra::grid.arrange(ct_plot, case_plot, nrow = 2)
+
+ggsave("../../../figures/contact_tracing_factors_no_sampUB_compared_to_cases.pdf", p,
+       width = double_col_width * 1.25, height = single_col_width, units = "cm")
+```
+
