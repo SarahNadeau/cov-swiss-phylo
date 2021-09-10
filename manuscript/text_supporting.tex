@@ -92,22 +92,28 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/Re_CHE_1deme.pdf}
+\includegraphics[width=\linewidth]{figures/CHE_Re.pdf}
 \vfill
-\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/sampProp_CHE_1deme.pdf}
-\caption{Phylodynamic estimates for the time-varying effective reproductive number (top) and sampling proportion (bottom) in Switzerland under the base model with a damping factor, with and without bounded sampling.}  
+\includegraphics[width=\linewidth]{figures/CHE_sampProp.pdf}
+\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (top) and sampling probability (bottom) in Switzerland. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the model with a damping factor (blue) is the ``baseline'' $R_e$ before introduction-specific damping once introductions are older than 2-days post sampling.}  
 \label{fig:1DemeCHResults}
 \end{figure}
 % Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
 
 \begin{figure}[tbhp]
 \centering
-\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_CHE_1deme.pdf}
-\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
-\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_CHE_1deme.pdf}
-\includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
-\caption{Phylodynamic estimates for the damping factor in Switzerland. Top is inclusion probability for the damping factor, bottom is dampling factor estimate conditioned on inclusion. Left are inferences under the base model and right are inferences under the base model with a SS (super-spreading) deme.}  
-\label{fig:1vs2demeDampingFactorResults}
+\includegraphics[width=\linewidth]{figures/NZL_Re.pdf}
+\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ in New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the model with a damping factor (blue) is the ``baseline'' $R_e$ before introduction-specific damping once introductions are older than 2-days post sampling.}  
+\label{fig:NZLResults}
+\end{figure}
+
+\begin{figure}[tbhp]
+\centering
+\includegraphics[width=\linewidth]{figures/contact_tracing_factors_no_sampUB.pdf}
+% \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
+% \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
+\caption{Phylodynamic estimates for the damping factor in Switzerland and New Zealand in different time periods.}  
+\label{fig:DampingFactorResults}
 \end{figure}
 \newpage
 
@@ -124,15 +130,6 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 \includegraphics[width=0.75\linewidth]{figures/bdsky_2021-08-18/Re_skyline.min_chains.sampUB1.0.ctEst1.summary_trees.pdf}
 \caption{Summary trees from the phylodynamic analysis for Switzerland. Here introductions were estimated assuming ``few'' introductions. The 50th and 95th percentile largest introductions among those first sampled each month are shown. The three color regions represent the Spring (green), Summer (orange) and Fall (blue) periods. The vertical dashed line shows the date at which the transmission rate can slow for each introduction - two days after the first sample date. The red bars show the 95\% highest posterior density uncertainty in node dates.}  
 \label{fig:logged-chains}
-\end{figure}
-\newpage
-
-\begin{figure}[tbhp]
-\centering
-\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_NZL.pdf}
-\includegraphics[width=\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_NZL.pdf}
-\caption{Phylodynamic estimates for the damping factor in New Zealand. Top is inclusion probability for the damping factor, bottom is dampling factor estimate conditioned on inclusion.}  
-\label{fig:NZLDampingFactorResults}
 \end{figure}
 \newpage
 
