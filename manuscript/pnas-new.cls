@@ -60,8 +60,8 @@
 %% Set up main title page fonts 
 \newcommand{\headerfont}{\normalfont\sffamily\fontsize{7}{9} \selectfont}
 \newcommand{\footerfont}{\normalfont\sffamily\fontsize{7}{9} \selectfont}
-\newcommand{\titlefont}{\fontfamily{lmss}\bfseries\fontsize{22pt}{24pt}\selectfont}
-\newcommand{\dropcapfont}{\fontfamily{lmss}\bfseries\fontsize{26pt}{28pt}\selectfont}
+% \newcommand{\titlefont}{\fontfamily{lmss}\bfseries\fontsize{22pt}{24pt}\selectfont}
+\newcommand{\titlefont}{\normalfont\bfseries\fontsize{22pt}{24pt}\selectfont}
 \newcommand{\datesfont}{\normalfont\sffamily\fontsize{7}{8}\selectfont}
 \newcommand{\absfont}{\normalfont\sffamily\bfseries\fontsize{8}{11}\selectfont}
 \newcommand{\keywordsfont}{\normalfont\rmfamily\fontsize{7}{10}\selectfont}
@@ -93,17 +93,17 @@
 \newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
 
 %% Watermark 
-\newboolean{displaywatermark}
-\setboolean{displaywatermark}{true} % Set to false to remove the watermark
-\AtBeginDocument{%
-  \ifthenelse{\boolean{displaywatermark}}{%
-  \RequirePackage{draftwatermark}
-  \SetWatermarkAngle{45}
-  \SetWatermarkColor{gray!20}
-  \SetWatermarkFontSize{3cm}
-  \SetWatermarkText{{\fontfamily{bch}\bfseries DRAFT}}
-}{}
-}
+% \newboolean{displaywatermark}
+% \setboolean{displaywatermark}{true} % Set to false to remove the watermark
+% \AtBeginDocument{%
+%   \ifthenelse{\boolean{displaywatermark}}{%
+%   \RequirePackage{draftwatermark}
+%   \SetWatermarkAngle{45}
+%   \SetWatermarkColor{gray!20}
+%   \SetWatermarkFontSize{3cm}
+%   \SetWatermarkText{{\fontfamily{bch}\bfseries DRAFT}}
+% }{}
+% }
 
 %% Copyright statement (not used)
 \newboolean{displaycopyright}
@@ -201,30 +201,30 @@
 
 
 %% Headers and footers
-\RequirePackage{fancyhdr}  % custom headers/footers
-\RequirePackage{lastpage}  % Number of pages in the document
-\pagestyle{fancy}          % Enables the custom headers/footers
+% \RequirePackage{fancyhdr}  % custom headers/footers
+% \RequirePackage{lastpage}  % Number of pages in the document
+% \pagestyle{fancy}          % Enables the custom headers/footers
 
-\fancypagestyle{firststyle}{
-   \fancyfoot[R]{\footerfont PNAS\hspace{7pt}|\hspace{7pt}\textbf{\today}\hspace{7pt}|\hspace{7pt}vol. XXX\hspace{7pt}|\hspace{7pt}no. XX\hspace{7pt}|\hspace{7pt}\textbf{\thepage\textendash\pageref{LastPage}}}
-   \fancyfoot[L]{\footerfont\@ifundefined{@doi}{}{\@doi}}
-}
+% \fancypagestyle{firststyle}{
+%   \fancyfoot[R]{\footerfont PNAS\hspace{7pt}|\hspace{7pt}\textbf{\today}\hspace{7pt}|\hspace{7pt}vol. XXX\hspace{7pt}|\hspace{7pt}no. XX\hspace{7pt}|\hspace{7pt}\textbf{\thepage\textendash\pageref{LastPage}}}
+%   \fancyfoot[L]{\footerfont\@ifundefined{@doi}{}{\@doi}}
+% }
 
 
-% Headers
-\fancyhead[LE,RO]{}
-\fancyhead[LO,RE]{}
-% Footers
-\lfoot{}%
-\cfoot{}%
-\rfoot{}%
+% % Headers
+% \fancyhead[LE,RO]{}
+% \fancyhead[LO,RE]{}
+% % Footers
+% \lfoot{}%
+% \cfoot{}%
+% \rfoot{}%
 
-\fancyfoot[LE]{\footerfont\textbf{\thepage}\hspace{7pt}|\hspace{7pt}\@ifundefined{@doi}{}{\@doi}}
-\fancyfoot[RO]{\footerfont PNAS\hspace{7pt}|\hspace{7pt}\textbf{\today}\hspace{7pt}|\hspace{7pt}vol. XXX\hspace{7pt}|\hspace{7pt}no. XX\hspace{7pt}|\hspace{7pt}\textbf{\thepage}}
-\fancyfoot[RE,LO]{\footerfont\@ifundefined{@leadauthor}{}{\@leadauthor}\ifnum \value{authors} > 1\hspace{5pt}\textit{et al.}\fi}
+% \fancyfoot[LE]{\footerfont\textbf{\thepage}\hspace{7pt}|\hspace{7pt}\@ifundefined{@doi}{}{\@doi}}
+% \fancyfoot[RO]{\footerfont PNAS\hspace{7pt}|\hspace{7pt}\textbf{\today}\hspace{7pt}|\hspace{7pt}vol. XXX\hspace{7pt}|\hspace{7pt}no. XX\hspace{7pt}|\hspace{7pt}\textbf{\thepage}}
+% \fancyfoot[RE,LO]{\footerfont\@ifundefined{@leadauthor}{}{\@leadauthor}\ifnum \value{authors} > 1\hspace{5pt}\textit{et al.}\fi}
 
-\renewcommand{\headrulewidth}{0pt}% % No header rule
-\renewcommand{\footrulewidth}{0pt}% % No footer rule
+% \renewcommand{\headrulewidth}{0pt}% % No header rule
+% \renewcommand{\footrulewidth}{0pt}% % No footer rule
 
 %% Section/subsection/paragraph set-up
 \RequirePackage[explicit]{titlesec}

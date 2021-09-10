@@ -3,8 +3,6 @@
 
 \templatetype{pnassupportinginfo}
 \usepackage{longtable}
-% \usepackage{biblatex}
-% \addbibresource{references.bib}
 
 \title{Your main manuscript title}
 \author{Author1, Author2 and Author3 (complete author list)}
@@ -39,7 +37,7 @@ We investigated the sensitivity of transmission chain summary statistics to diff
 After deciding on a ratio of foreign to Swiss sequences, we investigated the sensitivity of transmission chain summary statistics to our criteria for picking transmission chains. Figure \ref{fig:sensitivity_m_p} shows that increasing the maximum number of exported lineages decreases the number of transmission chains and increases their size. Increasing the maximum consecutive exports has a much smaller effect. But again, these differences are smaller than those resulting from the different assumptions about how to resolve phylogenetic uncertainty (few vs. many introductions). Therefore, we chose our criteria to be maximum 3 exported lineages and maximum one consecutive export to allow for some exports but not arbitrarily many. 
 
 \subsection{Upper-bounding sampling proportion}
-Genome-based estimates for the effective reproductive number in Switzerland are for the most part robust to the different transmission chain definitions and largely match estimates based on confirmed case counts (Figure \ref{fig:re}). One exception is in October 2020, when genome-based estimates are lower than confirmed case counts unless the sampling proportion is treated as a fitting parameter. A drop in genome diversity during this period might explain the discrepancy. 
+Genome-based estimates for the effective reproductive number in Switzerland are for the most part robust to the different transmission chain definitions and largely match estimates based on confirmed case counts (Figure \ref{fig:ReSampProbResults}). One exception is in October 2020, when genome-based estimates are lower than confirmed case counts unless the sampling proportion is treated as a fitting parameter. A drop in genome diversity during this period might explain the discrepancy. 
 
 \subsection{Including a ``super-spreader'' deme}
 We checked whether our estimate of a transmission slow-down upon introduction sampling was robust to the inclusion of super-spreading individuals in the model. Therefore, we included a second deme in the analysis. Let $\pi_N$ be the fraction of normal individuals and $\pi_{SS}$ be the fraction of super-spreading individuals in the population. Super-spreading individuals transmit according to the master time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. $\pi_N$, $\pi_{SS}$, and $r_{SS}$ are all inferred parameters. 
@@ -93,19 +91,13 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 \begin{figure}[tbhp]
 \centering
 \includegraphics[width=\linewidth]{figures/CHE_Re.pdf}
+\includegraphics[width=\linewidth]{figures/NZL_Re.pdf}
 \vfill
 \includegraphics[width=\linewidth]{figures/CHE_sampProp.pdf}
-\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (top) and sampling probability (bottom) in Switzerland. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the model with a damping factor (blue) is the ``baseline'' $R_e$ before introduction-specific damping once introductions are older than 2-days post sampling.}  
-\label{fig:1DemeCHResults}
+\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (top) and sampling probability (bottom) in Switzerland and New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the models with a damping factor (blue) are the ``baseline'' $R_e$ before introduction-specific damping (i.e. before application of a damping factor once introductions are older than 2-days post sampling).}  
+\label{fig:ReSampProbResults}
 \end{figure}
 % Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
-
-\begin{figure}[tbhp]
-\centering
-\includegraphics[width=\linewidth]{figures/NZL_Re.pdf}
-\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ in New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the model with a damping factor (blue) is the ``baseline'' $R_e$ before introduction-specific damping once introductions are older than 2-days post sampling.}  
-\label{fig:NZLResults}
-\end{figure}
 
 \begin{figure}[tbhp]
 \centering
@@ -121,7 +113,7 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 \centering
 \includegraphics[width=0.75\linewidth]{figures/bdsky_2021-08-18/Re_skyline.max_chains.sampUB1.0.ctEst1.summary_trees.pdf}
 \caption{Summary trees from the phylodynamic analysis for Switzerland. Here introductions were estimated assuming ``many'' introductions. The 50th and 95th percentile largest introductions among those first sampled each month are shown. The three color regions represent the Spring (green), Summer (orange) and Fall (blue) periods. The vertical dashed line shows the date at which the transmission rate can slow for each introduction - two days after the first sample date. The red bars show the 95\% highest posterior density uncertainty in node dates.}  
-\label{fig:logged-chains}
+\label{fig:logged-chains-max}
 \end{figure}
 \newpage
 
@@ -129,14 +121,14 @@ From the phylodynamic analyses, we are primarily interested in estimating a tran
 \centering
 \includegraphics[width=0.75\linewidth]{figures/bdsky_2021-08-18/Re_skyline.min_chains.sampUB1.0.ctEst1.summary_trees.pdf}
 \caption{Summary trees from the phylodynamic analysis for Switzerland. Here introductions were estimated assuming ``few'' introductions. The 50th and 95th percentile largest introductions among those first sampled each month are shown. The three color regions represent the Spring (green), Summer (orange) and Fall (blue) periods. The vertical dashed line shows the date at which the transmission rate can slow for each introduction - two days after the first sample date. The red bars show the 95\% highest posterior density uncertainty in node dates.}  
-\label{fig:logged-chains}
+\label{fig:logged-chains-min}
 \end{figure}
 \newpage
 
 \begin{table}[H]
 \caption{Various phylodynamic models employed for the main analysis and sensitivity checks.}
 \label{tab:phylo-models}
-\begin{tabular}{cccccc}
+\begin{tabular}{ccccc}
 Data set & Polytomy resolution & Damping factor (contact\_tracing) & Damping factor + SS Deme & Damping factor + Sampling bound \\
 \midrule
 Swiss & Many introductions (max) & Y & Y & Y \\
@@ -153,7 +145,8 @@ New Zealand & Few introductions (min) & Y & & \\
 \begin{table}[H]
 \centering
 \caption{Sampling proportion change-points in the phylodynamic analyses.}
-\begin{tabular}{lp{6cm}rr}
+\label{tab:CHE_samp_prob_change_dates}
+\begin{tabular}{ll}
 Start date & Description \\
 \midrule
 23. Apr 2020 & All symptomatic individuals can get tested \\
@@ -169,26 +162,16 @@ Start date & Description \\
 \newpage
 \begin{table}[H]
 \caption{Contingency table for singleton introductions and transmission chains by time period assuming many (right) and few (left)  introductions.}
+\label{tab:lockdown-contingency}
 \input{figures/max_chains_contingency}
 \input{figures/min_chains_contingency}
-\label{tab:lockdown-contingency}
 \end{table}
 
 \newpage
-\input{figures/lineage_data_summary}
+\input{figures/lineage_data_summary.tex}
 
 % %%% Add this line AFTER all your figures and tables
-% \FloatBarrier
-
-% \movie{Type legend for the movie here.}
-
-% \movie{Type legend for the other movie here. Adding longer text to show what happens, to decide on alignment and/or indentations.}
-
-% \movie{A third movie, just for kicks.}
-
-% \dataset{dataset_one.txt}{Type or paste legend here.}
-
-% \dataset{dataset_two.txt}{Type or paste legend here. Adding longer text to show what happens, to decide on alignment and/or indentations for multi-line or paragraph captions.}
+\FloatBarrier
 
 \bibliography{references}
 
