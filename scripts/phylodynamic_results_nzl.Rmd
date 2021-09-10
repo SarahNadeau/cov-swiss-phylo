@@ -187,14 +187,14 @@ before_15_may_max_dampling_percent_median_NZL_no_sampUB <- round(unlist(dampling
   filter(sampUB == "Without sampling bound", clusters == "max", season == "Before 15. May") %>%
   select(median_dampling_factor)) * 100, digits = 0)
 
-writeLines(text = paste0("\\newcommand\\before_15_may_max_dampling_percent_median_NZL_no_sampUB{", 
+writeLines(text = paste0("\\newcommand\\before15maymaxdamplingpercentmedianNZLnosampUB{", 
                          before_15_may_max_dampling_percent_median_NZL_no_sampUB, "}"), con = con)
 
 before_15_may_min_dampling_percent_median_NZL_no_sampUB <- round(unlist(dampling_factor_medians %>%
   filter(sampUB == "Without sampling bound", clusters == "min", season == "Before 15. May") %>%
   select(median_dampling_factor)) * 100, digits = 0)
 
-writeLines(text = paste0("\\newcommand\\before_15_may_min_dampling_percent_median_NZL_no_sampUB{", 
+writeLines(text = paste0("\\newcommand\\before15maymindamplingpercentmedianNZLnosampUB{", 
                          before_15_may_min_dampling_percent_median_NZL_no_sampUB, "}"), con = con)
 
 close(con)

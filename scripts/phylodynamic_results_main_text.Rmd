@@ -232,7 +232,7 @@ ct_plot <- ggplot() +
 
 p <- gridExtra::grid.arrange(ct_plot, case_plot, nrow = 2)
 
-ggsave("../../../figures/contact_tracing_factors_no_sampUB_compared_to_cases.pdf", p,
+ggsave("../../../figures/contact_tracing_factors_no_sampUB_compared_to_cases.png", p,
        width = double_col_width * 1.25, height = single_col_width, units = "cm")
 ```
 
