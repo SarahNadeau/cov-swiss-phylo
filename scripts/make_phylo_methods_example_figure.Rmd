@@ -1,0 +1,166 @@
+---
+title: "Untitled"
+author: "Sarah Nadeau"
+date: "9/14/2021"
+output: html_document
+---
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+
+```{r }
+library(ggplot2)
+library(ggdist)
+library(cowplot)
+
+source("../../../scripts/figures_shared_vars.R")
+```
+
+## Get background Re data
+
+```{r}
+LINE_LIST_RE_EST_LINK <- "https://raw.githubusercontent.com/covid-19-Re/dailyRe-Data/master/CHE-estimates.csv"
+dummy_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
+  filter(
+    region == "CHE",
+    data_type == "Confirmed cases", 
+    estimate_type == "Cori_slidingWindow") %>%
+  select(c(date, median_R_mean)) %>%
+  mutate(date = as.Date(date)) %>%
+  filter(date <= as.Date("2020-12-01"), date >= as.Date("2020-02-15")) %>%
+  mutate(Re = zoo::rollmean(x = median_R_mean, k = 7, fill = NA))
+```
+
+## Get example introductions
+
+```{r}
+tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
+                          "Re_skyline.max_chains.sampUB1.0.0.c2064.summary.tree"))
+tree_2 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
+                          "Re_skyline.max_chains.sampUB1.0.0.c2219.summary.tree"))
+
+## Get date of 2 days following the first sample, the last sample:
+tree_1_sample_data <- tree_1 %>% as_tibble() %>% filter(!is.na(label)) %>%
+  tidyr::separate(col = label, into = c("strain", "gisaid_epi_isl", "date", "cluster_idx"), remove = F, sep = "\\|")
+tree_1_rate_shift <- min(as.Date(tree_1_sample_data$date)) + 2
+tree_1_latest_sample <- max(tree_1_sample_data$date)
+tree_1_mrca <- as.Date(tree_1_latest_sample) - max((tree_1 %>% as_tibble())$height) * 365
+
+tree_2_sample_data <- tree_2 %>% as_tibble() %>% filter(!is.na(label)) %>%
+  tidyr::separate(col = label, into = c("strain", "gisaid_epi_isl", "date", "cluster_idx"), remove = F, sep = "\\|")
+tree_2_rate_shift <- min(as.Date(tree_2_sample_data$date)) + 2
+tree_2_latest_sample <- max(tree_2_sample_data$date)
+tree_2_mrca <- as.Date(tree_2_latest_sample) - max((tree_2 %>% as_tibble())$height) * 365
+```
+
+## Make methods figure
+
+```{r}
+methods_fig_theme <- theme(
+  panel.grid = element_blank(),
+  plot.background = element_rect(fill = "transparent", colour = NA),
+  axis.title.x = element_blank())
+
+tree_theme <- theme(
+  axis.text = element_blank(),
+  axis.ticks = element_blank(),
+  panel.border = element_blank())
+
+re_subset_theme <- theme(
+  axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 0.5))
+
+re_background_ylab <- "Background Re"
+re_subset_ylab <- "Applied Re"
+re_reduction_factor <- 0.8
+
+background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) + 
+  geom_line() + 
+  geom_rect(aes(xmax = as.Date(tree_1_latest_sample), xmin = as.Date(tree_1_mrca), ymax = 1.2, ymin = 0.5), 
+            fill = "transparent", color = "black") + 
+  geom_rect(aes(xmax = as.Date(tree_2_latest_sample), xmin = as.Date(tree_2_mrca), ymax = 1.7, ymin = 1), 
+            fill = "transparent", color = "black") + 
+  annotate("text", x = as.Date(tree_1_mrca), y = 1.2, hjust = -0.2, vjust = 1.2, label= "B") + 
+  annotate("text", x = as.Date(tree_2_mrca), y = 1.7, hjust = -0.2, vjust = 1.2, label= "C") + 
+  scale_x_date(date_breaks = "1 month", date_labels = "%b") + 
+  labs(y = re_background_ylab) + 
+  shared_theme + 
+  methods_fig_theme
+
+tree_plot_1 <- ggtree(tree_1, mrsd = tree_1_latest_sample, as.Date = T) +
+  theme_tree2() + 
+  scale_x_date(limits = c(as.Date(tree_1_mrca) - 1, as.Date(tree_1_latest_sample)), expand = c(0,0)) + 
+  theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) +
+  geom_vline(xintercept = tree_1_rate_shift, linetype = "dashed") + 
+  shared_theme + 
+  methods_fig_theme + 
+  tree_theme
+
+tree_plot_2 <- ggtree(tree_2, mrsd = tree_2_latest_sample, as.Date = T) +
+  theme_tree2() + 
+  scale_x_date(limits = c(as.Date(tree_2_mrca) - 1, as.Date(tree_2_latest_sample)), expand = c(0,0)) + 
+  theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) + 
+  geom_vline(xintercept = tree_2_rate_shift, linetype = "dashed") + 
+  shared_theme + 
+  methods_fig_theme + 
+  tree_theme
+
+tree_1_re <- ggplot(
+  data = rbind(
+    dummy_re_data %>% 
+      filter(date > tree_1_mrca - 1, date <= tree_1_rate_shift) %>%
+      mutate(Re_transformed = Re),
+    dummy_re_data %>% 
+      filter(date >= tree_1_rate_shift, date <= tree_1_latest_sample) %>%
+      mutate(Re_transformed = Re * re_reduction_factor)),
+  aes(x = date, y = Re_transformed)) + 
+  scale_x_date(expand = c(0,0), date_labels = "%d %b") + 
+  labs(y = re_subset_ylab) + 
+  geom_line() + 
+  shared_theme + 
+  methods_fig_theme + 
+  re_subset_theme
+
+tree_2_re <- ggplot(
+  data = rbind(
+    dummy_re_data %>% 
+      filter(date > tree_2_mrca - 1, date <= tree_2_rate_shift) %>%
+      mutate(Re_transformed = Re),
+    dummy_re_data %>% 
+      filter(date >= tree_2_rate_shift, date <= tree_2_latest_sample) %>%
+      mutate(Re_transformed = Re * re_reduction_factor)),
+  aes(x = date, y = Re_transformed)) + 
+  scale_x_date(expand = c(0,0), date_labels = "%d %b") + 
+  labs(y = re_subset_ylab) +
+  geom_line() + 
+  shared_theme + 
+  methods_fig_theme + 
+  re_subset_theme
+
+# Align tree and Re for each subset example
+p1_plots <- align_plots(tree_plot_1, tree_1_re, align = "v", axis = "l")
+p2_plots <- align_plots(tree_plot_2, tree_2_re, align = "v", axis = "l")
+
+# Stack tree and Re for each subset example
+p1 <- plot_grid(p1_plots[[1]], p1_plots[[2]], labels = c("B", ""), nrow = 2, rel_heights = c(0.6, 1))
+p2 <- plot_grid(p2_plots[[1]], p2_plots[[2]], labels = c("C", ""), nrow = 2, rel_heights = c(0.6, 1))
+
+# Align subsets with each other
+plots <- cowplot::align_plots(p1, p2, align = "v", axis = "b")
+
+# Combine the subsets horizontally
+subsets <- cowplot::plot_grid(plots[[1]], plots[[2]], nrow = 1)
+
+# Combine background Re and the subsets
+cowplot::plot_grid(background_re, subsets, labels = c("A", ""), ncol = 2, rel_widths = c(1, 1))
+
+ggsave("figures/phylodynamic_method_example.png",
+       width = double_col_width, height = single_col_width * 0.65, units = "cm")
+
+# Have examples as inserts instead:
+# ggdraw(background_re) + 
+#   draw_plot(p1, x = .18, y = .47, width = .2, height = .4) + 
+#   draw_plot(p2, x = .55, y = .55, width = .2, height = .4)
+```
