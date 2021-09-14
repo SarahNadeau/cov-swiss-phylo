@@ -108,20 +108,19 @@ line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
 
 **In the final plots, make sure to add monthly/bi-weekly axis ticks.**
 
-```{r }
-color_values <- c("conf_case_counts" = "grey", "TRUE" = "#56B4E9", "FALSE" = "#F0E442")
+```{r}
+color_values <- c("conf_case_counts" = "grey", "TRUE" = model_type_colors[1], "FALSE" =  model_type_colors[2])
 color_labels <- c("conf_case_counts" = "Confirmed cases", 
                   "TRUE" = "Model with damping factor", 
                   "FALSE" = "Model without damping factor")
 
 ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
        aes(date, median, fill = contact_tracing, color = contact_tracing)) +
-    geom_ribbon(
-        aes(ymin=low, ymax=high), alpha=0.5) +
+    geom_lineribbon(
+        aes(ymin=low, ymax=high), alpha=0.5, step = "vh") +
     geom_ribbon(
         data = line_list_re_data, 
         aes(date, ymin=ylow, ymax=yhigh, fill = 'conf_case_counts', color = 'conf_case_counts'), alpha = 0.5) + 
-    geom_line(alpha = 0.5) +
     geom_line(data = line_list_re_data, aes(color = 'conf_case_counts'), alpha = 0.5) +
     scale_color_manual(name = NULL, values = color_values, labels = color_labels) + 
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels) + 
@@ -186,19 +185,20 @@ CT_data <- CT_data %>%
     name == "CTFactor[0]" ~ "Fall",
     name == "CTFactor[1]" ~ "Summer",
     name == "CTFactor[2]" ~ "Spring"), 
-  season = factor(season, levels = c("Spring", "Summer", "Fall")))
+  season = factor(season, levels = c("Spring", "Summer", "Fall")),
+  transmission_rate_decrease = (1 - value) * 100)
 
 ggplot() +  
   geom_histogram(
     data = CT_data %>% filter(contact_tracing == "TRUE", clusters == "max"), 
-    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
   geom_histogram(
     data = CT_data %>% filter(contact_tracing == "TRUE", clusters == "min"), 
-    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
   facet_grid(season ~ sampUB) + 
-  scale_fill_manual(values = c("#009E73", "#E69F00"), labels = chain_assumption_labs, name = "Data set conditioning") + 
+  scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
   shared_theme + 
-  labs(x = "Value of tranmission rate damping factor", y = "Posterior support")
+  labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
 
 ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
 ```
@@ -208,28 +208,27 @@ ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = 
 ```{r}
 con <- file("../../../../manuscript/damping_factor_variables.tex", open = "w")
 
-dampling_factor_medians <- CT_data %>%
+damping_factor_medians <- CT_data %>%
   filter(contact_tracing == "TRUE") %>%
   group_by(sampUB, clusters, season) %>%
-  summarize(median_dampling_factor = median(value), .groups = "drop")
+  summarize(median_damping_factor = median(value), .groups = "drop")
 
-summer_max_dampling_percent_median_CHE_no_sampUB <- round(unlist(dampling_factor_medians %>%
+summer_max_damping_percent_median_CHE_no_sampUB <- round(1 - unlist(damping_factor_medians %>%
   filter(sampUB == "Without sampling bound", clusters == "max", season == "Summer") %>%
-  select(median_dampling_factor)) * 100, digits = 0)
+  select(median_damping_factor)) * 100, digits = 0)
 
-writeLines(text = paste0("\\newcommand\\summermaxdamplingpercentmedianCHEnosampUB{", 
-                         summer_max_dampling_percent_median_CHE_no_sampUB, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\summermaxdampingpercentmedianCHEnosampUB{", 
+                         summer_max_damping_percent_median_CHE_no_sampUB, "}"), con = con)
 
-summer_min_dampling_percent_median_CHE_no_sampUB <- round(unlist(dampling_factor_medians %>%
+summer_min_damping_percent_median_CHE_no_sampUB <- round(1 - unlist(damping_factor_medians %>%
   filter(sampUB == "Without sampling bound", clusters == "min", season == "Summer") %>%
-  select(median_dampling_factor)) * 100, digits = 0)
+  select(median_damping_factor)) * 100, digits = 0)
 
-writeLines(text = paste0("\\newcommand\\summermindamplingpercentmedianCHEnosampUB{", 
-                         summer_min_dampling_percent_median_CHE_no_sampUB, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\summermindampingpercentmedianCHEnosampUB{", 
+                         summer_min_damping_percent_median_CHE_no_sampUB, "}"), con = con)
 
 close(con)
 
-system("cp figures/contact_tracing_factor_no_sampUB.pdf ../../../../figures/CHE_contact_tracing_factor_no_sampUB.pdf")
 system("cp figures/contact_tracing_factor.pdf ../../../../figures/CHE_contact_tracing_factor.pdf")
 system("cp figures/sampProp.pdf ../../../../figures/CHE_sampProp.pdf")
 system("cp figures/Re.pdf ../../../../figures/CHE_Re.pdf")
