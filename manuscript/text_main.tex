@@ -114,12 +114,16 @@ Next, we inferred time-varying transmission dynamics within Switzerland in a Bay
 
 On top of this model, we added a transmission rate ``damping'' factor. This aims to test whether test-trace-isolate efforts in Switzerland slowed transmission once an introduction was detected. Given there is no travel-related quarantining or altered testing, we reasoned test-trace-isolate could slow transmission shortly after the first case tests positive but not beforehand. We include this concept in our model by allowing the transmission rate to decrease at 2 days after each introduction is first sampled by a multiplicative factor. We used a spike-and-slab prior on this factor to include the possibility of no transmission slow-down. To test robustness, we repeated the analysis under several different model configurations (Table \ref{tab:phylo-models}).
 
+\begin{figure}[]
+\centering
+\includegraphics[width=0.75\linewidth]{figures/phylodynamic_method_example.png}
+\caption{Illustration of how transmission rate ``damping'' is modelled. (A) shows a background time-varying reproductive number that might be proposed at one step of the inference. The boxes in (A) highlight time-periods during which two example introductions (B) and (C) are spreading. The genome data sampled from these introductions (illustrated as red dots) are shown on trees, which are likewise proposed at this step of the inference. Finally, a transmission damping factor of 20\% is proposed. In the end, the likelihood of the sampled genome data is calculated given the ``applied'' effective reproductive number specific to each introduction (B & C, bottom).}  
+\label{fig:phylo-methods}
+\end{figure}
+
 Across all models and assuming either ``few'' or ``many'' introductions, we get effective reproductive number estimates that roughly capture the same trends as estimates based on confirmed case counts (Figure \ref{fig:ReSampProbResults}). On the other hand, sampling probability estimates in Fall 2020 are strongly dependent on the prior (Figure \ref{fig:ReSampProbResults}).
 
 SARS-CoV-2 genome data additionally provide a unique view on introduction-specific transmission dynamics. We estimate a \summermaxdamplingpercentmedianCHEnosampUB\ - \summermindamplingpercentmedianCHEnosampUB\% slow-down in transmission after introductions are first sampled during Summer 2020. In comparison, we estimate no or very little slow-down in relation to first sampling during Fall 2020 (Figure \ref{fig:scale-factor}). These results are qualitatively robust to assuming few or many introductions, imposing a strong prior bound on the sampling proportion, and including a second deme of super-spreading individuals in the model (Figure \ref{fig:DampingFactorResults}). In contrast, estimates in Spring 2020 are inconsistent. This could be explained by low genomic diversity in SARS-CoV-2 contributing to high phylogenetic uncertainty; figures \ref{fig:logged-chains-min}, \ref{fig:logged-chains-max} give examples of how transmission dynamics within Spring 2020 introductions vary greatly depending on introduction definition. In summary, we report an evident ``breakpoint'' dynamic in SARS-CoV-2 transmission in Switzerland in Summer 2020 where transmission evidently slows shortly after the first sample is generated.
-
-\subsection{Comparison to the New Zealand epidemic}
-While Switzerland is centrally located in Europe and well-connected to other countries, especially those in the (normally) barrier-free Schengen travel zone, New Zealand is a relatively isolated island nation. Additionally, New Zealand aimed to eradicate SARS-CoV-2 throughout 2020 using strong measures, such as keeping it's borders closed, while Switzerland re-opened to Europe in early Summer 2020. We compared our estimates for the transmission slow-down factor between Switzerland in Spring, Summer, and Fall 2020 with New Zealand before and after local transmission was all but eradicated there in mid-May 2020. Estimated damping factors in New Zealand before and after 15. May were comparable or stronger than in Switzerland during Summer and Fall 2020 (Figure \ref{fig:scale-factor}).
 
 \begin{figure}[]
 \centering
@@ -127,6 +131,9 @@ While Switzerland is centrally located in Europe and well-connected to other cou
 \caption{Epidemic trajectories in Switzerland (A) and New Zealand (B) during 2020 based on the 7-day rolling average of new confirmed cases each day \cite{Appel}. (C) and (D) show phylodynamic estimates for if and how much transmission within introductions slowed once they were sampled during different time periods in Switzerland (C) and New Zealand (D). Estimates were generated twice, once conditioning on introductions identified assuming many introductions (light grey) and once on introductions identified assuming few introductions (dark grey).}  
 \label{fig:scale-factor}
 \end{figure}
+
+\subsection{Comparison to the New Zealand epidemic}
+While Switzerland is centrally located in Europe and well-connected to other countries, especially those in the (normally) barrier-free Schengen travel zone, New Zealand is a relatively isolated island nation. Additionally, New Zealand aimed to eradicate SARS-CoV-2 throughout 2020 using strong measures, such as keeping it's borders closed, while Switzerland re-opened to Europe in early Summer 2020. We compared our estimates for the transmission slow-down factor between Switzerland in Spring, Summer, and Fall 2020 with New Zealand before and after local transmission was all but eradicated there in mid-May 2020. Estimated damping factors in New Zealand before and after 15. May were comparable or stronger than in Switzerland during Summer and Fall 2020 (Figure \ref{fig:scale-factor}).
 
 \section{Discussion}
 % Re-state the goal and the main results
