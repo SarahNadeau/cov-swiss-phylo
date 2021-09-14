@@ -24,3 +24,8 @@ facet_nospace_theme_elements <- theme(
   panel.spacing = unit(0, "lines"))
 border_closure_end <- as.Date("2020-06-15")
 border_closure_start <- as.Date("2020-03-25")
+ct_factor_x_lab <- "Tranmission rate decrease (%)"
+ct_factor_y_lab <- "Posterior support"
+chains_assumption_legend_name <- "Polytomy assumption"
+chains_assumption_colors <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")[1:2]
+model_type_colors <- RColorBrewer::brewer.pal(n = 8, name = "Dark2")[4:5]

@@ -94,15 +94,15 @@ line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
 
 ```{r }
 ctChange <- ymd("2020-05-15")
-color_values <- c("conf_case_counts" = "grey", "TRUE" = "#56B4E9", "FALSE" = "#F0E442")
+color_values <- c("conf_case_counts" = "grey", "TRUE" = model_type_colors[1], "FALSE" = model_type_colors[2])
 color_labels <- c("conf_case_counts" = "Confirmed cases", 
                   "TRUE" = "Model with damping factor", 
                   "FALSE" = "Model without damping factor")
 
 ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
        aes(date, median, fill = contact_tracing, color = contact_tracing)) +
-    geom_ribbon(
-        aes(ymin=low, ymax=high), alpha=0.5) +
+    geom_lineribbon(
+        aes(ymin=low, ymax=high), alpha=0.5, step = "vh") +
     geom_ribbon(
         data = line_list_re_data, 
         aes(date, ymin=ylow, ymax=yhigh, fill = 'conf_case_counts', color = 'conf_case_counts'), alpha = 0.5) + 
@@ -114,8 +114,20 @@ ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
     labs(y = "Effective reproductive number", x = element_blank()) + 
+    coord_cartesian(ylim = c(0, 10)) +
     shared_theme
 ggsave("figures/Re.pdf", width=15, height=5, units="in")
+
+ggplot(skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates),
+       aes(date, median, col=contact_tracing, fill=contact_tracing)) +
+    geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +
+    scale_color_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
+    scale_fill_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
+    facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
+    scale_x_date(date_breaks="1 month", date_labels="%b") +
+    labs(y = "Sampling probability", x = element_blank()) + 
+    shared_theme
+ggsave("figures/sampProp.pdf", width=15, height=5, units="in")
 ```
 
 ## Contact tracing effect size
@@ -156,19 +168,20 @@ CT_data <- CT_data %>%
   mutate(season = case_when(
     name == "CTFactor[0]" ~ "After 15. May",
     name == "CTFactor[1]" ~ "Before 15. May"), 
-  season = factor(season, levels = c("Before 15. May", "After 15. May")))
+  season = factor(season, levels = c("Before 15. May", "After 15. May")),
+  transmission_rate_decrease = (1 - value) * 100)
 
 ggplot() +  
   geom_histogram(
     data = CT_data %>% filter(contact_tracing == "TRUE", clusters == "max"), 
-    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
   geom_histogram(
     data = CT_data %>% filter(contact_tracing == "TRUE", clusters == "min"), 
-    aes(x = value, fill = clusters), alpha = 0.5, bins = 30) + 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
   facet_grid(season ~ sampUB) + 
-  scale_fill_manual(values = c("#009E73", "#E69F00"), labels = chain_assumption_labs, name = "Data set conditioning") + 
+  scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
   shared_theme + 
-  labs(x = "Value of tranmission rate damping factor", y = "Posterior support")
+  labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
 
 ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
 ```
@@ -178,24 +191,24 @@ ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = 
 ```{r}
 con <- file("../../../../manuscript/damping_factor_variables.tex", open = "a")
 
-dampling_factor_medians <- CT_data %>%
+damping_factor_medians <- CT_data %>%
   filter(contact_tracing == "TRUE") %>%
   group_by(sampUB, clusters, season) %>%
-  summarize(median_dampling_factor = median(value), .groups = "drop")
+  summarize(median_damping_factor = median(value), .groups = "drop")
 
-before_15_may_max_dampling_percent_median_NZL_no_sampUB <- round(unlist(dampling_factor_medians %>%
+before_15_may_max_damping_percent_median_NZL_no_sampUB <- round(1 - unlist(damping_factor_medians %>%
   filter(sampUB == "Without sampling bound", clusters == "max", season == "Before 15. May") %>%
-  select(median_dampling_factor)) * 100, digits = 0)
+  select(median_damping_factor)) * 100, digits = 0)
 
-writeLines(text = paste0("\\newcommand\\before15maymaxdamplingpercentmedianNZLnosampUB{", 
-                         before_15_may_max_dampling_percent_median_NZL_no_sampUB, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\before15maymaxdampingpercentmedianNZLnosampUB{", 
+                         before_15_may_max_damping_percent_median_NZL_no_sampUB, "}"), con = con)
 
-before_15_may_min_dampling_percent_median_NZL_no_sampUB <- round(unlist(dampling_factor_medians %>%
+before_15_may_min_damping_percent_median_NZL_no_sampUB <- round(1 - unlist(damping_factor_medians %>%
   filter(sampUB == "Without sampling bound", clusters == "min", season == "Before 15. May") %>%
-  select(median_dampling_factor)) * 100, digits = 0)
+  select(median_damping_factor)) * 100, digits = 0)
 
-writeLines(text = paste0("\\newcommand\\before15maymindamplingpercentmedianNZLnosampUB{", 
-                         before_15_may_min_dampling_percent_median_NZL_no_sampUB, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\before15maymindampingpercentmedianNZLnosampUB{", 
+                         before_15_may_min_damping_percent_median_NZL_no_sampUB, "}"), con = con)
 
 close(con)
 
