@@ -117,7 +117,7 @@ On top of this model, we added a transmission rate ``damping'' factor. This aims
 \begin{figure}[]
 \centering
 \includegraphics[width=0.75\linewidth]{figures/phylodynamic_method_example.png}
-\caption{Illustration of how transmission rate ``damping'' is modelled. (A) shows a background time-varying reproductive number that might be proposed at one step of the inference. The boxes in (A) highlight time-periods during which two example introductions (B) and (C) are spreading. The genome data sampled from these introductions (illustrated as red dots) are shown on trees, which are likewise proposed at this step of the inference. Finally, a transmission damping factor of 20\% is proposed. In the end, the likelihood of the sampled genome data is calculated given the ``applied'' effective reproductive number specific to each introduction (B & C, bottom).}  
+\caption{Illustration of how transmission rate damping is modelled. (A) shows a background time-varying reproductive number that might be proposed at one step of the inference. The boxes in (A) highlight time-periods during which two example introductions (B) and (C) are spreading. The genome data sampled from these introductions are illustrated as red dots. The viral phylogenies connecting these samples are likewise proposed in the inference. Finally, a transmission damping factor of 20\% is proposed. The damping factor is applied for each introduction 2 days after the first genome sample (this is illustrated with a dashed line). In the end, the likelihood of the sampled genome data is calculated given the ``applied'' effective reproductive number specific to each introduction (B & C, bottom).}  
 \label{fig:phylo-methods}
 \end{figure}
 
@@ -128,7 +128,7 @@ SARS-CoV-2 genome data additionally provide a unique view on introduction-specif
 \begin{figure}[]
 \centering
 \includegraphics[width=0.75\linewidth]{figures/contact_tracing_factors_no_sampUB_compared_to_cases.png}
-\caption{Epidemic trajectories in Switzerland (A) and New Zealand (B) during 2020 based on the 7-day rolling average of new confirmed cases each day \cite{Appel}. (C) and (D) show phylodynamic estimates for if and how much transmission within introductions slowed once they were sampled during different time periods in Switzerland (C) and New Zealand (D). Estimates were generated twice, once conditioning on introductions identified assuming many introductions (light grey) and once on introductions identified assuming few introductions (dark grey).}  
+\caption{Epidemic trajectories in (A) Switzerland and (B) New Zealand during 2020 shown as a 7-day rolling average of daily new confirmed cases \cite{Appel}. (C) and (D) show estimates for if and how much transmission rates were dampened after introductions were sampled during different time periods in (C) Switzerland and (D) New Zealand. The inference was done twice, once conditioning on introductions identified assuming many introductions (light grey) and once assuming few introductions (dark grey). Thus, the difference between estimates in light and dark grey are due to phylogenetic uncertainty.}  
 \label{fig:scale-factor}
 \end{figure}
 
