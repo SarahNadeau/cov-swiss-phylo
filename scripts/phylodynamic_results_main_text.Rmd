@@ -140,9 +140,6 @@ CT_data_main_text <- CT_data %>% filter(contact_tracing == "TRUE", sampUB == "Wi
 
 binwidth <- 3
 x_lims <- c(-1, 101)
-spring_col <- RColorBrewer::brewer.pal(n = 8, name = "GnBu")[[3]]
-summer_col <- RColorBrewer::brewer.pal(n = 8, name = "OrRd")[[3]]
-fall_col <- RColorBrewer::brewer.pal(n = 8, name = "PuBu")[[3]]
 nzl_early_col <- RColorBrewer::brewer.pal(n = 8, name = "PuRd")[[3]]
 nzl_late_col <- RColorBrewer::brewer.pal(n = 8, name = "YlGn")[[3]]
 

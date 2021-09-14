@@ -181,6 +181,7 @@ ggplot() +
   facet_grid(season ~ sampUB) + 
   scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
   shared_theme + 
+  lims(x = c(0, NA)) + 
   labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
 
 ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
