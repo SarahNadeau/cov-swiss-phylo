@@ -75,6 +75,7 @@ re_subset_theme <- theme(
 re_background_ylab <- "Background Re"
 re_subset_ylab <- "Applied Re"
 re_reduction_factor <- 0.8
+tip_color <- RColorBrewer::brewer.pal(n = 8, name = "Dark2")[2]
 
 background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) + 
   geom_line() + 
@@ -91,6 +92,7 @@ background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) +
 
 tree_plot_1 <- ggtree(tree_1, mrsd = tree_1_latest_sample, as.Date = T) +
   theme_tree2() + 
+  geom_tippoint(fill = tip_color, color = tip_color) + 
   scale_x_date(limits = c(as.Date(tree_1_mrca) - 1, as.Date(tree_1_latest_sample)), expand = c(0,0)) + 
   theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) +
   geom_vline(xintercept = tree_1_rate_shift, linetype = "dashed") + 
@@ -100,6 +102,7 @@ tree_plot_1 <- ggtree(tree_1, mrsd = tree_1_latest_sample, as.Date = T) +
 
 tree_plot_2 <- ggtree(tree_2, mrsd = tree_2_latest_sample, as.Date = T) +
   theme_tree2() + 
+  geom_tippoint(fill = tip_color, color = tip_color) + 
   scale_x_date(limits = c(as.Date(tree_2_mrca) - 1, as.Date(tree_2_latest_sample)), expand = c(0,0)) + 
   theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) + 
   geom_vline(xintercept = tree_2_rate_shift, linetype = "dashed") + 
