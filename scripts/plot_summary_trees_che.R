@@ -4,8 +4,11 @@ library(tidyverse)
 library(lubridate)
 library(ggtree)
 library(treeio)
+library(dplyr)
 
 setwd("results_all/bdsky/summary_trees/SwissTransmissionChains")
+
+source("../../../../scripts/figures_shared_vars.R")
 
 # Get node age uncertainty
 numeric_date_range_to_date <- function(range, mrsd) {
@@ -58,13 +61,13 @@ for (chains in c("min","max")) {
                     geom_vline(xintercept=rate_shift, linetype = "dashed", alpha=0.5) + 
                     annotate(
                         "rect", xmin = as.Date("2020-02-01"), xmax = as.Date("2020-06-15"), 
-                        ymin = 0, ymax = Inf, alpha = 0.1, fill = "green") +  # Spring
+                        ymin = 0, ymax = Inf, alpha = 0.5, fill = spring_col) +  # Spring
                     annotate(
                         "rect", xmin = as.Date("2020-06-16"), xmax = as.Date("2020-09-30"), 
-                        ymin = 0, ymax = Inf, alpha = 0.1, fill = "orange") +  # Summer
+                        ymin = 0, ymax = Inf, alpha = 0.5, fill = summer_col) +  # Summer
                     annotate(
                         "rect", xmin = as.Date("2020-10-01"), xmax = as.Date("2020-12-15"), 
-                        ymin = 0, ymax = Inf, alpha = 0.1, fill = "blue") +  # Fall
+                        ymin = 0, ymax = Inf, alpha = 0.5, fill = fall_col) +  # Fall
                     ggtitle(id)
                 
                 plots[[id]] <- tree_plot

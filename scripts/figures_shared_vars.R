@@ -29,3 +29,6 @@ ct_factor_y_lab <- "Posterior support"
 chains_assumption_legend_name <- "Polytomy assumption"
 chains_assumption_colors <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")[1:2]
 model_type_colors <- RColorBrewer::brewer.pal(n = 8, name = "Dark2")[4:5]
+spring_col <- RColorBrewer::brewer.pal(n = 8, name = "GnBu")[[3]]
+summer_col <- RColorBrewer::brewer.pal(n = 8, name = "OrRd")[[3]]
+fall_col <- RColorBrewer::brewer.pal(n = 8, name = "PuBu")[[3]]
