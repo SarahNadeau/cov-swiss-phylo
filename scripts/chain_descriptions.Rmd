@@ -349,6 +349,9 @@ introductions_and_persistors_summary_stats <- chain_summary_stats %>%
 statistic_labels <- c("New introductions (number newly sampled per month)", "Persistent introductions (fraction still sampled after 60 days)")
 names(statistic_labels) <- c("n_introductions", "frac_60_day_persistor")
 
+write.csv(x = introductions_and_persistors_summary_stats, 
+          file = paste(outdir, "introductions_and_persistors_summary_stats.csv", sep = "/"))
+
 p <- ggplot(data = introductions_and_persistors_summary_stats,
             aes(x = as.Date(first_sample_month),
                 alpha = grey_out)) +
