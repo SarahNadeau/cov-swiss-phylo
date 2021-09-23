@@ -1,162 +1,191 @@
 \documentclass[9pt,twoside,lineno]{pnas-new}
 % Use the lineno option to display guide line numbers if required.
 
-% \templatetype{pnassupportinginfo}
+\templatetype{pnasresearcharticle}
 \usepackage{longtable}
+\usepackage{array,ragged2e} % for nicer justification of table entries with "P"
+\newcolumntype{P}[1]{>{\RaggedRight\arraybackslash}p{#1}}
+\usepackage{caption} % for subfigures
+\usepackage{subcaption}
+\usepackage{lscape} % for turning one page to landscape
 
-\title{Your main manuscript title}
+\title{Supporting information}
 % \author{Author1, Author2 and Author3 (complete author list)}
 % \correspondingauthor{Corresponding Author name.\\E-mail: author.two@email.com}
 
-% \input{manuscript/chain_summary_variables}
-
 \begin{document}
 
-% \maketitle 
+\maketitle 
 
-%% Adds the main heading for the SI text. Comment out this line if you do not have any supporting information text.
-% \SItext
+\section{Supporting information text}
 
 % \subsection*{Subhead}
 % Type or paste text here. This should be additional explanatory text such as an extended technical description of results, full details of mathematical models, etc.   
-\section{Sensitivity analyses}
+\subsection{Sensitivity analyses}
 
 In this section, we describe our decision-making process to choose parameters for our phylogenetic analysis and report on the sensitivity of our results to these choices. 
 
-\subsection{Down-sampling Swiss sequences}
+\subsubsection{Down-sampling Swiss sequences}
 We aim to include Swiss sequences that are spatio-temporally representative of the Swiss epidemic. Therefore, we down-sample available Swiss sequences proportional to confirmed case counts at the regional (cantonal) level. To assess whether the number of transmission chains saturates as we add more and more sequences, we did a saturation analysis. TODO: add figure and discuss implications.
 
-\subsection{Ratio of foreign to Swiss sequences analyzed}
+\subsubsection{Ratio of foreign to Swiss sequences analyzed}
 We investigated the sensitivity of transmission chain summary statistics to different ratios of genetically similar context sequences from abroad to focal Swiss sequences. Figure \ref{fig:sensitivity_context_set_size} shows that increasing the ratio of context to focal sequences from 1:1 to 3:1 increases the number of estimated transmission chains and decreases their mean size. However, the greatest differences in estimated transmission chains result from the different assumptions about how to resolve phylogenetic uncertainty (few vs. many introductions), not the ratio of foreign to Swiss sequences. Therefore, we chose the 2:1 ratio as a balance of speed (smaller dataset = faster tree search convergence) and information content (larger dataset = more precise estimates of introduction dates). We rely on the difference between the few and many introductions assumptions to represent uncertainty in the transmission chains.
 
-\subsection{Criteria for identifying introductions}
+\subsubsection{Criteria for identifying introductions}
 After deciding on a ratio of foreign to Swiss sequences, we investigated the sensitivity of transmission chain summary statistics to our criteria for picking transmission chains. Figure \ref{fig:sensitivity_m_p} shows that increasing the maximum number of exported lineages decreases the number of transmission chains and increases their size. Increasing the maximum consecutive exports has a much smaller effect. But again, these differences are smaller than those resulting from the different assumptions about how to resolve phylogenetic uncertainty (few vs. many introductions). Therefore, we chose our criteria to be maximum 3 exported lineages and maximum one consecutive export to allow for some exports but not arbitrarily many. 
 
-\subsection{Upper-bounding sampling proportion}
+\subsubsection{Upper-bounding sampling proportion}
 Genome-based estimates for the effective reproductive number in Switzerland are for the most part robust to the different transmission chain definitions and largely match estimates based on confirmed case counts (Figure \ref{fig:ReSampProbResults}). One exception is in October 2020, when genome-based estimates are lower than confirmed case counts unless the sampling proportion is treated as a fitting parameter. A drop in genome diversity during this period might explain the discrepancy. 
 
-\subsection{Including a ``super-spreader'' deme}
+\subsubsection{Including a ``super-spreader'' deme}
 We checked whether our estimate of a transmission slow-down upon introduction sampling was robust to the inclusion of super-spreading individuals in the model. Therefore, we included a second deme in the analysis. Let $\pi_N$ be the fraction of normal individuals and $\pi_{SS}$ be the fraction of super-spreading individuals in the population. Super-spreading individuals transmit according to the master time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. $\pi_N$, $\pi_{SS}$, and $r_{SS}$ are all inferred parameters. 
 
-\section{Sanity checks}
+\subsection{Logged trees}
 From the phylodynamic analyses, we are primarily interested in estimating a transmission damping factor upon introductions being sampled. To generate this result, we are integrating over the actual introduction phylogenies using MCMC. However, as a sanity-check we logged the MCMC-sampled phylogenies for several introductions under each model. We chose which introductions to log based on selecting in each month the 50th and 75th percentile largest introductions that were first sampled that month and eventually yielded > 2 samples. We look at a summary visualization of the logged phylogenies to get an idea how much transmission happended before versus after the first sample and whether there is obvious signal in the phylogenies for a transmission slow-down after sampling.
 
+\newpage
+\section{Supporting information figures}
+
 % %%% Each figure should be on its own page
-\begin{figure}
+\begin{figure}[H]
 \centering
 \includegraphics[width = 11.4cm]{figures/CHE_downsampling.png}
 \caption{Spatio-temporal representativeness of analyzed genome sequences. The mirror y-axis aims to contrast temporal trends in confirmed cases (red) versus analyzed sequences (blue); all values are positive counts. Facet titles are standard abbreviations for Swiss cantons. 'CHE' represents Swiss-wide cases and sequences, since case count reporting by canton began mid-May 2020.}  
 \label{fig:downsampling_representativeness}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
 \centering
 \includegraphics[width = 11.4cm]{figures/chain_size_dist.png}
 \caption{Size distribution of estimated transmission chains.}  
 \label{fig:chain_size_dist}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
 \centering
 \includegraphics[width = 11.4cm]{figures/chain_longevity_matrix.png}
 \caption{Heatmap of the number of newly sampled introductions each month (diagonal entries) and the number continuing to persisting into each following month (off-diagonal entries). Introduction are counted once in the month they are first sampled (``Month of first sampling'') and one every following month (``Month of ongoing sampling'') until the date of the latest sample. The ranges are between two point estimates generated assuming either few or many introductions.}  
 \label{fig:chain-longevity-matrix}
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.95\textwidth}
 \centering
 \includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_subsampling.png}
 \caption{Number of estimated introductions as a function of the fraction of Swiss confirmed cases analyzed.}  
+\end{subfigure}
 \label{fig:sensitivity_downsampling}
-\end{figure}
 
-\begin{figure}
+\begin{subfigure}[b]{0.95\textwidth}
 \centering
 \includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_context_set_size.png}
 \caption{Sensitivity of transmission chain summary statistics to different ratios of focal Swiss sequences to genetically similar foreign context sequences (1:1, 1:2, and 1:3).}  
+\end{subfigure}
 \label{fig:sensitivity_context_set_size}
-\end{figure}
 
-\begin{figure}
+\begin{subfigure}[b]{0.95\textwidth}
 \centering
 \includegraphics[width = 11.4cm]{figures/fig_SX_sensitivity_chain_defn.png}
 \caption{Sensitivity of transmission chain summary statistics to different definitions of a transmission chain.}  
-\label{fig:sensitivity_m_p}
+\end{subfigure}
+\caption{Sensitivity analysis results.}
+\label{fig:sensitivity_figs}
 \end{figure}
 
 \begin{figure}[tbhp]
 \centering
+\begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_Re.pdf}
+\caption{Effective reproductive number in Switzerland.}
+\end{subfigure}
+\begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/NZL_Re.pdf}
-\vfill
+\caption{Effective reproductive number in New Zealand.}
+\end{subfigure}
+\begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_sampProp.pdf}
-\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (top) and sampling probability (bottom) in Switzerland and New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the models with a damping factor (blue) are the ``baseline'' $R_e$ before introduction-specific damping (i.e. before application of a damping factor once introductions are older than 2-days post sampling).}  
+\caption{Sampling probability in Switzerland.}
+\end{subfigure}
+\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (a, b) and sampling probability (c) in Switzerland and New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the models with a damping factor (blue) are the ``baseline'' $R_e$ before introduction-specific damping (i.e. before application of a damping factor once introductions are older than 2-days post sampling).}  
 \label{fig:ReSampProbResults}
 \end{figure}
 % Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
 
 \begin{figure}[tbhp]
 \centering
+\begin{subfigure}[b]{0.75\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_contact_tracing_factor.pdf}
+\caption{Damping factor in Switzerland.}
+\end{subfigure}
+\begin{subfigure}[b]{0.75\textwidth}
 \includegraphics[width=\linewidth]{figures/NZL_contact_tracing_factor.pdf}
+\caption{Damping factor in New Zealand.}
+\end{subfigure}
 % \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
 % \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
-\caption{Phylodynamic estimates for the damping factor in Switzerland and New Zealand in different time periods.}  
+\caption{Phylodynamic estimates for the damping factor in Switzerland and New Zealand in different time periods and conditioned on introductions defined using different polytomy assumptions.}  
 \label{fig:DampingFactorResults}
 \end{figure}
 \newpage
 
-\begin{figure}[tbhp]
+\begin{landscape}
+\begin{figure}[H]
+\centering
+\begin{subfigure}[b]{0.65\textwidth}
 \centering
 \includegraphics[width=0.75\linewidth]{figures/Re_skyline.max_chains.sampUB1.0.ctEst1.summary_trees.pdf}
-\caption{Summary trees from the phylodynamic analysis for Switzerland. Here introductions were estimated assuming ``many'' introductions. The 50th and 95th percentile largest introductions among those first sampled each month are shown. The three color regions represent the Spring (green), Summer (orange) and Fall (blue) periods. The vertical dashed line shows the date at which the transmission rate can slow for each introduction - two days after the first sample date. The red bars show the 95\% highest posterior density uncertainty in node dates.}  
-\label{fig:logged-chains-max}
-\end{figure}
-\newpage
-
-\begin{figure}[tbhp]
+\caption{Summary trees for introductions defined assuming many introductions.}
+\end{subfigure}
+\begin{subfigure}[b]{0.65\textwidth}
 \centering
 \includegraphics[width=0.75\linewidth]{figures/Re_skyline.min_chains.sampUB1.0.ctEst1.summary_trees.pdf}
-\caption{Summary trees from the phylodynamic analysis for Switzerland. Here introductions were estimated assuming ``few'' introductions. The 50th and 95th percentile largest introductions among those first sampled each month are shown. The three color regions represent the Spring (green), Summer (orange) and Fall (blue) periods. The vertical dashed line shows the date at which the transmission rate can slow for each introduction - two days after the first sample date. The red bars show the 95\% highest posterior density uncertainty in node dates.}  
-\label{fig:logged-chains-min}
+\caption{Summary trees for introductions defined assuming few introductions.}
+\end{subfigure}
+\caption{Summary trees from the phylodynamic analysis for Switzerland. (a) and (b) show trees for introductions defined using different polytomy assumptions. The 50th and 95th percentile largest introductions among those first sampled each month are shown. The three color regions represent the Spring (green), Summer (orange) and Fall (blue) periods. The vertical dashed line shows the date at which the transmission rate can slow for each introduction - two days after the first sample date. The red bars show the 95\% highest posterior density uncertainty in node dates.}  
+\label{fig:logged-chains-max}
 \end{figure}
+\end{landscape}
 \newpage
+
+\section{Supporting information tables}
 
 \begin{table}[H]
-\caption{Various phylodynamic models employed for the main analysis and sensitivity checks.}
+\centering
+\caption{Various phylodynamic models employed for the main analysis and sensitivity checks. SS = super-spreading.}
 \label{tab:phylo-models}
-\begin{tabular}{ccccc}
-Data set & Polytomy resolution & Damping factor (contact\_tracing) & Damping factor + SS Deme & Damping factor + Sampling bound \\
-\midrule
-Swiss & Many introductions (max) & Y & Y & Y \\
-Swiss & Few introductions (min) & Y & Y & Y \\
-New Zealand & Many introductions (max) & Y & & \\
-New Zealand & Few introductions (min) & Y & & \\
-\bottomrule
+\begin{tabular}{llccc}
+\hline
+Figure & Focal country & Polytomy resolution & Damping factor & Sampling bound & SS Deme & Figure \\
+\hline
+Fig. \ref{fig:DampingFactorResults}, top & Switzerland & Many introductions & N & N & N \\
+Switzerland & Many introductions & Y & Y & Y \\
+Switzerland & Few introductions & Y & Y & Y \\
+New Zealand & Many introductions & Y & Y & \\
+New Zealand & Few introductions & Y & Y & \\
+\hline
 \end{tabular}
 \newline
-\addtabletext{Models with a ``Damping factor'' include a parameter representing a possible transmission slow-down upon sampling. Models with a ``SS deme'' include a second deme representing super-spreaders. Models with ``Sampling bound'' have the sampling proportion restricted to be less than the number of genomes divided by the number of confirmed cases.}
 \end{table}
 
-\newpage
 \begin{table}[H]
 \centering
 \caption{Sampling proportion change-points in the phylodynamic analyses.}
 \label{tab:CHE_samp_prob_change_dates}
 \begin{tabular}{ll}
+\hline
 Start date & Description \\
-\midrule
+\hline
 23. Apr 2020 & All symptomatic individuals can get tested \\
 25. Jun 2020 & Government pays for tests for symptomatic individuals \\
 14. Sept 2020 & Genome sampling $<<$ 5\% of confirmed cases \\
 28. Sept 2020 & Number of tests conducted and \% positivity dramatically increase, genome sampling also increases \\
 19. Oct 2020 & Genome sampling $<<$ 5\% of confirmed cases again \\
 11. Nov 2020 & Genome sampling improves again \\
-\bottomrule
+\hline
 \end{tabular}
 \end{table}
 
-\newpage
 \begin{table}[H]
 \caption{Contingency table for singleton introductions and transmission chains by time period assuming many (right) and few (left)  introductions.}
 \label{tab:lockdown-contingency}
@@ -167,8 +196,6 @@ Start date & Description \\
 \newpage
 \input{tables/lineage_data_summary.tex}
 
-% %%% Add this line AFTER all your figures and tables
-\FloatBarrier
 
 \bibliography{references}
 
