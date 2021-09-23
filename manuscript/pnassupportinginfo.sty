@@ -8,9 +8,6 @@
 % true = set into first column
 % false = spans page width
 
-%% Remove "DRAFT" watermark
-\setboolean{displaywatermark}{false}
-
 %% v1.5: new SI format is single column
 \onecolumn
 
@@ -167,9 +164,6 @@ Delete this first page by removing the \texttt{\textbackslash instructionspage} 
 
 \additionalelement{}
 \appto{\maketitle}{\thispagestyle{fancy}}
-
-\fancyfoot[RO,LE]{\bfseries\sffamily\thepage\space of \pageref{LastPage}}
-\fancyfoot[LO,RE]{\bfseries\sffamily\MyAuthor\space}
 
 %% v1.5: Reset reference list settings
 \renewcommand{\bibsection}{\section*{\refname}}
