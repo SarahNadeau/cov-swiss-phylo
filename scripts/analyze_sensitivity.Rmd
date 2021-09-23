@@ -123,21 +123,21 @@ for (i in 1:length(subsample_fractions)) {
 # Plot # introductions with increasing # focal sequences
 p <- ggplot(
   data = subsample_results,
-  aes(x = paste0(subsample, "%;\nn=", n_focal_seqs))) + 
-  geom_boxplot(aes(y = n_singletons, color = "Singletons")) +
-  geom_boxplot(aes(y = n_chains, color = "Chains")) + 
-  geom_boxplot(aes(y = n_chains + n_singletons, color = "Introductions")) + 
+  aes(x = paste0(subsample, "%\n(n=", n_focal_seqs, ")"))) +
+  geom_boxplot(aes(y = n_singletons, color = "No. singletons")) +
+  geom_boxplot(aes(y = n_chains, color = "No. transmission chains")) +
+  geom_boxplot(aes(y = n_chains + n_singletons, color = "No. total introductions")) +
   labs(x = "Sub-sampling intensity", y = "Count") + 
-  scale_color_discrete(name = "Value") + 
+  scale_color_discrete(name = element_blank()) +
   facet_grid(. ~ chains_assumption, labeller = as_labeller(chain_assumption_labs)) + 
-  shared_theme + 
+  shared_theme +
   scale_y_continuous(limits = c(0, NA))
 
 show(p)
 
 ggsave(
   filename = "figures/fig_SX_sensitivity_subsampling.png",
-  width = double_col_width,
+  width = double_col_width * 1.4,
   height = single_col_width * 0.75, 
   units = "cm"
 )
@@ -264,7 +264,7 @@ ggplot(
     labeller = as_labeller(x = c("0" = "0", "1" = "1", "2" = "2", "3" = "3", "4" = "4", chain_assumption_labs))) + 
   shared_theme + 
   scale_shape(name = "Replicate") + 
-  scale_color_discrete(name = "Value") + 
+  scale_color_discrete(name = "Statistic") +
   scale_y_continuous(sec.axis = dup_axis(
     name = "Maximum consecutive exports in transmission chain",
     breaks = NULL, labels = NULL)) +   # produces lots of warnings about min(x) and max(x) but the points/axes on the plot are not affected
