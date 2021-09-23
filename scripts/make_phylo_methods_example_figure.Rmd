@@ -13,10 +13,13 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 
 ```{r }
 library(ggplot2)
+library(dplyr)
+library(treeio)
+library(ggtree)
 library(ggdist)
 library(cowplot)
 
-source("../../../scripts/figures_shared_vars.R")
+source("scripts/figures_shared_vars.R")
 ```
 
 ## Get background Re data
@@ -37,10 +40,12 @@ dummy_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
 ## Get example introductions
 
 ```{r}
+# tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
+#                           "Re_skyline.max_chains.sampUB1.0.0.c2245.summary.tree"))
 tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
-                          "Re_skyline.max_chains.sampUB1.0.0.c2064.summary.tree"))
+                            "Re_skyline.max_chains.sampUB1.0.0.c2219.summary.tree"))
 tree_2 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
-                          "Re_skyline.max_chains.sampUB1.0.0.c2219.summary.tree"))
+                            "Re_skyline.max_chains.sampUB1.0.0.c2222.summary.tree"))
 
 ## Get date of 2 days following the first sample, the last sample:
 tree_1_sample_data <- tree_1 %>% as_tibble() %>% filter(!is.na(label)) %>%
@@ -70,22 +75,31 @@ tree_theme <- theme(
   panel.border = element_blank())
 
 re_subset_theme <- theme(
-  axis.text.x = element_text(angle = 45, vjust = 0.5, hjust = 0.5))
+  axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
 re_background_ylab <- "Background Re"
 re_subset_ylab <- "Applied Re"
-re_reduction_factor <- 0.8
+re_reduction_factor_summer <- 0.6
+re_reduction_factor_fall <- 0.9
 tip_color <- RColorBrewer::brewer.pal(n = 8, name = "Dark2")[2]
 
-background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) + 
-  geom_line() + 
-  geom_rect(aes(xmax = as.Date(tree_1_latest_sample), xmin = as.Date(tree_1_mrca), ymax = 1.2, ymin = 0.5), 
-            fill = "transparent", color = "black") + 
-  geom_rect(aes(xmax = as.Date(tree_2_latest_sample), xmin = as.Date(tree_2_mrca), ymax = 1.7, ymin = 1), 
-            fill = "transparent", color = "black") + 
-  annotate("text", x = as.Date(tree_1_mrca), y = 1.2, hjust = -0.2, vjust = 1.2, label= "B") + 
+background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) +
+  geom_rect(aes(xmax = as.Date("2020-06-15"), xmin = as.Date("2020-02-15"), ymax = Inf, ymin = -Inf),
+            fill = spring_col, alpha = 0.5) +  # Spring
+  geom_rect(aes(xmax = as.Date("2020-09-30"), xmin = as.Date("2020-06-15"), ymax = Inf, ymin = -Inf),
+            fill = summer_col, alpha = 0.5) +  # Summer
+  geom_rect(aes(xmax = as.Date("2020-12-01"), xmin = as.Date("2020-09-30"), ymax = Inf, ymin = -Inf),
+            fill = fall_col, alpha = 0.5) +  # Fall
+  geom_line() +
+  geom_rect(aes(xmax = as.Date(tree_1_latest_sample), xmin = as.Date(tree_1_mrca), ymax = 1.7, ymin = 0.7),
+            fill = "transparent",
+            color = "black") +
+  geom_rect(aes(xmax = as.Date(tree_2_latest_sample), xmin = as.Date(tree_2_mrca), ymax = 1.7, ymin = 0.7),
+            fill = "transparent",
+            color = "black") +
+  annotate("text", x = as.Date(tree_1_mrca), y = 1.7, hjust = -0.2, vjust = 1.2, label= "B") +
   annotate("text", x = as.Date(tree_2_mrca), y = 1.7, hjust = -0.2, vjust = 1.2, label= "C") + 
-  scale_x_date(date_breaks = "1 month", date_labels = "%b") + 
+  scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
   labs(y = re_background_ylab) + 
   shared_theme + 
   methods_fig_theme
@@ -93,7 +107,7 @@ background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) +
 tree_plot_1 <- ggtree(tree_1, mrsd = tree_1_latest_sample, as.Date = T) +
   theme_tree2() + 
   geom_tippoint(fill = tip_color, color = tip_color) + 
-  scale_x_date(limits = c(as.Date(tree_1_mrca) - 1, as.Date(tree_1_latest_sample)), expand = c(0,0)) + 
+  scale_x_date(limits = c(as.Date(tree_1_mrca) - 1, as.Date(tree_1_latest_sample) + 1), expand = c(0,0)) +
   theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) +
   geom_vline(xintercept = tree_1_rate_shift, linetype = "dashed") + 
   shared_theme + 
@@ -103,7 +117,7 @@ tree_plot_1 <- ggtree(tree_1, mrsd = tree_1_latest_sample, as.Date = T) +
 tree_plot_2 <- ggtree(tree_2, mrsd = tree_2_latest_sample, as.Date = T) +
   theme_tree2() + 
   geom_tippoint(fill = tip_color, color = tip_color) + 
-  scale_x_date(limits = c(as.Date(tree_2_mrca) - 1, as.Date(tree_2_latest_sample)), expand = c(0,0)) + 
+  scale_x_date(limits = c(as.Date(tree_2_mrca) - 1, as.Date(tree_2_latest_sample) + 1), expand = c(0,0)) +
   theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) + 
   geom_vline(xintercept = tree_2_rate_shift, linetype = "dashed") + 
   shared_theme + 
@@ -117,9 +131,9 @@ tree_1_re <- ggplot(
       mutate(Re_transformed = Re),
     dummy_re_data %>% 
       filter(date >= tree_1_rate_shift, date <= tree_1_latest_sample) %>%
-      mutate(Re_transformed = Re * re_reduction_factor)),
+      mutate(Re_transformed = Re * re_reduction_factor_summer)),
   aes(x = date, y = Re_transformed)) + 
-  scale_x_date(expand = c(0,0), date_labels = "%d %b") + 
+  scale_x_date(expand = c(0,0), date_labels = "%d %b", limits = c(as.Date(tree_1_mrca) - 1, as.Date(tree_1_latest_sample) + 1)) +
   labs(y = re_subset_ylab) + 
   geom_line() + 
   shared_theme + 
@@ -133,9 +147,9 @@ tree_2_re <- ggplot(
       mutate(Re_transformed = Re),
     dummy_re_data %>% 
       filter(date >= tree_2_rate_shift, date <= tree_2_latest_sample) %>%
-      mutate(Re_transformed = Re * re_reduction_factor)),
-  aes(x = date, y = Re_transformed)) + 
-  scale_x_date(expand = c(0,0), date_labels = "%d %b") + 
+      mutate(Re_transformed = Re * re_reduction_factor_fall)),
+  aes(x = date, y = Re_transformed)) +
+  scale_x_date(expand = c(0,0), date_labels = "%d %b", limits = c(as.Date(tree_2_mrca) - 1, as.Date(tree_2_latest_sample) + 1)) +
   labs(y = re_subset_ylab) +
   geom_line() + 
   shared_theme + 
