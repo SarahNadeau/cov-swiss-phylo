@@ -1,51 +1,91 @@
-% What added knowledge do genomes contribute beyond case data w/o metadata?
-% Transmission chains - spatio-temporal patterns of spread (already done, we just summarize here)
-% Transmission chains - degree of super-spreading (we don't currently address this)
-% Transmission chains - efficacy of contact tracing (observational and modelling studies give a range of values for efficacy, depending on implementation success. We get at CH implementation success, possibly compared to other countries, here.)
-
 \documentclass[9pt,twoside,lineno]{pnas-new} % was: twocolumn
 
+% Add supporting info as file dependency so that we can reference the figures
 \makeatletter
 \newcommand*{\addFileDependency}[1]{% argument=file name and extension
   \typeout{(#1)}
   \@addtofilelist{#1}
   \IfFileExists{#1}{}{\typeout{No file #1.}}
 }
-
 \usepackage{xr}
 \addFileDependency{manuscript/text_supporting.tex}%
 \addFileDependency{manuscript/text_supporting.aux}%
 \externaldocument{manuscript/text_supporting}%
 
-\usepackage{setspace}
+\usepackage{setspace} % double-spacing
 
 \input{manuscript/config_variables}
 \input{manuscript/chain_summary_variables}
 \input{manuscript/sample_summary_variables}
 \input{manuscript/damping_factor_variables}
 
-\templatetype{pnasresearcharticle} % Choose template 
+\templatetype{pnasresearcharticle} % Borrowing template from PNAS, not necessarily going there 1st
 
 \title{Genomic evidence for changes in Swiss SARS-CoV-2 transmission dynamics from public health measures and summer travel}
 
-% Use letters for affiliations, numbers to show equal authorship (if applicable) and to indicate the corresponding author
+% Use letters for affiliations, numbers to indicate the corresponding author
 \author[a,b]{Sarah A. Nadeau}
 \author[a,b]{Timothy G. Vaughan} 
-\author[b,c]{Emma B. Hodcroft} 
-\author[b,d]{Richard A. Neher} 
+\author[c]{Christiane Beckmann}
+\author[a,b]{Ivan Topolsky}
+\author[a,b]{Chaoran Chen}
+\author[b,d]{Emma Hodcroft}
+\author[a]{Tobias Schär}
+\author[a]{Ina Nissen}
+\author[a]{Natascha Santacroce}
+\author[a]{Elodie Burcklen}
+\author[a,b]{Pedro Ferreira}
+\author[a,b]{Kim Philipp Jablonski}
+\author[]{Susana Posada-Céspedes}
+\author[a]{Vincenzo Capece}
+\author[a,b]{Sophie Seidel}
+\author[e]{Noemi Santamaria de Souza}
+\author[f]{Julia M. Martinez-Gomez}
+\author[f]{Phil Cheng}
+\author[f]{Philipp P. Bosshard}
+\author[f]{Mitchell P. Levesque}
+\author[g]{Verena Kufner}
+\author[g]{Stefan Schmutz}
+\author[g]{Maryam Zaheri}
+\author[g]{Michael Huber}
+\author[g]{Alexandra Trkola}
+\author[h]{Samuel Cordey}
+\author[h]{Florian Laubscher}
+\author[i]{Ana Rita Gonçalves}
+\author[j,k]{Karoline Leuzinger}
+\author[j]{Madlen Stange}
+\author[j]{Alfredo Mari}
+\author[j]{Tim Roloff}
+\author[j]{Helena Seth-Smith}
+\author[j]{Hans H. Hirsch}
+\author[j]{Adrian Egli}
+\author[c]{Maurice Redondo}
+\author[c]{Olivier Kobel}
+\author[c]{Christoph Noppen}
+\author[a,b]{Niko Beerenwinkel}
+\author[b,l]{Richard A. Neher}
+\author[a]{Christian Beisel}
 \author[a,b,1]{Tanja Stadler}
 
 \affil[a]{Department of Biosystems Science and Engineering, ETH Zürich, Basel, Switzerland}
 \affil[b]{Swiss Institute of Bioinformatics, Lausanne, Switzerland}
-\affil[c]{Institute for Social and Preventive Medicine, University of Bern, Bern, Switzerland}
-\affil[d]{Biozentrum, University of Basel, Basel, Switzerland}
+\affil[c]{Viollier AG, Allschwil, Switzerland}
+\affil[d]{Institute for Social and Preventive Medicine, University of Bern, Bern, Switzerland}
+\affil[e]{Department of Biology, ETH Zürich, Zürich, Switzerland}
+\affil[f]{Department of Dermatology, University Hospital Zurich, University of Zürich, Zürich, Switzerland}
+\affil[g]{Institute of Medical Virology, University of Zürich, Zürich, Switzerland}
+\affil[h]{Laboratory of Virology, Division of Infectious Diseases and Division of Laboratory Medicine, University Hospitals of Geneva & Faculty of Medicine, University of Geneva, Geneva, Switzerland}
+\affil[i]{Swiss National Reference Centre for Influenza, University Hospitals of Geneva, Geneva, Switzerland}
+\affil[j]{University Hospital Basel, Basel, Switzerland}
+\affil[k]{Transplantation & Clinical Virology, Department Biomedicine, University of Basel, Basel, Switzerland}
+\affil[l]{Biozentrum, University of Basel, Basel, Switzerland}
 
 % Please include corresponding author, author contribution and author declaration information
 % \authorcontributions{Please provide details of author contributions here.}
 % \authordeclaration{Please declare any competing interests here.}
 \correspondingauthor{\textsuperscript{1}To whom correspondence should be addressed. E-mail: tanja.stadler@bsse.ethz.ch}
 
-% At least three keywords are required at submission. Please provide three to five keywords, separated by the pipe symbol.
+% Three to five keywords, separated by the pipe symbol.
 \keywords{Epidemiology $|$ SARS-CoV-2 $|$ Phylogenetics $|$ Phylodynamics} 
 
 \begin{abstract}
@@ -58,10 +98,6 @@ Pathogen genome sequences can help estimate transmission chains and, potentially
 \maketitle
 \abscontentformatted
 \doublespacing
-
-% \subsection*{Author Affiliations}
-
-% Include department, institution, and complete address, with the ZIP/postal code, for each author. Use lower case letters to match authors with institutions, as shown in the example. PNAS strongly encourages authors to supply an \href{https://orcid.org/}{ORCID identifier} for each author. Individual authors must link their ORCID account to their PNAS account at \href{http://www.pnascentral.org/}{www.pnascentral.org}. For proper authentication, authors must provide their ORCID at submission and are not permitted to add ORCIDs on proofs.
 
 \section{Introduction}
 
@@ -200,7 +236,7 @@ Our ``contact tracing'' model included one additional parameter, a multiplicativ
 
 Our ``super-spreading'' model included an additional deme, representing a fraction of the population that transmits faster. A multiplicative up-scaling of the effective reproductive number is applied to individuals in this deme.
 
-\acknow{This work was supported by the Swiss National Science Foundation (SNSF) through grant number 31CA30\_196267 (to TS).}
+\acknow{This work was supported by the Swiss National Science Foundation (SNSF) through grant number 31CA30\_196267 (to TS). We would like to especially thank Jana Huisman for valuable discussions. We also gratefully acknowledge the authors from the originating laboratories responsible for obtaining the specimens and the submitting laboratories where genetic sequence data were generated and shared via the GISAID Initiative, on which this research is based. A full acknowledgements table of these groups, including the identifiers for all GISAID data used in this study, is available on the project github repository at TODO.}
 
 \showacknow{} % Display the acknowledgments section
 
