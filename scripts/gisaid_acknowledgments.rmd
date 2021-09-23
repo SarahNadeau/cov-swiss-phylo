@@ -1,0 +1,98 @@
+---
+title: "GISAID acknowledgments"
+author: nadeaus
+date: 21.09.21
+output: html_notebook
+---
+
+This script is to collect acknowlegment information for data used from GISAID.
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+```{r, include=FALSE}
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+require(xtable)
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+Load data
+
+```{r}
+workdir <- "results_main"
+outdir <- "manuscript"
+main_metadata <- load_sample_metadata(workdir = "results_main") %>% mutate(analysis = "Main CHE analysis")
+nzl_metadata <- load_sample_metadata(workdir = "results_all/2021-08-10_nzl") %>% mutate(analysis = "NZL analysis")
+supp_dirs <- list.files(
+  path = "results_all",
+  pattern = "2021-08-10_for_supplement",
+  full.names = T)
+is_first <- T
+for (dir in supp_dirs) {
+  if (is_first) {
+    supp_metadata <- load_sample_metadata(workdir = dir) %>% mutate(analysis = dir)
+    is_first <- F
+  } else {
+    supp_metadata <- rbind(supp_metadata, load_sample_metadata(workdir = dir) %>% mutate(analysis = dir))
+  }
+}
+```
+
+Determine biggest contributers of Swiss data we used
+```{r}
+che_metadata_all_analyses <- rbind(
+  main_metadata,
+  supp_metadata,
+  nzl_metadata) %>% filter(country == "CHE")
+authors_by_submitting_lab <- distinct(
+  che_metadata_all_analyses, gisaid_epi_isl, submitting_lab, authors) %>%
+        mutate(authors = strsplit(authors, ",|, ")) %>%
+        unnest(authors) %>%
+        group_by(submitting_lab) %>%
+        summarise(unique_authors = paste0(unique(authors), collapse = ";"))
+
+che_data_contributers_all_analyses <- distinct(
+  che_metadata_all_analyses, gisaid_epi_isl, submitting_lab, authors) %>%
+  group_by(submitting_lab) %>%
+  summarise(n_unique_seqs_used = n()) %>%
+  left_join(authors_by_submitting_lab) %>%
+  arrange(desc(n_unique_seqs_used))
+
+write.csv(
+  file = paste(outdir, "author_info/swiss_sequence_contributers.csv", sep = "/"),
+  x = che_data_contributers_all_analyses)
+```
+Make GISAID acknowledgments table (machine-readable for github, used to prepare PDF for supplement)
+```{r}
+gisaid_acknowledgments <- rbind(
+    main_metadata,
+    supp_metadata,
+    nzl_metadata)
+
+gisaid_acknowledgments <- gisaid_acknowledgments %>%
+    mutate(analysis = gsub(
+            analysis, pattern = "results_all/2021-08-10_for_supplement_sim_",
+            replacement = "Supplemental CHE analysis with "),
+           analysis = gsub(
+            analysis, pattern = "_rep_", replacement = ":1 context to focal sequence ratio, replicate ")) %>%  # Parse supplemental analysis dir into analysis name
+    group_by(strain, gisaid_epi_isl, date, originating_lab, submitting_lab, authors) %>%
+    summarise(analysis = paste0(analysis, collapse = "; ")) %>%  # Collect all analyses each sequences was used in
+    rename("Virus name" = strain,
+           "Accession No." = gisaid_epi_isl,
+           "Collected" = date,
+           "Originating laboratory" = originating_lab,
+           "Submitting laboratory" = submitting_lab,
+           "Authors" = authors,
+           "Used in analysis" = analysis)  # Conform to GISAID template
+
+write.csv(
+        file = paste(outdir, "gisaid_acknowledgments.csv", sep = "/"),
+        x = gisaid_acknowledgments)
+```
+
+Generate GISAID acknowledgments table
