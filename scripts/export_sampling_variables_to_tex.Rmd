@@ -71,12 +71,12 @@ x_lineage_data_summary <- xtable(
 print(
   x = x_lineage_data_summary,
   type = "latex",
-  file = "figures/lineage_data_summary.tex",
+  file = "tables/lineage_data_summary.tex",
   floating = F,
   tabular.environment="longtable")
 write.csv(
   x = lineage_data_summary, 
-  file = "figures/lineage_data_summary.csv")
+  file = "tables/lineage_data_summary.csv")
 ```
 
 Summarize data

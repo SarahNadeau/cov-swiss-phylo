@@ -350,7 +350,7 @@ statistic_labels <- c("New introductions (number newly sampled per month)", "Per
 names(statistic_labels) <- c("n_introductions", "frac_60_day_persistor")
 
 write.csv(x = introductions_and_persistors_summary_stats, 
-          file = paste(outdir, "introductions_and_persistors_summary_stats.csv", sep = "/"))
+          file = "tables/introductions_and_persistors_summary_stats.csv")
 
 p <- ggplot(data = introductions_and_persistors_summary_stats,
             aes(x = as.Date(first_sample_month),
@@ -456,11 +456,11 @@ x_max_chains_contingency_table_with_marginals <- xtable(
 print(
   x = x_max_chains_contingency_table_with_marginals,
   type = "latex",
-  file = "figures/max_chains_contingency.tex",
+  file = "tables/max_chains_contingency.tex",
   floating = F)
 write.csv(
   x = max_chains_contingency_table_with_marginals, 
-  file = "figures/max_chains_contingency.csv")
+  file = "tables/max_chains_contingency.csv")
 
 colnames(min_chains_contingency_table_with_marginals)[1] <- "" 
 x_min_chains_contingency_table_with_marginals <- xtable(
@@ -471,11 +471,11 @@ x_min_chains_contingency_table_with_marginals <- xtable(
 print(
   x = x_min_chains_contingency_table_with_marginals,
   type = "latex",
-  file = "figures/min_chains_contingency.tex",
+  file = "tables/min_chains_contingency.tex",
   floating = F)
 write.csv(
   x = min_chains_contingency_table_with_marginals, 
-  file = "figures/min_chains_contingency.csv")
+  file = "tables/min_chains_contingency.csv")
 ```
 
 

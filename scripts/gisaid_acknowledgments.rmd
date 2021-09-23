@@ -91,7 +91,7 @@ gisaid_acknowledgments <- gisaid_acknowledgments %>%
            "Used in analysis" = analysis)  # Conform to GISAID template
 
 write.csv(
-        file = paste(outdir, "gisaid_acknowledgments.csv", sep = "/"),
+        file = "tables/gisaid_acknowledgments.csv",
         x = gisaid_acknowledgments)
 ```
 
