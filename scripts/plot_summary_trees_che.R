@@ -88,5 +88,5 @@ for (chains in c("min","max")) {
     }
 }
 
-system("cp figures/trees/Re_skyline.max_chains.sampUB1.0.ctEst1.summary_trees.pdf ../../../../../../figures/")
-system("cp figures/trees/Re_skyline.min_chains.sampUB1.0.ctEst1.summary_trees.pdf ../../../../../../figures/")
+system("cp figures/trees/Re_skyline.max_chains.sampUB1.0.ctEst1.summary_trees.pdf ../../../../figures/")
+system("cp figures/trees/Re_skyline.min_chains.sampUB1.0.ctEst1.summary_trees.pdf ../../../../figures/")
