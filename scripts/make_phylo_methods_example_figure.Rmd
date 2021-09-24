@@ -66,11 +66,13 @@ tree_2_mrca <- as.Date(tree_2_latest_sample) - max((tree_2 %>% as_tibble())$heig
 ```{r}
 methods_fig_theme <- theme(
   panel.grid = element_blank(),
-  plot.background = element_rect(fill = "transparent", colour = NA),
-  axis.title.x = element_blank())
+  # plot.background = element_rect(fill = "transparent", colour = NA),
+  axis.title.x = element_blank(),
+  axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
 
 tree_theme <- theme(
-  axis.text = element_blank(),
+  axis.text.x = element_blank(),
+  axis.text.y = element_blank(),
   axis.ticks = element_blank(),
   panel.border = element_blank())
 
@@ -87,7 +89,7 @@ background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) +
   geom_rect(aes(xmax = as.Date("2020-06-15"), xmin = as.Date("2020-02-15"), ymax = Inf, ymin = -Inf),
             fill = spring_col, alpha = 0.5) +  # Spring
   geom_rect(aes(xmax = as.Date("2020-09-30"), xmin = as.Date("2020-06-15"), ymax = Inf, ymin = -Inf),
-            fill = summer_col, alpha = 0.5) +  # Summer
+            fill = summer_col, alpha = 0.1) +  # Summer
   geom_rect(aes(xmax = as.Date("2020-12-01"), xmin = as.Date("2020-09-30"), ymax = Inf, ymin = -Inf),
             fill = fall_col, alpha = 0.5) +  # Fall
   geom_line() +
@@ -111,7 +113,7 @@ tree_plot_1 <- ggtree(tree_1, mrsd = tree_1_latest_sample, as.Date = T) +
   theme(axis.text.x = element_blank(), axis.line.x = element_blank(), axis.ticks.x = element_blank()) +
   geom_vline(xintercept = tree_1_rate_shift, linetype = "dashed") + 
   shared_theme + 
-  methods_fig_theme + 
+  methods_fig_theme +
   tree_theme
 
 tree_plot_2 <- ggtree(tree_2, mrsd = tree_2_latest_sample, as.Date = T) +
@@ -174,7 +176,7 @@ subsets <- cowplot::plot_grid(plots[[1]], plots[[2]], nrow = 1)
 cowplot::plot_grid(background_re, subsets, labels = c("A", ""), ncol = 2, rel_widths = c(1, 1))
 
 ggsave("figures/phylodynamic_method_example.png",
-       width = double_col_width, height = single_col_width * 0.65, units = "cm")
+       width = double_col_width, height = single_col_width * 0.5, units = "cm")
 
 # Have examples as inserts instead:
 # ggdraw(background_re) + 
