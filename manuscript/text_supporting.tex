@@ -9,6 +9,9 @@
 \usepackage{subcaption}
 \usepackage{lscape} % for turning one page to landscape
 
+\let\thefigureWithoutS\thefigure %% <- store old definition
+\renewcommand\thefigure{S\thefigureWithoutS}
+
 \title{Supporting information}
 \author{}
 % \correspondingauthor{Corresponding Author name.\\E-mail: author.two@email.com}
@@ -37,39 +40,38 @@ After deciding on a ratio of foreign context to focal Swiss sequences, we assess
 Here we describe different sensitivity analyses we performed for our phylodynamic analysis.
 
 \subsubsection{Sampling proportion prior}
-First, we wanted to check that our phylodynamic estimates of a transmission damping factor are robust to our prior on the sampling proportion. Therefore, we repeated our analyses using two different priors on the sampling proportion. The first prior was a uniform distribution between 0 and 1. This broad prior allows the sampling proportion to assume any plausible value. The second prior was a uniform distribution between 0 and an upper bound equal to the number of genome sequences analyzed in a week divided by the number of confirmed cases that week. This narrower prior assumes that there are at least as many cases each week as confirmed cases. Figure \ref{fig:ReSampProbResults}a shows that in Switzerland, the estimated sampling proportion in late Fall 2020 varies greatly depending on the prior. Rapidly increasing case numbers and a drop in genome diversity during this period might explain why the inference estimates fewer individuals than we know were infected during this time. Figure \ref{fig:ReSampProbResults}b shows that the effective reproductive number estimates in Fall 2020 for Switzerland more closely match estimates based on line-list data when the sampling proportion is treated as a fitting parameter, i.e. under the first, broad prior. Therefore, we report results under this prior in the main text. In Figure \ref{fig:DampingFactorResults}a, we show that the damping factor results are qualitatively similar between the two sampling proportion priors. 
+First, we wanted to check that our phylodynamic estimates of a transmission damping factor are robust to our prior on the sampling proportion. Therefore, we repeated our analyses using two different priors on the sampling proportion. The first prior was a uniform distribution between 0 and 1. This broad prior allows the sampling proportion to assume any plausible value. The second prior was a uniform distribution between 0 and an upper bound equal to the number of genome sequences analyzed in a week divided by the number of confirmed cases that week. This narrower prior assumes that there are at least as many cases each week as confirmed cases. Figure \ref{fig:ReSampProbResults}a shows that in Switzerland, the estimated sampling proportion in late Fall 2020 varies greatly depending on the prior. A drop in SARS-CoV-2 diversity in Switzerland during this period might explain why the inference under the broader sampling prior estimates a proportion corresponding to fewer individuals than we know were infected during this time. Figure \ref{fig:ReSampProbResults}b shows that the effective reproductive number estimates in Fall 2020 for Switzerland more closely match estimates based on line-list data when the sampling proportion is treated as a fitting parameter, i.e. under the first, broad prior. Therefore, we report results under this prior in the main text. In Figure \ref{fig:DampingFactorResults}a, we show that the damping factor results are qualitatively similar between the two sampling proportion priors. 
 
 \subsubsection{Population structure: a class of individuals with more contacts}
-Next, we wanted to check if our transmission damping factor estimates might be due to individuals returning from travel having more dense contact networks than the general population. Therefore, we repeated our analysis for Switzerland including an additional class of infected individuals who transmit at a higher rate. Let $\pi_N$ be the fraction of regular individuals in the population and $\pi_{SS}$ be the fraction of individuals who have more contacts. $\pi_{SS}$ * 100\% of individuals then transmit according to the background time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. The parameters $\pi_N$, $\pi_{SS}$, and $r_{SS}$ were all inferred in this analysis. TODO: include figure and discuss results.
+Next, we wanted to check if our transmission damping factor estimates might be due to individuals returning from travel having more dense contact networks than the general population. Therefore, we repeated our analysis for Switzerland including an additional class of infected individuals who transmit at a higher rate. Let $\pi_N$ be the fraction of normal individuals in the population and $\pi_{SS}$ be the fraction of individuals who have more contacts. Then, the $\pi_{SS}$ fraction of individuals transmit according to the background time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. The parameters $\pi_N$, $\pi_{SS}$, and $r_{SS}$ were all inferred in this analysis. TODO: include figure and discuss results.
 
 \subsection{Logged trees}
-Finally, we logged the sampled phylogenetic trees for some introductions during the phylodynamic analyses. Although the damping factor results are generated jointly from all the introductions in each time period, we logged just a few introductions for each set of model assumptions to visually inspect. For each set of model assumptions and each month, we logged trees for the 50th and 95th percentile largest introductions that were first sampled that month and eventually yielded > 2 samples. Figure \ref{fig:logged-chains} shows as an example summary trees for these introductions under the phylodynamic analysis for Switzerland with an un-bounded sampling proportion prior and a homogeneous population (no class of individuals with more contacts).
+Finally, we logged phylogenetic trees for a few introductions. These trees were sampled by the Markov chains in the phylodynamic analyses. Note that the damping factor results are jointly inferred from all the branching events across introductions in each time period. But since logging all introductions would yield huge log files, we logged just a few individual introductions under each set of model assumptions for visual inspection. For each set of model assumptions and each month, we logged trees for the 50th and 95th percentile largest introductions that were first sampled that month and eventually yielded > 2 samples. Figure \ref{fig:logged-chains} shows as an example summary trees for these introductions under the phylodynamic analysis for Switzerland with an un-bounded sampling proportion prior and a homogeneous population (no class of individuals with more contacts).
 
 \section{Supporting information figures}
 
-% %%% Each figure should be on its own page
-\begin{figure}[H]
+\begin{figure}[h!]
 \centering
 \includegraphics[width = 0.8\linewidth]{figures/CHE_downsampling.png}
 \caption{Spatio-temporal representativeness of analyzed genome sequences. The mirror y-axis aims to contrast temporal trends in confirmed cases (red) versus analyzed sequences (blue); all values are positive counts. Facet titles are standard abbreviations for Swiss cantons. 'CHE' represents Swiss-wide cases and sequences, since case count reporting by canton began mid-May 2020.}  
 \label{fig:downsampling_representativeness}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[h!]
 \centering
 \includegraphics[width = 0.5\linewidth]{figures/chain_size_dist.png}
 \caption{Size distribution of estimated introductions.}  
 \label{fig:chain_size_dist}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[h!]
 \centering
 \includegraphics[width = 0.5\linewidth]{figures/chain_longevity_matrix.png}
 \caption{Heatmap of the number of newly sampled introductions in Switzerland each month (diagonal entries) and the number continuing to persisting into each following month (off-diagonal entries). Introduction are counted once in the month they are first sampled (``Month of first sampling'') and one every following month (``Month of ongoing sampling'') until the date of the latest sample. The ranges are between two point estimates generated assuming either few or many introductions.}  
 \label{fig:chain-longevity-matrix}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[h!]
 \centering
 \begin{subfigure}[b]{\textwidth}
 \centering
@@ -92,7 +94,7 @@ Finally, we logged the sampled phylogenetic trees for some introductions during 
 \label{fig:sensitivity_figs}
 \end{figure}
 
-\begin{figure}[tbhp]
+\begin{figure}[h!]
 \centering
 \begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_sampProp.pdf}
@@ -111,7 +113,7 @@ Finally, we logged the sampled phylogenetic trees for some introductions during 
 \end{figure}
 % Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
 
-\begin{figure}[tbhp]
+\begin{figure}[h!]
 \centering
 \begin{subfigure}[b]{0.75\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_contact_tracing_factor.pdf}
@@ -129,7 +131,7 @@ Finally, we logged the sampled phylogenetic trees for some introductions during 
 \newpage
 
 \begin{landscape}
-\begin{figure}[H]
+\begin{figure}[h!]
 \centering
 \begin{subfigure}[b]{0.65\textwidth}
 \centering
@@ -167,9 +169,9 @@ Finally, we logged the sampled phylogenetic trees for some introductions during 
 % \newline
 % \end{table}
 
-\begin{table}[H]
-\centering
-\caption{Sampling proportion change-points in the phylodynamic analyses.}
+\begin{table}[h!]
+% \centering
+\caption{Sampling proportion change-points for the phylodynamic analysis on Swiss data. The sampling proportion was modelled as a piece-wise-constant function in time, with the following change-points motivated by major shifts in the testing regime or genome sequencing intensity in Switzerland.}
 \label{tab:CHE_samp_prob_change_dates}
 \begin{tabular}{ll}
 \hline
@@ -185,14 +187,13 @@ Start date & Description \\
 \end{tabular}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[h!]
 \caption{Contingency table for singleton introductions and transmission chains by time period assuming many (right) and few (left)  introductions.}
 \label{tab:lockdown-contingency}
 \input{tables/max_chains_contingency}
 \input{tables/min_chains_contingency}
 \end{table}
 
-\newpage
 \input{tables/lineage_data_summary.tex}
 
 
