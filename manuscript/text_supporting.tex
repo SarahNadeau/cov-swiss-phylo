@@ -94,32 +94,46 @@ Finally, we logged phylogenetic trees for a few introductions. These trees were 
 \label{fig:sensitivity_figs}
 \end{figure}
 
+\begin{landscape}
 \begin{figure}[h!]
 \centering
-\begin{subfigure}[b]{\textwidth}
+\begin{subfigure}[b]{0.6\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_sampProp.pdf}
 \caption{Sampling probability in Switzerland.}
 \end{subfigure}
-\begin{subfigure}[b]{\textwidth}
+\begin{subfigure}[b]{0.6\textwidth}
+\includegraphics[width=\linewidth]{figures/CHE_2Deme_sampProp.pdf}
+\caption{Sampling probability in Switzerland under 2-deme model.}
+\end{subfigure}
+\begin{subfigure}[b]{0.6\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_Re.pdf}
 \caption{Effective reproductive number in Switzerland.}
 \end{subfigure}
-\begin{subfigure}[b]{\textwidth}
+\begin{subfigure}[b]{0.6\textwidth}
+\includegraphics[width=\linewidth]{figures/CHE_2Deme_Re.pdf}
+\caption{Effective reproductive number in Switzerland under 2-deme model.}
+\end{subfigure}
+\begin{subfigure}[b]{0.6\textwidth}
 \includegraphics[width=\linewidth]{figures/NZL_Re.pdf}
 \caption{Effective reproductive number in New Zealand.}
 \end{subfigure}
 \caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (a, b) and sampling probability (c) in Switzerland and New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the models with a damping factor (blue) are the ``baseline'' $R_e$ before introduction-specific damping (i.e. before application of a damping factor once introductions are older than 2-days post sampling).}  
 \label{fig:ReSampProbResults}
 \end{figure}
+\end{landscape}
 % Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
 
 \begin{figure}[h!]
 \centering
-\begin{subfigure}[b]{0.75\textwidth}
+\begin{subfigure}[b]{0.7\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_contact_tracing_factor.pdf}
 \caption{Damping factor in Switzerland.}
 \end{subfigure}
-\begin{subfigure}[b]{0.75\textwidth}
+\begin{subfigure}[b]{0.7\textwidth}
+\includegraphics[width=\linewidth]{figures/CHE_2Deme_contact_tracing_factor.pdf}
+\caption{Damping factor in Switzerland under 2-deme model.}
+\end{subfigure}
+\begin{subfigure}[b]{0.7\textwidth}
 \includegraphics[width=\linewidth]{figures/NZL_contact_tracing_factor.pdf}
 \caption{Damping factor in New Zealand.}
 \end{subfigure}
@@ -150,24 +164,6 @@ Finally, we logged phylogenetic trees for a few introductions. These trees were 
 \newpage
 
 \section{Supporting information tables}
-
-% \begin{table}[H]
-% \centering
-% \caption{Various phylodynamic models employed for the main analysis and sensitivity checks. SS = super-spreading.}
-% \label{tab:phylo-models}
-% \begin{tabular}{llccc}
-% \hline
-% Figure & Focal country & Polytomy resolution & Damping factor & Sampling bound & SS Deme & Figure \\
-% \hline
-% Fig. \ref{fig:DampingFactorResults}, top & Switzerland & Many introductions & N & N & N \\
-% Switzerland & Many introductions & Y & Y & Y \\
-% Switzerland & Few introductions & Y & Y & Y \\
-% New Zealand & Many introductions & Y & Y & \\
-% New Zealand & Few introductions & Y & Y & \\
-% \hline
-% \end{tabular}
-% \newline
-% \end{table}
 
 \begin{table}[h!]
 % \centering
