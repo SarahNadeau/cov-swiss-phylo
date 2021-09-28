@@ -236,19 +236,34 @@ for (clusters in c("min", "max")) {
 ```
 Plot SS inflation factor, type frequencies
 ```{r}
-SS_inflation_factor <- ggplot(data = SS_data, aes(x = SSInflation)) +
-  geom_histogram() +
-  shared_theme +
-  labs(x = ss_factor_x_lab, y = ct_factor_y_lab)
-show(SS_inflation_factor)
-ggsave("figures/super_spreading_factor.pdf", width = single_col_width, height = single_col_width * 0.75, units = "cm")
 
-SS_type_frequencies <- ggplot(data = SS_data, aes(x = typeFrequencies.1)) +
-  geom_histogram() +
-  shared_theme +
-  labs(x = "Fraction of population with higher transmission rate", y = ct_factor_y_lab)
-show(SS_type_frequencies)
-ggsave("figures/super_spreading_type_frequency.pdf", width = single_col_width, height = single_col_width * 0.75, units = "cm")
+ggplot() +
+    geom_histogram(
+            data = SS_data %>% filter(contact_tracing == "TRUE", clusters == "max"),
+            aes(x = SSInflation, fill = clusters), alpha = 0.5, bins = 30) +
+    geom_histogram(
+            data = SS_data %>% filter(contact_tracing == "TRUE", clusters == "min"),
+            aes(x = SSInflation, fill = clusters), alpha = 0.5, bins = 30) +
+    facet_grid(. ~ sampUB) +
+    scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) +
+    shared_theme +
+    labs(x = ss_factor_x_lab, y = ct_factor_y_lab)
+
+ggsave("figures/super_spreading_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
+
+ggplot() +
+   geom_histogram(
+            data = SS_data %>% filter(contact_tracing == "TRUE", clusters == "max"),
+            aes(x = typeFrequencies.1, fill = clusters), alpha = 0.5, bins = 30) +
+    geom_histogram(
+            data = SS_data %>% filter(contact_tracing == "TRUE", clusters == "min"),
+            aes(x = typeFrequencies.1, fill = clusters), alpha = 0.5, bins = 30) +
+    facet_grid(. ~ sampUB) +
+    scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) +
+    shared_theme +
+    labs(x = "Fraction of population with higher transmission rate", y = ct_factor_y_lab)
+
+ggsave("figures/super_spreading_type_frequency.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
 ```
 
 ## Write out variables for manuscript, copy figures into manuscript figure directory
