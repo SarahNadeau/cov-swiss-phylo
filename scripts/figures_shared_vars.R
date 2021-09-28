@@ -26,6 +26,7 @@ border_closure_end <- as.Date("2020-06-15")
 border_closure_start <- as.Date("2020-03-25")
 ct_factor_x_lab <- "Tranmission rate damping (%)"
 ct_factor_y_lab <- "Posterior support"
+ss_factor_x_lab <- "Transmission rate inflation"
 chains_assumption_legend_name <- "Polytomy assumption"
 chains_assumption_colors <- RColorBrewer::brewer.pal(n = 3, name = "Dark2")[1:2]
 model_type_colors <- RColorBrewer::brewer.pal(n = 8, name = "Dark2")[4:5]

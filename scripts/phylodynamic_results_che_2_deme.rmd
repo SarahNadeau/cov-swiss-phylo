@@ -26,7 +26,7 @@ system(command = "mkdir -p figures")
 skyline_data <- NULL
 for (clusters in c("min", "max")) {
   for (contact_tracing in c(TRUE, FALSE)) {
-    for (sampUB in c("With sampling bound", "Without sampling bound" )) {
+    for (sampUB in c("With sampling bound", "Without sampling bound")) {
       pattern <- paste0("Re_skyline_2deme.", clusters, "_chains",
                         ".sampUB", ifelse(sampUB=="With sampling bound", "0.05", "1.0"),
                         ".", ifelse(contact_tracing, "1", "0"),
@@ -52,6 +52,8 @@ for (clusters in c("min", "max")) {
                      names_transform=list(interval=as.integer)) %>%
         select(Sample, interval, value) %>%
         mutate(variable="sampProp")
+
+      deme_temp_data <- data
 
       skyline_temp_data <- bind_rows(Re_temp_data, sampProp_temp_data) %>%
         group_by(interval, variable) %>%
@@ -204,6 +206,51 @@ ggplot() +
 ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
 ```
 
+## SS type frequencies, inflation factor
+
+```{r}
+SS_data <- NULL
+for (clusters in c("min", "max")) {
+  for (contact_tracing in c(TRUE, FALSE)) {
+    for (sampUB in c("With sampling bound", "Without sampling bound")) {
+      pattern <- paste0("Re_skyline_2deme.", clusters, "_chains",
+                        ".sampUB", ifelse(sampUB=="With sampling bound", "0.05", "1.0"),
+                        ".", ifelse(contact_tracing, "1", "0"),
+                        ".*.log")
+
+      data <- NULL
+      for (f in dir("results/", pattern, full.names=TRUE)) {
+        data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+      }
+
+      SS_data <- bind_rows(SS_data,
+                           data %>%
+                             slice_tail(prop=0.9) %>%
+                             select(Sample, "SSInflation", "typeFrequencies.1", "typeFrequencies.2") %>%
+                             mutate(clusters=clusters,
+                                    contact_tracing=contact_tracing,
+                                    sampUB=sampUB))
+    }
+  }
+}
+```
+Plot SS inflation factor, type frequencies
+```{r}
+SS_inflation_factor <- ggplot(data = SS_data, aes(x = SSInflation)) +
+  geom_histogram() +
+  shared_theme +
+  labs(x = ss_factor_x_lab, y = ct_factor_y_lab)
+show(SS_inflation_factor)
+ggsave("figures/super_spreading_factor.pdf", width = single_col_width, height = single_col_width * 0.75, units = "cm")
+
+SS_type_frequencies <- ggplot(data = SS_data, aes(x = typeFrequencies.1)) +
+  geom_histogram() +
+  shared_theme +
+  labs(x = "Fraction of population with higher transmission rate", y = ct_factor_y_lab)
+show(SS_type_frequencies)
+ggsave("figures/super_spreading_type_frequency.pdf", width = single_col_width, height = single_col_width * 0.75, units = "cm")
+```
+
 ## Write out variables for manuscript, copy figures into manuscript figure directory
 
 ```{r}
@@ -233,5 +280,7 @@ close(con)
 system("cp figures/contact_tracing_factor.pdf ../../../../figures/CHE_2Deme_contact_tracing_factor.pdf")
 system("cp figures/sampProp.pdf ../../../../figures/CHE_2Deme_sampProp.pdf")
 system("cp figures/Re.pdf ../../../../figures/CHE_2Deme_Re.pdf")
+system("cp figures/super_spreading_factor.pdf ../../../../figures/CHE_2Deme_super_spreading_factor.pdf")
+system("cp figures/super_spreading_type_frequency.pdf ../../../../figures/CHE_2Deme_super_spreading_type_frequency.pdf")
 ```
 
