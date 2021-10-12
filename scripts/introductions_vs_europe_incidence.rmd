@@ -1,0 +1,141 @@
+---
+title: "Plot introductions vs. European incidence"
+author: nadeaus
+date: 12.10.21
+output: html_notebook
+---
+
+This script is to see if the relationship between Europe-wide incidence and estimated imports into Switzerland changes upon the Swiss border closures.
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+```
+
+```{r, include=FALSE}
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+Load grapevine data
+
+```{r}
+workdir <- "results_main"
+outdir <- paste(workdir, "output", sep = "/")
+outdir <- "figures"
+grapevine_results <- load_grapevine_results(
+  workdir = workdir,
+  min_chain_size = 1,
+  viollier_only = F)
+```
+
+Load case data for all European countries except Switzerland
+
+```{r}
+CASE_COUNT_LINK <- "https://covid.ourworldindata.org/data/owid-covid-data.csv"
+cases_raw <- read.csv(url(CASE_COUNT_LINK)) %>%
+  filter(continent == "Europe", location != "Switzerland", date <= "2020-12-01") %>%
+  select(location, date, new_cases) %>%
+  mutate(date = as.Date(date))
+
+total_cases <- cases_raw %>%
+  group_by(date) %>%
+  summarize(new_cases_nonSwissEurope = sum(new_cases, na.rm = T)) %>%
+  arrange(date) %>%
+  mutate(weekly_average_new_cases_nonSwissEurope = zoo::rollmean(
+    x = new_cases_nonSwissEurope, k = 7, na.pad = T))  # 7-day smoothing because some countries report days with negative cases (corrections?)
+
+country_specific_cases <- cases_raw %>%
+    filter(location == "France") %>%
+    group_by(date) %>%
+    summarize(new_cases_FRA = sum(new_cases, na.rm = T)) %>%
+    full_join(y = cases_raw %>%
+        filter(location == "Italy") %>%
+        group_by(date) %>%
+        summarize(new_cases_ITA = sum(new_cases, na.rm = T)),
+    by = "date") %>%
+    full_join(y = cases_raw %>%
+        filter(location == "Germany") %>%
+        group_by(date) %>%
+        summarize(new_cases_DEU = sum(new_cases, na.rm = T)),
+    by = "date")
+
+cases <- total_cases %>% left_join(country_specific_cases, by = "date")
+```
+
+Plot case data vs. introductions
+```{r}
+chain_summary_stats <- grapevine_results$samples %>%
+        group_by(tree, chains_assumption, chain_idx) %>%
+        summarize(first_sample_date = min(date), .groups = "drop") %>%
+        full_join(y = grapevine_results$chains, by = c("tree", "chains_assumption", "chain_idx"))
+
+introduction_summary_stats_1 <- chain_summary_stats %>%
+        group_by(first_sample_date) %>%
+        summarise(n_introductions_by_first_sample_date = n()) %>%
+        rename(date = first_sample_date) %>%
+        mutate(date = as.Date(date))
+introduction_summary_stats_2 <- chain_summary_stats %>%
+        group_by(tmrca) %>%
+        summarise(n_introductions_by_tmrca = n()) %>%
+        rename(date = tmrca) %>%
+        mutate(date = as.Date(date))
+
+combined_data <- cases %>%
+        full_join(introduction_summary_stats_1, by = "date") %>%
+        full_join(introduction_summary_stats_2, by = "date")
+
+combined_data_long <- combined_data %>%
+        pivot_longer(
+           cols = c("n_introductions_by_first_sample_date",
+                    "n_introductions_by_tmrca",
+                    "new_cases_nonSwissEurope",
+                    # "weekly_average_new_cases",
+                    "new_cases_ITA",
+                    "new_cases_FRA",
+                    "new_cases_DEU"),
+           names_to = "metric",
+           values_to = "value")
+
+ggplot(data = combined_data_long %>%
+  filter(date <= as.Date("2020-06-15")) %>%
+  mutate(metric = factor(metric, levels = c(
+    "n_introductions_by_tmrca",
+    "n_introductions_by_first_sample_date",
+    "new_cases_ITA",
+    "new_cases_DEU",
+    "new_cases_FRA",
+    "new_cases_nonSwissEurope"
+  ))),
+       aes(x = date, y = value)) +
+        geom_col() +
+        facet_wrap(metric ~ ., scales = "free_y", strip.position = "top", ncol = 1) +
+        # geom_label(data = . %>% group_by(metric) %>% filter(value == max(value, na.rm = T)),
+        #            aes(label = date)) +
+        scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
+        labs(y = "Count", x = "") +
+        shared_theme +
+        geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
+
+ggsave("figures/introductions_vs_european_indicence.png",
+       width = double_col_width, height = double_col_width * 1.5, units = "cm")
+
+as.Date_origin <- function(x){
+  as.Date(x, origin = '1970-01-01')
+}
+
+ggplot(data = combined_data %>% mutate(month = format(date, format = "%Y-%m-01")),
+       aes(x = n_introductions_by_first_sample_date, y = new_cases_ITA, color = as.integer(date))) +
+       geom_point() +
+       facet_wrap(. ~ month, scales = "free") +
+       scale_colour_gradientn(colors = c('red', 'green', 'blue'), labels = as.Date_origin)
+
+ggsave("figures/introductions_vs_italian_indicence.png",
+width = double_col_width, height = single_col_width, units = "cm")
+
+```
