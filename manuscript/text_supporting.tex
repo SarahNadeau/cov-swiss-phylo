@@ -43,7 +43,7 @@ Here we describe different sensitivity analyses we performed for our phylodynami
 First, we wanted to check that our phylodynamic estimates of a transmission damping factor are robust to our prior on the sampling proportion. Therefore, we repeated our analyses using two different priors on the sampling proportion. The first prior was a uniform distribution between 0 and 1. This broad prior allows the sampling proportion to assume any plausible value. The second prior was a uniform distribution between 0 and an upper bound equal to the number of genome sequences analyzed in a week divided by the number of confirmed cases that week. This narrower prior assumes that there are at least as many cases each week as confirmed cases. Figure \ref{fig:ReSampProbResults}a shows that in Switzerland, the estimated sampling proportion in late Fall 2020 varies greatly depending on the prior. A drop in SARS-CoV-2 diversity in Switzerland during this period might explain why the inference under the broader sampling prior estimates a proportion corresponding to fewer individuals than we know were infected during this time. Figure \ref{fig:ReSampProbResults}b shows that the effective reproductive number estimates in Fall 2020 for Switzerland more closely match estimates based on line-list data when the sampling proportion is treated as a fitting parameter, i.e. under the first, broad prior. Therefore, we report results under this prior in the main text. In Figure \ref{fig:DampingFactorResults}a, we show that the damping factor results are qualitatively similar between the two sampling proportion priors. 
 
 \subsubsection{Population structure: a class of individuals with more contacts}
-Next, we wanted to check if our transmission damping factor estimates might be due to individuals returning from travel having more dense contact networks than the general population. Therefore, we repeated our analysis for Switzerland including an additional class of infected individuals who transmit at a higher rate. Let $\pi_N$ be the fraction of normal individuals in the population and $\pi_{SS}$ be the fraction of individuals who have more contacts. Then, the $\pi_{SS}$ fraction of individuals transmit according to the background time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. The parameters $\pi_N$, $\pi_{SS}$, and $r_{SS}$ were all inferred in this analysis. TODO: include figure and discuss results.
+Next, we wanted to check if our transmission damping factor estimates might be due to individuals returning from travel having more dense contact networks than the general population. Therefore, we repeated our analysis for Switzerland including an additional class of infected individuals who transmit at a higher rate. Let $\pi_N$ be the fraction of normal individuals in the population and $\pi_{SS}$ be the fraction of individuals who have more contacts. Then, the $\pi_{SS}$ fraction of individuals transmit according to the background time-varying reproductive number multiplied by an additional positive factor $r_{SS}$. The parameters $\pi_N$, $\pi_{SS}$, and $r_{SS}$ were all inferred in this analysis. Figure \ref{fig:InflationFactorResults} shows that a significant fraction of the population (approximately 10-20\%) is estimated to transmit at a higher rate (over approximately 1.8 times as much). But even with the inclusion of this second deme of individuals in the model, Figure \ref{fig:DampingFactorResults}b shows that the damping factor estimates are quite stable.
 
 \subsection{Logged trees}
 Finally, we logged phylogenetic trees for a few introductions. These trees were sampled by the Markov chains in the phylodynamic analyses. Note that the damping factor results are jointly inferred from all the branching events across introductions in each time period. But since logging all introductions would yield huge log files, we logged just a few individual introductions under each set of model assumptions for visual inspection. For each set of model assumptions and each month, we logged trees for the 50th and 95th percentile largest introductions that were first sampled that month and eventually yielded > 2 samples. Figure \ref{fig:logged-chains} shows as an example summary trees for these introductions under the phylodynamic analysis for Switzerland with an un-bounded sampling proportion prior and a homogeneous population (no class of individuals with more contacts).
@@ -94,33 +94,25 @@ Finally, we logged phylogenetic trees for a few introductions. These trees were 
 \label{fig:sensitivity_figs}
 \end{figure}
 
-\begin{landscape}
+% \begin{landscape}
 \begin{figure}[h!]
 \centering
-\begin{subfigure}[b]{0.6\textwidth}
+\begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_sampProp.pdf}
 \caption{Sampling probability in Switzerland.}
 \end{subfigure}
-\begin{subfigure}[b]{0.6\textwidth}
-\includegraphics[width=\linewidth]{figures/CHE_2Deme_sampProp.pdf}
-\caption{Sampling probability in Switzerland under 2-deme model.}
-\end{subfigure}
-\begin{subfigure}[b]{0.6\textwidth}
+\begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/CHE_Re.pdf}
 \caption{Effective reproductive number in Switzerland.}
 \end{subfigure}
-\begin{subfigure}[b]{0.6\textwidth}
-\includegraphics[width=\linewidth]{figures/CHE_2Deme_Re.pdf}
-\caption{Effective reproductive number in Switzerland under 2-deme model.}
-\end{subfigure}
-\begin{subfigure}[b]{0.6\textwidth}
+\begin{subfigure}[b]{\textwidth}
 \includegraphics[width=\linewidth]{figures/NZL_Re.pdf}
 \caption{Effective reproductive number in New Zealand.}
 \end{subfigure}
-\caption{Phylodynamic estimates for the time-varying effective reproductive number $R_e$ (a, b) and sampling probability (c) in Switzerland and New Zealand. $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the models with a damping factor (blue) are the ``baseline'' $R_e$ before introduction-specific damping (i.e. before application of a damping factor once introductions are older than 2-days post sampling).}  
+\caption{Phylodynamic estimates for  (a) the sampling probability in Switzerland and the time-varying effective reproductive number $R_e$ in Switzerland (b) and New Zealand (c). $R_e$ estimates are overlaid on estimates generated from case count data \cite{huisman_re_preprint} in grey. Additionally, $R_e$ estimates from the models with a damping factor (pink) are the ``baseline'' $R_e$ before introduction-specific damping (i.e. before application of a damping factor once introductions are older than 2-days post sampling).}  
 \label{fig:ReSampProbResults}
 \end{figure}
-\end{landscape}
+% \end{landscape}
 % Remember Re plot is now background Re (without contact tracing) and no longer the actual average Re
 
 \begin{figure}[h!]
@@ -137,25 +129,23 @@ Finally, we logged phylogenetic trees for a few introductions. These trees were 
 \includegraphics[width=\linewidth]{figures/NZL_contact_tracing_factor.pdf}
 \caption{Damping factor in New Zealand.}
 \end{subfigure}
-% \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_dampingProbs_2deme.pdf}
-% \includegraphics[width=0.4\linewidth]{figures/bdsky_2021-08-18/CT_conditionedDamping_2deme.pdf}
-\caption{Phylodynamic estimates for the damping factor in Switzerland and New Zealand in different time periods and conditioned on introductions defined using different polytomy assumptions.}  
+\caption{Phylodynamic estimates for the damping factor in Switzerland and New Zealand in different time periods, conditioned on introductions defined using different polytomy assumptions and using different priors on the sampling probability.}  
 \label{fig:DampingFactorResults}
 \end{figure}
 \newpage
 
 \begin{figure}[h!]
     \centering
-    \begin{subfigure}[b]{0.4\textwidth}
+    \begin{subfigure}[b]{0.7\textwidth}
     \includegraphics[width=\linewidth]{figures/CHE_2Deme_super_spreading_type_frequency.pdf}
-    \caption{Fraction of population in deme with higher transmission rate.}
+    \caption{}
     \end{subfigure}
-    \begin{subfigure}[b]{0.4\textwidth}
+    \begin{subfigure}[b]{0.7\textwidth}
     \includegraphics[width=\linewidth]{figures/CHE_2Deme_super_spreading_factor.pdf}
-    \caption{Inflation factor for transmission rate in Switzerland.}
+    \caption{}
     \end{subfigure}
-    \caption{Phylodynamic estimates for the inflation factor in Switzerland }
-    \label{fig:my_label}
+    \caption{Phylodynamic estimates for (a) the fraction of the population in the deme with a higher transmission rate in Switzerland and (b) the inflation factor for the transmission rate in this deme. Estimates are shown based on conditioning on introductions defined using different polytomy assumptions and using different priors on the sampling probability.}
+    \label{fig:InflationFactorResults}
 \end{figure}
 
 \begin{landscape}
