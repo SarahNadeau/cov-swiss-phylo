@@ -1,3 +1,5 @@
+*.7z
+scripts/scripts.iml
 ~$*
 *notes.txt
 manuscript/author_info
