@@ -24,7 +24,7 @@ facet_nospace_theme_elements <- theme(
   panel.spacing = unit(0, "lines"))
 border_closure_end <- as.Date("2020-06-15")
 border_closure_start <- as.Date("2020-03-25")
-ct_factor_x_lab <- "Tranmission rate damping (%)"
+ct_factor_x_lab <- "Transmission rate damping (%)"
 ct_factor_y_lab <- "Posterior support"
 ss_factor_x_lab <- "Transmission rate inflation"
 chains_assumption_legend_name <- "Polytomy assumption"
