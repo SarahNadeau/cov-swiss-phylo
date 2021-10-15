@@ -131,13 +131,19 @@ ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
     shared_theme
 ggsave("figures/Re.pdf", width=15, height=5, units="in")
 
-ggplot(skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates),
+# Get the first ribbon to show by repeating the first interval value at the minimum date
+samp_prop_data_1 <- skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates)
+max_interval <- max(samp_prop_data$interval)
+samp_prop_data_2 <- samp_prop_data %>% filter(interval == max_interval) %>% mutate(date = as.Date("2020-01-01"))
+samp_prop_data <- rbind(samp_prop_data_1, samp_prop_data_2)
+
+ggplot(samp_prop_data,
        aes(date, median, col=contact_tracing, fill=contact_tracing)) +
     geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +
     scale_color_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
-    scale_x_date(date_breaks="1 month", date_labels="%b") +
+    scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
     labs(y = "Sampling probability", x = element_blank()) + 
     shared_theme
 ggsave("figures/sampProp.pdf", width=15, height=5, units="in")
