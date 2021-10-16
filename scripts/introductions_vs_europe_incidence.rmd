@@ -16,9 +16,10 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 require(dplyr)
 require(tidyr)
 require(ggplot2)
-source("../grapevine/database/R/utility.R")
-source("../grapevine/utility_functions.R")
-source("../grapevine/generate_figures/functions.R")
+require(cowplot)
+source("../sars_cov_2/grapevine/database/R/utility.R")
+source("../sars_cov_2/grapevine/utility_functions.R")
+source("../sars_cov_2/grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
 ```
 
@@ -34,108 +35,115 @@ grapevine_results <- load_grapevine_results(
   viollier_only = F)
 ```
 
-Load case data for all European countries except Switzerland
+Load case data for European countries
 
 ```{r}
-CASE_COUNT_LINK <- "https://covid.ourworldindata.org/data/owid-covid-data.csv"
-cases_raw <- read.csv(url(CASE_COUNT_LINK)) %>%
-  filter(continent == "Europe", location != "Switzerland", date <= "2020-12-01") %>%
-  select(location, date, new_cases) %>%
-  mutate(date = as.Date(date))
+CASE_COUNT_LINK <- "https://covid.ourworldindata.org/data/owid-covid-data.csv"  # early data for France not very good
+CASE_COUNT_LINK <- "https://opendata.ecdc.europa.eu/covid19/casedistribution/csv/"
+cases_raw <- read.csv(url(CASE_COUNT_LINK), na.strings = "", fileEncoding = "UTF-8-BOM") %>%
+  filter(continentExp == "Europe") %>%
+  select(countryterritoryCode, dateRep, cases) %>%
+  mutate(date = as.Date(dateRep, "%d/%m/%Y")) %>%
+  filter(date <= as.Date("2020-12-01"))
 
-total_cases <- cases_raw %>%
-  group_by(date) %>%
-  summarize(new_cases_nonSwissEurope = sum(new_cases, na.rm = T)) %>%
-  arrange(date) %>%
-  mutate(weekly_average_new_cases_nonSwissEurope = zoo::rollmean(
-    x = new_cases_nonSwissEurope, k = 7, na.pad = T))  # 7-day smoothing because some countries report days with negative cases (corrections?)
-
-country_specific_cases <- cases_raw %>%
-    filter(location == "France") %>%
-    group_by(date) %>%
-    summarize(new_cases_FRA = sum(new_cases, na.rm = T)) %>%
-    full_join(y = cases_raw %>%
-        filter(location == "Italy") %>%
-        group_by(date) %>%
-        summarize(new_cases_ITA = sum(new_cases, na.rm = T)),
-    by = "date") %>%
-    full_join(y = cases_raw %>%
-        filter(location == "Germany") %>%
-        group_by(date) %>%
-        summarize(new_cases_DEU = sum(new_cases, na.rm = T)),
-    by = "date")
-
-cases <- total_cases %>% left_join(country_specific_cases, by = "date")
+cases_summary <- cases_raw %>%
+        mutate(country = case_when(
+                countryterritoryCode == "CHE" ~ "Switzerland",
+                countryterritoryCode == "FRA" ~ "France",
+                countryterritoryCode == "DEU" ~ "Germany",
+                countryterritoryCode == "ITA" ~ "Italy",
+                T ~ "Other European")) %>%
+        group_by(date, country) %>%
+        summarize(cases = sum(cases), .groups = "drop") %>%
+        group_by(country) %>%
+        arrange(date) %>%
+        mutate(weekly_avg_new_cases = zoo::rollmean(cases,7, align = "center", na.pad = T))
 ```
 
 Plot case data vs. introductions
+
 ```{r}
 chain_summary_stats <- grapevine_results$samples %>%
         group_by(tree, chains_assumption, chain_idx) %>%
         summarize(first_sample_date = min(date), .groups = "drop") %>%
         full_join(y = grapevine_results$chains, by = c("tree", "chains_assumption", "chain_idx"))
 
+dummy_data <- rbind(
+        data.frame(
+                date = seq.Date(as.Date("2020-01-01"), as.Date("2020-12-01"), "day"),
+                chains_assumption = "min"),
+        data.frame(
+                date = seq.Date(as.Date("2020-01-01"), as.Date("2020-12-01"), "day"),
+                chains_assumption = "max"))
+
 introduction_summary_stats_1 <- chain_summary_stats %>%
-        group_by(first_sample_date) %>%
-        summarise(n_introductions_by_first_sample_date = n()) %>%
-        rename(date = first_sample_date) %>%
-        mutate(date = as.Date(date))
+        group_by(first_sample_date, chains_assumption) %>%
+        summarise(introductions_by_first_sample_date = n()) %>%
+        mutate(date = as.Date(first_sample_date)) %>%
+        right_join(dummy_data, by = c("date", "chains_assumption")) %>%
+        mutate(introductions_by_first_sample_date = replace_na(introductions_by_first_sample_date, 0)) %>%
+        arrange(chains_assumption, date) %>%
+        group_by(chains_assumption) %>%
+        mutate(country = "Switzerland",
+               weekly_avg_introductions_by_first_sample_date = zoo::rollmean(introductions_by_first_sample_date, 7, align = "center", na.pad = T))
 introduction_summary_stats_2 <- chain_summary_stats %>%
-        group_by(tmrca) %>%
-        summarise(n_introductions_by_tmrca = n()) %>%
-        rename(date = tmrca) %>%
-        mutate(date = as.Date(date))
+        group_by(tmrca, chains_assumption) %>%
+        summarise(introductions_by_tmrca = n()) %>%
+        mutate(date = as.Date(tmrca)) %>%
+        right_join(dummy_data, by = c("date", "chains_assumption")) %>%
+        mutate(introductions_by_tmrca = replace_na(introductions_by_tmrca, 0)) %>%
+        arrange(chains_assumption, date) %>%
+        group_by(chains_assumption) %>%
+        mutate(country = "Switzerland",
+               weekly_avg_introductions_by_tmrca = zoo::rollmean(introductions_by_tmrca, 7, align = "center", na.pad = T))
 
-combined_data <- cases %>%
-        full_join(introduction_summary_stats_1, by = "date") %>%
-        full_join(introduction_summary_stats_2, by = "date")
+introduction_summary <- full_join(
+        x = introduction_summary_stats_1, y = introduction_summary_stats_2,
+        by = c("date", "country", "chains_assumption"))
 
-combined_data_long <- combined_data %>%
-        pivot_longer(
-           cols = c("n_introductions_by_first_sample_date",
-                    "n_introductions_by_tmrca",
-                    "new_cases_nonSwissEurope",
-                    # "weekly_average_new_cases",
-                    "new_cases_ITA",
-                    "new_cases_FRA",
-                    "new_cases_DEU"),
-           names_to = "metric",
-           values_to = "value")
+introduction_summary_wide <- introduction_summary %>%
+        pivot_wider(names_from = "chains_assumption", values_from = c(
+                "introductions_by_first_sample_date",
+                "weekly_avg_introductions_by_first_sample_date",
+                "introductions_by_tmrca",
+                "weekly_avg_introductions_by_tmrca"))
 
-ggplot(data = combined_data_long %>%
-  filter(date <= as.Date("2020-06-15")) %>%
-  mutate(metric = factor(metric, levels = c(
-    "n_introductions_by_tmrca",
-    "n_introductions_by_first_sample_date",
-    "new_cases_ITA",
-    "new_cases_DEU",
-    "new_cases_FRA",
-    "new_cases_nonSwissEurope"
-  ))),
-       aes(x = date, y = value)) +
-        geom_col() +
-        facet_wrap(metric ~ ., scales = "free_y", strip.position = "top", ncol = 1) +
-        # geom_label(data = . %>% group_by(metric) %>% filter(value == max(value, na.rm = T)),
-        #            aes(label = date)) +
+combined_data <- cases_summary %>% full_join(introduction_summary_wide, by = c("date", "country"))
+
+incidence_plot <- ggplot(data = combined_data %>%
+        filter(date <= as.Date("2020-06-15"), date >= "2020-02-15"),
+        aes(x = date, fill = country)) +
+        geom_col(aes(y = weekly_avg_new_cases), position = "dodge") +
+        # geom_label(data = . %>% group_by(metric) %>% filter(value == max(value, na.rm = T)), aes(label = date)) +  # label maximum point
         scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
-        labs(y = "Count", x = "") +
+        labs(y = "Confirmed cases\n(weekly average)", x = "") +
+        shared_theme +
+        scale_fill_discrete(name = element_blank()) +
+        geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
+
+introductions_plot <- ggplot(data = combined_data %>%
+        filter(country == "Switzerland", date <= as.Date("2020-06-15"), date >= "2020-02-15"),
+        aes(x = date)) +
+        geom_errorbar(aes(ymin = weekly_avg_introductions_by_first_sample_date_min, ymax = weekly_avg_introductions_by_first_sample_date_max)) +
+        scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
+        labs(y = "New introductions\n (weekly average)", x = "") +
         shared_theme +
         geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
 
+# Extract legend to plot seperately
+incidence_legend <- get_legend(
+  # create some space to the left of the legend
+  incidence_plot +
+    guides(color = guide_legend(nrow = 1)) +
+    theme(legend.position = "bottom", legend.text = element_text(size = 5)))
+incidence_plot <- incidence_plot + theme(legend.position = "none")
+
+main_plots <- align_plots(introductions_plot, incidence_plot, align = "vh",  axis = 'bt')
+top_plots <- plot_grid(
+  main_plots[[1]], main_plots[[2]],
+  ncol = 1)
+
+plot_grid(top_plots, incidence_legend, rel_heights = c(1, 0.1), ncol = 1)
 ggsave("figures/introductions_vs_european_indicence.png",
-       width = double_col_width, height = double_col_width * 1.5, units = "cm")
-
-as.Date_origin <- function(x){
-  as.Date(x, origin = '1970-01-01')
-}
-
-ggplot(data = combined_data %>% mutate(month = format(date, format = "%Y-%m-01")),
-       aes(x = n_introductions_by_first_sample_date, y = new_cases_ITA, color = as.integer(date))) +
-       geom_point() +
-       facet_wrap(. ~ month, scales = "free") +
-       scale_colour_gradientn(colors = c('red', 'green', 'blue'), labels = as.Date_origin)
-
-ggsave("figures/introductions_vs_italian_indicence.png",
-width = double_col_width, height = single_col_width, units = "cm")
-
+       width = single_col_width, height = single_col_width, units = "cm")
 ```
