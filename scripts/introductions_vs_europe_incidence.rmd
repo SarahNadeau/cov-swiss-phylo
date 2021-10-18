@@ -80,25 +80,26 @@ get_start_of_week <- function(date) {
   return(sunday)
 }
 
-introduction_summary <- chain_summary_stats %>%  # weekly summary
+introduction_summary_tmp <- chain_summary_stats %>%  # weekly summary
   mutate(date = get_start_of_week(first_sample_date)) %>%
   group_by(date, chains_assumption, .groups = "drop") %>%
   summarise(
-    introductions_by_first_sample_date = n(),
-    frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
+    introductions_by_first_sample_date = n()) %>%
+    # frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
   mutate(country = "Switzerland")
 
 # exclude undefined values for persistence
 max_date <- max(introduction_summary$date) - 60
 introduction_summary[introduction_summary$date > max_date, "frac_60_day_persisters"] <- NA
 
-# introduction_summary <- chain_summary_stats %>%  # monthly summary
-#   mutate(date = as.Date(format(first_sample_date, "%Y-%m-01"))) %>%
-#   group_by(date, chains_assumption) %>%
-#   summarise(
-#     introductions_by_first_sample_date = n(),
-#     frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
-#   mutate(country = "Switzerland")
+persistence_summary <- chain_summary_stats %>%  # monthly summary
+  mutate(date = as.Date(format(first_sample_date, "%Y-%m-01"))) %>%
+  group_by(date, chains_assumption) %>%
+  summarise(
+    frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
+  mutate(country = "Switzerland")
+
+introduction_summary <- merge(x = introduction_summary_tmp, y = persistence_summary, by = c("date", "chains_assumption", "country"), all = T)
 
 introduction_summary_wide <- introduction_summary %>%
         pivot_wider(names_from = "chains_assumption", values_from = c(
@@ -168,22 +169,23 @@ introduction_summary_v2 <- rbind(
     mutate(which_most = chains_assumption[[1]],
            min = frac_60_day_persisters[1],
            max = frac_60_day_persisters[2],
-           metric = "Fraction of new introductions that persist 60 days"),
+           metric = "Fraction of new introductions that persist 60 days, by month") %>%
+    filter(date < as.Date("2020-10-01")),
   introduction_summary %>%
     group_by(date) %>%
     arrange(-introductions_by_first_sample_date) %>%
     mutate(which_most = chains_assumption[[1]],
            max = introductions_by_first_sample_date[1],
            min = introductions_by_first_sample_date[2],
-           metric = "Number of new introductions")) %>%
-  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
+           metric = "Number of new introductions, by week")) %>%
+  mutate(metric = factor(x = metric, levels = c("Number of new introductions, by week", "Fraction of new introductions that persist 60 days, by month")))
 
 highlight_data <- data.frame(
   date_start = as.Date(c("2020-03-13", "2020-03-17")),
   date_end = as.Date(c("2020-06-15", "2020-04-27")),
-  metric = c("Number of new introductions", "Fraction of new introductions that persist 60 days"),
+  metric = c("Number of new introductions, by week", "Fraction of new introductions that persist 60 days, by month"),
   event = c("Borders closed", "Partial lockdown")) %>%
-  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
+  mutate(metric = factor(x = metric, levels = c("Number of new introductions, by week", "Fraction of new introductions that persist 60 days, by month")))
 
 fill_scale <- scale_fill_manual(values = c(
   "Borders closed" = "black",
@@ -192,11 +194,11 @@ fill_scale <- scale_fill_manual(values = c(
 p1 <- ggplot(
   data = introduction_summary_v2,
   aes(x = date)) +
-  geom_errorbar(aes(ymin = min, ymax = max)) +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-02-01", "2020-12-03"))) +
+  geom_errorbar(aes(ymin = min, ymax = max),  width = 5) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
   ylim(0, NA) +
+  xlab(NULL) + ylab(NULL) +
   facet_wrap(metric ~ ., ncol = 1, scales = "free_y", ) +
-  labs(y = "Value (by week)", x = element_blank()) +
   shared_theme +
   fill_scale +
   theme(legend.position = "bottom", legend.title = element_blank()) +
@@ -213,9 +215,11 @@ p2 <- incidence_plot_v2 +  # use incidence_plot for no dashed line and area inst
   theme(legend.position = "bottom") +
   guides(color=guide_legend(nrow=3,byrow=TRUE))
 
-main_plots <- align_plots(p1, p2, align = "v",  axis = 't')
+main_plots <- align_plots(p1, p2, align = "v",  axis = 'tl')
 
 plot_grid(main_plots[[1]], main_plots[[2]], ncol = 2, labels = "AUTO", rel_widths = c(1, 0.7))
+
+plot_grid(p1, p2, ncol = 2, labels = "AUTO", rel_widths = c(1, 0.7))
 
 ggsave("figures/introductions_and_persistence.png",
        width = double_col_width, height = single_col_width, units = "cm")
