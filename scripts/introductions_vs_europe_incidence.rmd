@@ -112,22 +112,23 @@ Plot case data vs. introductions
 
 ```{r}
 
-country_fill_scale <- scale_fill_manual(
+country_color_scale <- scale_color_manual(
   values = c("Switzerland" = "#E69F00", "France" = "#56B4E9", "Germany" = "#F0E442", "Italy" = "#009E73", "Other European" = "#CC79A7"),
   name = element_blank())
 
 incidence_plot <- ggplot(data = combined_data %>%
-        filter(date <= as.Date("2020-06-15"), date >= "2020-02-15"),
-        aes(x = date, fill = country)) +
-        geom_col(aes(y = weekly_avg_new_cases), position = "dodge") +
+        filter(date <= as.Date("2020-04-15"), date >= as.Date("2020-02-15")),
+        aes(x = date, color = country)) +
+        geom_line(aes(y = weekly_avg_new_cases)) +
+        # geom_col(aes(y = weekly_avg_new_cases), position = "dodge") +
         # geom_label(data = . %>% group_by(metric) %>% filter(value == max(value, na.rm = T)), aes(label = date)) +  # label maximum point
         scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
         labs(y = "Confirmed cases\n(weekly average)", x = "") +
         shared_theme +
-        country_fill_scale
+        country_color_scale
 
 introductions_plot <- ggplot(data = combined_data %>%
-        filter(country == "Switzerland", date <= as.Date("2020-06-15"), date >= "2020-02-15"),
+        filter(country == "Switzerland", date <= as.Date("2020-04-15"), date >= as.Date("2020-02-15")),
         aes(x = date)) +
         geom_errorbar(aes(ymin = introductions_by_first_sample_date_min, ymax = introductions_by_first_sample_date_max)) +
         scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
@@ -156,7 +157,7 @@ ggsave("figures/introductions_vs_european_indicence.png",
        width = single_col_width, height = single_col_width, units = "cm")
 ```
 
-Plot introductions vs. persistence
+Plot introductions vs. persistence, comparison to incidence
 
 ```{r}
 # Manipulate data: sometimes max chains has more persisters in a week, sometimes min chains assumption
@@ -210,12 +211,12 @@ p2 <- incidence_plot_v2 +  # use incidence_plot for no dashed line and area inst
   #          ymin = -Inf, ymax = Inf, alpha = 0.3, fill = "grey") +
   guides(color = guide_legend(nrow = 1)) +
   theme(legend.position = "bottom") +
-  guides(fill=guide_legend(nrow=3,byrow=TRUE))
+  guides(color=guide_legend(nrow=3,byrow=TRUE))
 
 main_plots <- align_plots(p1, p2, align = "v",  axis = 't')
 
-plot_grid(main_plots[[1]], main_plots[[2]], ncol = 2, labels = "AUTO", rel_widths = c(1, 0.8))
+plot_grid(main_plots[[1]], main_plots[[2]], ncol = 2, labels = "AUTO", rel_widths = c(1, 0.7))
 
-ggsave("figures/introductions_vs_persistence_v2.png",
+ggsave("figures/introductions_and_persistence.png",
        width = double_col_width, height = single_col_width, units = "cm")
 ```
