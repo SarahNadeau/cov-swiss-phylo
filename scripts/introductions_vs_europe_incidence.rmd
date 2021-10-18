@@ -17,6 +17,7 @@ require(dplyr)
 require(tidyr)
 require(ggplot2)
 require(cowplot)
+library(lubridate)
 source("../sars_cov_2/grapevine/database/R/utility.R")
 source("../sars_cov_2/grapevine/utility_functions.R")
 source("../sars_cov_2/grapevine/generate_figures/functions.R")
@@ -60,55 +61,56 @@ cases_summary <- cases_raw %>%
         mutate(weekly_avg_new_cases = zoo::rollmean(cases,7, align = "center", na.pad = T))
 ```
 
-Plot case data vs. introductions
+Summarize introductions, their persistence and merge with case data
 
 ```{r}
 chain_summary_stats <- grapevine_results$samples %>%
-        group_by(tree, chains_assumption, chain_idx) %>%
-        summarize(first_sample_date = min(date), .groups = "drop") %>%
-        full_join(y = grapevine_results$chains, by = c("tree", "chains_assumption", "chain_idx"))
+  group_by(tree, chains_assumption, chain_idx) %>%
+  summarize(first_sample_date = min(date),
+            last_sample_date = max(date),
+            .groups = "drop") %>%
+  mutate(time_to_last_sample = difftime(last_sample_date, first_sample_date, units = "days")) %>%
+  full_join(y = grapevine_results$chains, by = c("tree", "chains_assumption", "chain_idx"))
 
-dummy_data <- rbind(
-        data.frame(
-                date = seq.Date(as.Date("2020-01-01"), as.Date("2020-12-01"), "day"),
-                chains_assumption = "min"),
-        data.frame(
-                date = seq.Date(as.Date("2020-01-01"), as.Date("2020-12-01"), "day"),
-                chains_assumption = "max"))
+#' Returns the date of the Sunday of the week.
+#' Inspired by: https://stackoverflow.com/questions/32434549/how-to-find-next-particular-day
+get_start_of_week <- function(date) {
+  .day <- wday(date, label = TRUE)
+  sunday <- date + days(1 - as.numeric(.day))
+  return(sunday)
+}
 
-introduction_summary_stats_1 <- chain_summary_stats %>%
-        group_by(first_sample_date, chains_assumption) %>%
-        summarise(introductions_by_first_sample_date = n()) %>%
-        mutate(date = as.Date(first_sample_date)) %>%
-        right_join(dummy_data, by = c("date", "chains_assumption")) %>%
-        mutate(introductions_by_first_sample_date = replace_na(introductions_by_first_sample_date, 0)) %>%
-        arrange(chains_assumption, date) %>%
-        group_by(chains_assumption) %>%
-        mutate(country = "Switzerland",
-               weekly_avg_introductions_by_first_sample_date = zoo::rollmean(introductions_by_first_sample_date, 7, align = "center", na.pad = T))
-introduction_summary_stats_2 <- chain_summary_stats %>%
-        group_by(tmrca, chains_assumption) %>%
-        summarise(introductions_by_tmrca = n()) %>%
-        mutate(date = as.Date(tmrca)) %>%
-        right_join(dummy_data, by = c("date", "chains_assumption")) %>%
-        mutate(introductions_by_tmrca = replace_na(introductions_by_tmrca, 0)) %>%
-        arrange(chains_assumption, date) %>%
-        group_by(chains_assumption) %>%
-        mutate(country = "Switzerland",
-               weekly_avg_introductions_by_tmrca = zoo::rollmean(introductions_by_tmrca, 7, align = "center", na.pad = T))
+introduction_summary <- chain_summary_stats %>%  # weekly summary
+  mutate(date = get_start_of_week(first_sample_date)) %>%
+  group_by(date, chains_assumption, .groups = "drop") %>%
+  summarise(
+    introductions_by_first_sample_date = n(),
+    frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
+  mutate(country = "Switzerland")
 
-introduction_summary <- full_join(
-        x = introduction_summary_stats_1, y = introduction_summary_stats_2,
-        by = c("date", "country", "chains_assumption"))
+# exclude undefined values for persistence
+max_date <- max(introduction_summary$date) - 60
+introduction_summary[introduction_summary$date > max_date, "frac_60_day_persisters"] <- NA
+
+# introduction_summary <- chain_summary_stats %>%  # monthly summary
+#   mutate(date = as.Date(format(first_sample_date, "%Y-%m-01"))) %>%
+#   group_by(date, chains_assumption) %>%
+#   summarise(
+#     introductions_by_first_sample_date = n(),
+#     frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
+#   mutate(country = "Switzerland")
 
 introduction_summary_wide <- introduction_summary %>%
         pivot_wider(names_from = "chains_assumption", values_from = c(
                 "introductions_by_first_sample_date",
-                "weekly_avg_introductions_by_first_sample_date",
-                "introductions_by_tmrca",
-                "weekly_avg_introductions_by_tmrca"))
+                "frac_60_day_persisters"))
 
 combined_data <- cases_summary %>% full_join(introduction_summary_wide, by = c("date", "country"))
+```
+
+Plot case data vs. introductions
+
+```{r}
 
 country_fill_scale <- scale_fill_manual(
   values = c("Switzerland" = "#E69F00", "France" = "#56B4E9", "Germany" = "#F0E442", "Italy" = "#009E73", "Other European" = "#CC79A7"),
@@ -122,15 +124,14 @@ incidence_plot <- ggplot(data = combined_data %>%
         scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
         labs(y = "Confirmed cases\n(weekly average)", x = "") +
         shared_theme +
-        country_fill_scale +
-        geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
+        country_fill_scale
 
 introductions_plot <- ggplot(data = combined_data %>%
         filter(country == "Switzerland", date <= as.Date("2020-06-15"), date >= "2020-02-15"),
         aes(x = date)) +
-        geom_errorbar(aes(ymin = weekly_avg_introductions_by_first_sample_date_min, ymax = weekly_avg_introductions_by_first_sample_date_max)) +
+        geom_errorbar(aes(ymin = introductions_by_first_sample_date_min, ymax = introductions_by_first_sample_date_max)) +
         scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
-        labs(y = "New introductions\n (weekly average)", x = "") +
+        labs(y = "New introductions\n (by week)", x = "") +
         shared_theme +
         geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
 
@@ -142,8 +143,10 @@ incidence_legend <- get_legend(
     theme(legend.position = "bottom") +
     guides(fill=guide_legend(nrow=2,byrow=TRUE)))
 incidence_plot <- incidence_plot + theme(legend.position = "none")
+incidence_plot_v2 <- incidence_plot +
+  geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
 
-main_plots <- align_plots(introductions_plot, incidence_plot, align = "vh",  axis = 'bt')
+main_plots <- align_plots(introductions_plot, incidence_plot_v2, align = "vh",  axis = 'bt')
 left_plots <- plot_grid(
   main_plots[[1]], main_plots[[2]],
   ncol = 1)
@@ -151,4 +154,68 @@ left_plots <- plot_grid(
 plot_grid(left_plots, incidence_legend, rel_heights = c(1, 0.2), ncol = 1)
 ggsave("figures/introductions_vs_european_indicence.png",
        width = single_col_width, height = single_col_width, units = "cm")
+```
+
+Plot introductions vs. persistence
+
+```{r}
+# Manipulate data: sometimes max chains has more persisters in a week, sometimes min chains assumption
+introduction_summary_v2 <- rbind(
+  introduction_summary %>%
+    group_by(date) %>%
+    arrange(frac_60_day_persisters, chains_assumption) %>%
+    mutate(which_most = chains_assumption[[1]],
+           min = frac_60_day_persisters[1],
+           max = frac_60_day_persisters[2],
+           metric = "Fraction of new introductions that persist 60 days"),
+  introduction_summary %>%
+    group_by(date) %>%
+    arrange(-introductions_by_first_sample_date) %>%
+    mutate(which_most = chains_assumption[[1]],
+           max = introductions_by_first_sample_date[1],
+           min = introductions_by_first_sample_date[2],
+           metric = "Number of new introductions")) %>%
+  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
+
+highlight_data <- data.frame(
+  date_start = as.Date(c("2020-03-13", "2020-03-17")),
+  date_end = as.Date(c("2020-06-15", "2020-04-27")),
+  metric = c("Number of new introductions", "Fraction of new introductions that persist 60 days"),
+  event = c("Borders closed", "Partial lockdown")) %>%
+  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
+
+fill_scale <- scale_fill_manual(values = c(
+  "Borders closed" = "black",
+  "Partial lockdown" = "grey"))
+
+p1 <- ggplot(
+  data = introduction_summary_v2,
+  aes(x = date)) +
+  geom_errorbar(aes(ymin = min, ymax = max)) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-02-01", "2020-12-03"))) +
+  ylim(0, NA) +
+  facet_wrap(metric ~ ., ncol = 1, scales = "free_y", ) +
+  labs(y = "Value (by week)", x = element_blank()) +
+  shared_theme +
+  fill_scale +
+  theme(legend.position = "bottom", legend.title = element_blank()) +
+  geom_rect(data = highlight_data, aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
+
+p1
+
+p2 <- incidence_plot_v2 +  # use incidence_plot for no dashed line and area instead
+  # annotate("rect",
+  #          xmin = as.Date("2020-03-13"),
+  #          xmax = as.Date("2020-06-15"),
+  #          ymin = -Inf, ymax = Inf, alpha = 0.3, fill = "grey") +
+  guides(color = guide_legend(nrow = 1)) +
+  theme(legend.position = "bottom") +
+  guides(fill=guide_legend(nrow=3,byrow=TRUE))
+
+main_plots <- align_plots(p1, p2, align = "v",  axis = 't')
+
+plot_grid(main_plots[[1]], main_plots[[2]], ncol = 2, labels = "AUTO", rel_widths = c(1, 0.8))
+
+ggsave("figures/introductions_vs_persistence_v2.png",
+       width = double_col_width, height = single_col_width, units = "cm")
 ```
