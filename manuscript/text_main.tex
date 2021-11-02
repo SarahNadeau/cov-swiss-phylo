@@ -25,6 +25,8 @@
 \input{manuscript/chain_summary_variables}
 \input{manuscript/sample_summary_variables}
 \input{manuscript/damping_factor_variables}
+\input{manuscript/persistence}
+\input{manuscript/intoductions_by_incidence_model}
 
 \newcommand{\maxsamplingpercent}{\maxsamplingfraction*100}
 
@@ -229,11 +231,11 @@ We refer to any Swiss sequence not falling into a Swiss transmission chain as a 
 
 Finally, we repeated this picking procedure twice for each lineage tree, interpreting polytomies in two different ways. Once, we split Swiss clades descending from polytomies into independent introductions unless the polytomy only had a single non-Swiss descendent (see criterion (b)). Alternatively, we aggregated all Swiss clades descending from polytomies into a single introduction. These procedures represent two plausible extremes, yielding either many introductions or few introductions.
 
-\subsection{Extrapolating introductions based on European case counts}
-We wanted to understand if the Swiss border closure on 13 Mar. 2020 changed introduction dynamics. Our null model is that the number of weekly introductions, estimated from the genome data as described above, is a linear function of weekly SARS-CoV-2 cases in the rest of Europe. Introductions are dated by the first detected case, whereas case counts (taken from the ECDC \cite{ECDC}) are dated by case reporting dates. We considered an average delay between these variables up to 18 days. The best-fit model (lowest root mean squared error) to the many introductions estimates had a delay of 2 days compared to 7 days for the few introductions. Figure \ref{fig:chain-longevity} shows only the best-fit model (with 2 and 7-day delays, respectively) for the many and few introduction estimates.
+\subsection{Quantifying the effect of border closures on introductions}
+We wanted to understand if the Swiss border closure on 13 Mar. 2020 changed introduction dynamics. Our null hypothesis is that the number of weekly introductions before border closure, estimated from the genome data as described above, is a linear function of weekly SARS-CoV-2 cases in surrounding countries. Introductions are dated by the first detected case, whereas case counts (taken from the ECDC \cite{ECDC}) are dated by case reporting dates. We considered an average delay between these variables up to 18 days. We also considered two options for ``surrounding countries'', either all the non-Swiss European countries in the ECDC dataset or just Switzerland's neighboring countries Italy, France, Germany, and Austria. We fit these models separately to the weekly many and few introductions estimates before 13 Mar. 2020 and selected the best-fit models (lowest root mean squared error). For both estimates, the neighboring-countries-only incidence data better predicted introductions. The best-fit delay was \casesdelaymax days for the many introductions estimates compared to \casesdelaymin days for the few introductions estimates. Figure \ref{fig:TODO} shows these best-fit models and projections if these dynamics had continued after 13. Mar.
 
-\subsection{Extrapolating the sampled epidemic based on post-lockdown introductions}
-We also wanted to understand if the Swiss lockdown between 17 Mar. and 27 Apr. 2020 changed the persistence of introductions. We evaluated the persistence of introductions spreading at different time-points.   
+\subsection{Quantifying the effect of lockdown conditions on persistence}
+We also wanted to understand if the Swiss lockdown between 17 Mar. and 27 Apr. 2020 changed the persistence of introductions. Our null hypothesis is that the distribution of times until the currently circulating introductions die out does not depend on the day. In other words, introductions spreading on day $x$ will take just as long to die out as introductions spreading two weeks earlier, or at any other arbitrary point in time. We calculated the median and inter-quartile range of the time to the last sample across introductions persisting each date. Singleton introductions trivially persist for 1 day. Figure \ref{fig:TODO} shows how the persistence of the estimated introductions changes around the dates of the Swiss lockdown from 17. Mar to 27. Apr.
 
 \subsection*{Phylodynamic analysis}
 
