@@ -52,6 +52,7 @@ cases_summary <- cases_raw %>%
                 countryterritoryCode == "FRA" ~ "France",
                 countryterritoryCode == "DEU" ~ "Germany",
                 countryterritoryCode == "ITA" ~ "Italy",
+                countryterritoryCode == "AUT" ~ "Austria",
                 T ~ "Other European")) %>%
         group_by(date, country) %>%
         summarize(cases = sum(cases), .groups = "drop") %>%
@@ -113,7 +114,7 @@ Plot introductions vs. persistence, comparison to incidence
 ```{r}
 
 country_color_scale <- scale_color_manual(
-  values = c("Switzerland" = "#E69F00", "France" = "#56B4E9", "Germany" = "#F0E442", "Italy" = "#009E73", "Other European" = "#CC79A7"),
+  values = c("Switzerland" = "#E69F00", "France" = "#56B4E9", "Germany" = "#F0E442", "Italy" = "#009E73", "Other European" = "#CC79A7", "Austria" = "black"),
   name = element_blank())
 
 incidence_plot <- ggplot(data = combined_data %>%
@@ -196,7 +197,7 @@ Make this quantitative: introductions ~ europe incidence (until border closure d
 # up to 18 days based on 10-day infectious period, LdP's UK estimate of 10-18 day introduction to genome sample delay
 case_data_base <- cases_raw %>%
         filter(countryterritoryCode != "CHE",
-               countryterritoryCode %in% c("ITA", "FRA", "DEU")) %>%
+               countryterritoryCode %in% c("ITA", "FRA", "DEU", "AUT")) %>%
         group_by(date) %>%
         summarize(cases = sum(cases), .groups = "drop") %>%
         arrange(date) %>%
@@ -255,33 +256,33 @@ data_min <- case_data_base %>%
         right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
         mutate(predictions_min = weekly_avg_new_cases *  cases_coeff_min)
 
-data <- merge(data_max, data_min,
-              by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min")) %>%
-        filter(date <= as.Date("2020-06-15"))
+introductions_vs_indicence_data <- merge(data_max, data_min,
+              by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min"))
 
-p3 <- ggplot(
-        data = data,
+introductions_vs_indicence_model <- ggplot(
+        data = introductions_vs_indicence_data %>% filter(date <= as.Date("2020-07-01")),
         aes(x = date)) +
         geom_errorbar(aes(ymin = introductions_by_first_sample_date_min, ymax = introductions_by_first_sample_date_max, color = "Estimated"),  width = 5) +
         geom_ribbon(aes(ymin = predictions_min, ymax = predictions_max, fill = "Predicted"), alpha = 0.5) +
         geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed") +
-        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d") +
+        geom_vline(xintercept = as.Date("2020-06-15"), linetype = "dashed") +
+        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d", limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
         scale_fill_manual(values = c("Predicted" = "grey70"), name = element_blank()) +
         scale_color_manual(values = c("Estimated" = "black"), name = element_blank()) +
         shared_theme +
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = c(0.8, 0.8), legend.spacing.y = unit(0, "cm")) +
-        labs(x = element_blank(), y = "Number of new introductions")
-ggsave(plot = p3, file = "figures/introductions_vs_indicence_model.png",
-       width = single_col_width, height = single_col_width, units = "cm")
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.spacing.y = unit(0, "cm")) +
+        labs(x = element_blank(), y = "\nNew introductions")
+# ggsave(plot = introductions_vs_indicence_model, file = "figures/introductions_vs_indicence_model.png",
+#        width = single_col_width, height = single_col_width, units = "cm")
 ```
 
 Write out the model variables, number of introductions averted during the lockdown
 ```{r}
-prediced_introductions_averted <- data %>% filter(date >= as.Date("2020-03-13")) %>%
+prediced_introductions_averted <- introductions_vs_indicence_data %>% filter(date >= as.Date("2020-03-13"), date <= as.Date("2020-06-15")) %>%
         summarise(predicted_introductions_averted_max = sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T),
                   predicted_introductions_averted_min = sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T))
 
-prediced_introductions_averted_as_per <- data %>% filter(date >= as.Date("2020-03-13")) %>%
+prediced_introductions_averted_as_per <- introductions_vs_indicence_data %>% filter(date >= as.Date("2020-03-13"), date <= as.Date("2020-06-15")) %>%
         summarise(predicted_introductions_averted_max_asper =
                           (sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T)) / sum(predictions_max),
                   predicted_introductions_averted_min_asper =
@@ -305,7 +306,7 @@ writeLines(text = paste0("\\newcommand\\introsavertedaspermin{", round(introsave
 close(con)
 ```
 
-Estimate by how much lockdown shorted the persistence of introductions
+Quantifying persistence around the lockdown: measure mean time to last sample for introductions spreading each day
 ```{r}
 # Mean and Q1, Q3 lifespan of introductions spreading at each day in the sample period
 is_first <- T
@@ -313,15 +314,9 @@ dates <- seq.Date(from = as.Date("2020-02-01"), to = as.Date("2020-12-01"), by =
 for (idx in seq_along(dates)) {
   start_date <- dates[idx]
   chains_on_date_data <- chain_summary_stats %>%
-          filter(first_sample_date <= start_date, last_sample_date >= start_date) %>%  # chains that start either this day or in the next 7 and end after this day
-          mutate(truncated_chain = last_sample_date > as.Date("2020-12-01") - 30) %>%  # persistence possibly truncated by sampling window
+          filter(first_sample_date <= start_date, last_sample_date >= start_date) %>%
           mutate(days_continued_sampled = as.integer(last_sample_date - start_date)) %>%  # length of continued sampling after start_date
-          group_by(chains_assumption) %>%
-          summarize(n = n(),
-                    frac_truncated = sum(truncated_chain) / n(),
-                    median = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[2],
-                    Q1 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[1],
-                    Q3 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[3]) %>%
+          select(chains_assumption, days_continued_sampled) %>%
           mutate(date = start_date)
   if (is_first) {
     persistence_results <- chains_on_date_data
@@ -331,42 +326,47 @@ for (idx in seq_along(dates)) {
   }
 }
 
-p <- ggplot(data = persistence_results %>% filter(date <= as.Date("2020-07-01")), aes(x = date)) +
-        geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.3) +
-        geom_line(aes(y = median, color = n), size = 2) +
-        scale_color_gradient(low = "green", high = "red", name = "Number of onging\nintroductions", trans = "log10") +
-        # geom_line(aes(y = frac_truncated * 100)) +
-        facet_grid(chains_assumption ~ ., scales = "free_y", labeller = labeller(chains_assumption = chain_assumption_labs)) +
-        geom_vline(xintercept = as.Date("2020-03-17"), linetype = "dashed") +
-        geom_vline(xintercept = as.Date("2020-04-27"), linetype = "dashed") +
-        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d") +
-        shared_theme +
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "bottom") +
-        labs(x = element_blank(), y = "Persistence from date (days)")
-ggsave(filename = "figures/persisence_over_time.png",
-       width = single_col_width, height = single_col_width, units = "cm")
+# Smooth results
+is_first <- T
+dates <- seq.Date(from = as.Date("2020-02-01"), to = as.Date("2020-12-01"), by = 1)
+window_size <- 3  # end inclusive, so estimates are based on time from x to last_sample_date distributions summed over date - 3 days <= x <= date + 3 days
+for (idx in seq_along(dates)) {
+  start_date <- dates[idx]
+  smooth_results <- persistence_results %>%
+          filter(date <= start_date + window_size, date >= start_date - window_size) %>%
+          group_by(chains_assumption) %>%
+          summarize(n = n(),
+                    median = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[2],
+                    Q1 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[1],
+                    Q3 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[3]) %>%
+          mutate(date = start_date)
+  if (is_first) {
+    persistence_results_smooth <- smooth_results
+    is_first <- F
+  } else {
+    persistence_results_smooth <- rbind(persistence_results_smooth, smooth_results)
+  }
+}
 
-p <- ggplot(data = persistence_results, aes(x = date)) +
+persisence_over_time <- ggplot(data = persistence_results_smooth %>% filter(date <= as.Date("2020-07-01")), aes(x = date, fill = chains_assumption)) +
+        geom_line(aes(y = median, color = chains_assumption)) +
         geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.3) +
-        geom_line(aes(y = median, color = n), size = 2) +
-        scale_color_gradient(low = "green", high = "red", name = "Number of onging\nintroductions", trans = "log10") +
-        geom_line(aes(y = as.integer(as.Date("2020-12-01") - date))) +
-        facet_grid(chains_assumption ~ ., scales = "free_y", labeller = labeller(chains_assumption = chain_assumption_labs)) +
         geom_vline(xintercept = as.Date("2020-03-17"), linetype = "dashed") +
         geom_vline(xintercept = as.Date("2020-04-27"), linetype = "dashed") +
-        scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
+        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d", limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
+        scale_fill_manual(labels = chain_assumption_labs, values = chains_assumption_colors, aesthetics = c("fill", "color"), name = element_blank()) +
         shared_theme +
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "bottom") +
-        labs(x = element_blank(), y = "Persistence from date (days)")
-ggsave(filename = "figures/persisence_over_time_full_period.png",
-       width = single_col_width, height = single_col_width, units = "cm")
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
+        labs(x = element_blank(), y = "\nPersistence (days)")
+# ggsave(plot = persisence_over_time, filename = "figures/persisence_over_time.png",
+#        width = single_col_width, height = single_col_width, units = "cm")
 ```
 
 Write out the persistence of introductions at the start of lockdown, post-lockdown peak
 ```{r}
-lockdown_start_persistence <- persistence_results %>%
+lockdown_start_persistence <- persistence_results_smooth %>%
         filter(date == as.Date("2020-03-17"))
-lockdown_end_persistence <- persistence_results %>%
+lockdown_end_persistence <- persistence_results_smooth %>%
         filter(date >= as.Date("2020-04-27")) %>%
         group_by(chains_assumption) %>%
         top_n(n = 1, wt = Q1)
@@ -402,4 +402,13 @@ qthreepersistenceatpeakmax <- unlist(lockdown_end_persistence[lockdown_end_persi
 writeLines(text = paste0("\\newcommand\\qthreepersistenceatpeakmin{", qthreepersistenceatpeakmin, "}"), con = con)
 writeLines(text = paste0("\\newcommand\\qthreepersistenceatpeakmax{", qthreepersistenceatpeakmax, "}"), con = con)
 close(con)
+```
+
+Format comparative figure
+```{r}
+plot_grid(introductions_vs_indicence_model, persisence_over_time,
+          nrow = 2, align = "v", axis = "tb", labels = "AUTO")
+
+ggsave("figures/introductions_and_persistence_v2.png",
+       width = double_col_width, height = single_col_width, units = "cm")
 ```
