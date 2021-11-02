@@ -39,7 +39,6 @@ grapevine_results <- load_grapevine_results(
 Load case data for European countries
 
 ```{r}
-CASE_COUNT_LINK <- "https://covid.ourworldindata.org/data/owid-covid-data.csv"  # early data for France not very good
 CASE_COUNT_LINK <- "https://opendata.ecdc.europa.eu/covid19/casedistribution/csv/"
 cases_raw <- read.csv(url(CASE_COUNT_LINK), na.strings = "", fileEncoding = "UTF-8-BOM") %>%
   filter(continentExp == "Europe") %>%
@@ -82,13 +81,13 @@ get_start_of_week <- function(date) {
 
 introduction_summary_tmp <- chain_summary_stats %>%  # weekly summary
   mutate(date = get_start_of_week(first_sample_date)) %>%
-  group_by(date, chains_assumption, .groups = "drop") %>%
+  group_by(date, chains_assumption) %>%
   summarise(
-    introductions_by_first_sample_date = n()) %>%
-    # frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
+    introductions_by_first_sample_date = n(), .groups = "drop") %>%
   mutate(country = "Switzerland")
 
 # exclude undefined values for persistence
+introduction_summary <- introduction_summary_tmp
 max_date <- max(introduction_summary$date) - 60
 introduction_summary[introduction_summary$date > max_date, "frac_60_day_persisters"] <- NA
 
@@ -109,7 +108,7 @@ introduction_summary_wide <- introduction_summary %>%
 combined_data <- cases_summary %>% full_join(introduction_summary_wide, by = c("date", "country"))
 ```
 
-Plot case data vs. introductions
+Plot introductions vs. persistence, comparison to incidence
 
 ```{r}
 
@@ -121,21 +120,10 @@ incidence_plot <- ggplot(data = combined_data %>%
         filter(date <= as.Date("2020-04-15"), date >= as.Date("2020-02-15")),
         aes(x = date, color = country)) +
         geom_line(aes(y = weekly_avg_new_cases)) +
-        # geom_col(aes(y = weekly_avg_new_cases), position = "dodge") +
-        # geom_label(data = . %>% group_by(metric) %>% filter(value == max(value, na.rm = T)), aes(label = date)) +  # label maximum point
         scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
         labs(y = "Confirmed cases\n(weekly average)", x = "") +
         shared_theme +
         country_color_scale
-
-introductions_plot <- ggplot(data = combined_data %>%
-        filter(country == "Switzerland", date <= as.Date("2020-04-15"), date >= as.Date("2020-02-15")),
-        aes(x = date)) +
-        geom_errorbar(aes(ymin = introductions_by_first_sample_date_min, ymax = introductions_by_first_sample_date_max)) +
-        scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
-        labs(y = "New introductions\n (by week)", x = "") +
-        shared_theme +
-        geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
 
 # Extract legend to plot seperately
 incidence_legend <- get_legend(
@@ -148,19 +136,6 @@ incidence_plot <- incidence_plot + theme(legend.position = "none")
 incidence_plot_v2 <- incidence_plot +
   geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
 
-main_plots <- align_plots(introductions_plot, incidence_plot_v2, align = "vh",  axis = 'bt')
-left_plots <- plot_grid(
-  main_plots[[1]], main_plots[[2]],
-  ncol = 1)
-
-plot_grid(left_plots, incidence_legend, rel_heights = c(1, 0.2), ncol = 1)
-ggsave("figures/introductions_vs_european_indicence.png",
-       width = single_col_width, height = single_col_width, units = "cm")
-```
-
-Plot introductions vs. persistence, comparison to incidence
-
-```{r}
 # Manipulate data: sometimes max chains has more persisters in a week, sometimes min chains assumption
 introduction_summary_v2 <- rbind(
   introduction_summary %>%
@@ -202,25 +177,229 @@ p1 <- ggplot(
   shared_theme +
   fill_scale +
   theme(legend.position = "bottom", legend.title = element_blank()) +
-  geom_rect(data = highlight_data, aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
-
-p1
+  geom_rect(inherit.aes = F, data = highlight_data, aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
 
 p2 <- incidence_plot_v2 +  # use incidence_plot for no dashed line and area instead
-  # annotate("rect",
-  #          xmin = as.Date("2020-03-13"),
-  #          xmax = as.Date("2020-06-15"),
-  #          ymin = -Inf, ymax = Inf, alpha = 0.3, fill = "grey") +
   guides(color = guide_legend(nrow = 1)) +
   theme(legend.position = "bottom") +
   guides(color=guide_legend(nrow=3,byrow=TRUE))
-
-main_plots <- align_plots(p1, p2, align = "v",  axis = 'tl')
-
-plot_grid(main_plots[[1]], main_plots[[2]], ncol = 2, labels = "AUTO", rel_widths = c(1, 0.7))
 
 plot_grid(p1, p2, ncol = 2, labels = "AUTO", rel_widths = c(1, 0.7))
 
 ggsave("figures/introductions_and_persistence.png",
        width = double_col_width, height = single_col_width, units = "cm")
+```
+
+Make this quantitative: introductions ~ europe incidence (until border closure date, with some delay)
+```{r}
+# Test different lags from European incidence to sampled introduction,
+# up to 18 days based on 10-day infectious period, LdP's UK estimate of 10-18 day introduction to genome sample delay
+case_data_base <- cases_raw %>%
+        filter(countryterritoryCode != "CHE",
+               countryterritoryCode %in% c("ITA", "FRA", "DEU")) %>%
+        group_by(date) %>%
+        summarize(cases = sum(cases), .groups = "drop") %>%
+        arrange(date) %>%
+        mutate(weekly_avg_new_cases = zoo::rollmean(cases,7, align = "center", na.pad = T)) %>%
+        select(-cases)
+
+plausible_delays <- seq(from = 0, to = 18, by = 1)
+is_first <- T
+for (delay in plausible_delays) {
+  cases_summary_for_model <- case_data_base %>% mutate(date_current = date, date = date - delay)  # introductions ~ incidence lagged by delay days
+
+  model_data <- cases_summary_for_model %>%
+          right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date")
+
+  model_max <- lm(
+          data = model_data %>% filter(date < as.Date("2020-03-13")),
+          formula = introductions_by_first_sample_date_max ~ weekly_avg_new_cases)
+  model_min <- lm(
+          data = model_data %>% filter(date < as.Date("2020-03-13")),
+          formula = introductions_by_first_sample_date_min ~ weekly_avg_new_cases)
+
+  # Thanks https://stackoverflow.com/questions/43123462/how-to-obtain-rmse-out-of-lm-result
+  RMSE_max <- sqrt(crossprod(model_max$residuals) / length(model_max$residuals)) # root mean squared error
+  RMSE_min <- sqrt(crossprod(model_min$residuals) / length(model_min$residuals))
+
+  cases_coeff_max <- model_max$coefficients["weekly_avg_new_cases"]
+  cases_coeff_min <- model_min$coefficients["weekly_avg_new_cases"]
+
+  results_tmp <- data.frame(
+          delay = delay, RMSE_max = RMSE_max, RMSE_min = RMSE_min,
+          cases_coeff_max = cases_coeff_max, cases_coeff_min = cases_coeff_min)
+
+  if (is_first) {
+    results <- results_tmp
+    is_first <- F
+  } else {
+    results <- rbind(results, results_tmp)
+  }
+}
+
+# Extract best-fit delays and coefficients
+cases_coeff_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(cases_coeff_max))
+cases_coeff_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(cases_coeff_min))
+
+cases_delay_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(delay))
+cases_delay_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(delay))
+
+# Plot best-fit models and predictions
+data_max <- case_data_base %>%
+        mutate(date_current = date, date = date - cases_delay_max) %>%
+        right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
+        mutate(predictions_max = weekly_avg_new_cases *  cases_coeff_max)
+
+data_min <- case_data_base %>%
+        mutate(date_current = date, date = date - cases_delay_min) %>%
+        right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
+        mutate(predictions_min = weekly_avg_new_cases *  cases_coeff_min)
+
+data <- merge(data_max, data_min,
+              by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min")) %>%
+        filter(date <= as.Date("2020-06-15"))
+
+p3 <- ggplot(
+        data = data,
+        aes(x = date)) +
+        geom_errorbar(aes(ymin = introductions_by_first_sample_date_min, ymax = introductions_by_first_sample_date_max, color = "Estimated"),  width = 5) +
+        geom_ribbon(aes(ymin = predictions_min, ymax = predictions_max, fill = "Predicted"), alpha = 0.5) +
+        geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed") +
+        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d") +
+        scale_fill_manual(values = c("Predicted" = "grey70"), name = element_blank()) +
+        scale_color_manual(values = c("Estimated" = "black"), name = element_blank()) +
+        shared_theme +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = c(0.8, 0.8), legend.spacing.y = unit(0, "cm")) +
+        labs(x = element_blank(), y = "Number of new introductions")
+ggsave(plot = p3, file = "figures/introductions_vs_indicence_model.png",
+       width = single_col_width, height = single_col_width, units = "cm")
+```
+
+Write out the model variables, number of introductions averted during the lockdown
+```{r}
+prediced_introductions_averted <- data %>% filter(date >= as.Date("2020-03-13")) %>%
+        summarise(predicted_introductions_averted_max = sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T),
+                  predicted_introductions_averted_min = sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T))
+
+prediced_introductions_averted_as_per <- data %>% filter(date >= as.Date("2020-03-13")) %>%
+        summarise(predicted_introductions_averted_max_asper =
+                          (sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T)) / sum(predictions_max),
+                  predicted_introductions_averted_min_asper =
+                          (sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T)) / sum(predictions_min))
+
+introsavertedmax <- unlist(prediced_introductions_averted$predicted_introductions_averted_max)
+introsavertedmin <- unlist(prediced_introductions_averted$predicted_introductions_averted_min)
+
+introsavertedaspermax <- unlist(prediced_introductions_averted_as_per$predicted_introductions_averted_max_asper)
+introsavertedaspermin <- unlist(prediced_introductions_averted_as_per$predicted_introductions_averted_min_asper)
+
+con <- file("manuscript/intoductions_by_incidence_model.tex", open = "w")
+writeLines(text = paste0("\\newcommand\\casescoeffmax{", signif(cases_coeff_max, digits = 2), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\casescoeffmin{", signif(cases_coeff_min, digits = 2), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\casesdelaymax{", cases_delay_max, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\casesdelaymin{", cases_delay_min, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\introsavertedmax{", round(introsavertedmax, digits = 0), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\introsavertedmin{", round(introsavertedmin, digits = 0), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\introsavertedaspermax{", round(introsavertedaspermax * 100, digits = 0), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\introsavertedaspermin{", round(introsavertedaspermin * 100, digits = 0), "}"), con = con)
+close(con)
+```
+
+Estimate by how much lockdown shorted the persistence of introductions
+```{r}
+# Mean and Q1, Q3 lifespan of introductions spreading at each day in the sample period
+is_first <- T
+dates <- seq.Date(from = as.Date("2020-02-01"), to = as.Date("2020-12-01"), by = 1)
+for (idx in seq_along(dates)) {
+  start_date <- dates[idx]
+  chains_on_date_data <- chain_summary_stats %>%
+          filter(first_sample_date <= start_date, last_sample_date >= start_date) %>%  # chains that start either this day or in the next 7 and end after this day
+          mutate(truncated_chain = last_sample_date > as.Date("2020-12-01") - 30) %>%  # persistence possibly truncated by sampling window
+          mutate(days_continued_sampled = as.integer(last_sample_date - start_date)) %>%  # length of continued sampling after start_date
+          group_by(chains_assumption) %>%
+          summarize(n = n(),
+                    frac_truncated = sum(truncated_chain) / n(),
+                    median = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[2],
+                    Q1 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[1],
+                    Q3 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[3]) %>%
+          mutate(date = start_date)
+  if (is_first) {
+    persistence_results <- chains_on_date_data
+    is_first <- F
+  } else {
+    persistence_results <- rbind(persistence_results, chains_on_date_data)
+  }
+}
+
+p <- ggplot(data = persistence_results %>% filter(date <= as.Date("2020-07-01")), aes(x = date)) +
+        geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.3) +
+        geom_line(aes(y = median, color = n), size = 2) +
+        scale_color_gradient(low = "green", high = "red", name = "Number of onging\nintroductions", trans = "log10") +
+        # geom_line(aes(y = frac_truncated * 100)) +
+        facet_grid(chains_assumption ~ ., scales = "free_y", labeller = labeller(chains_assumption = chain_assumption_labs)) +
+        geom_vline(xintercept = as.Date("2020-03-17"), linetype = "dashed") +
+        geom_vline(xintercept = as.Date("2020-04-27"), linetype = "dashed") +
+        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d") +
+        shared_theme +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "bottom") +
+        labs(x = element_blank(), y = "Persistence from date (days)")
+ggsave(filename = "figures/persisence_over_time.png",
+       width = single_col_width, height = single_col_width, units = "cm")
+
+p <- ggplot(data = persistence_results, aes(x = date)) +
+        geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.3) +
+        geom_line(aes(y = median, color = n), size = 2) +
+        scale_color_gradient(low = "green", high = "red", name = "Number of onging\nintroductions", trans = "log10") +
+        geom_line(aes(y = as.integer(as.Date("2020-12-01") - date))) +
+        facet_grid(chains_assumption ~ ., scales = "free_y", labeller = labeller(chains_assumption = chain_assumption_labs)) +
+        geom_vline(xintercept = as.Date("2020-03-17"), linetype = "dashed") +
+        geom_vline(xintercept = as.Date("2020-04-27"), linetype = "dashed") +
+        scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
+        shared_theme +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.position = "bottom") +
+        labs(x = element_blank(), y = "Persistence from date (days)")
+ggsave(filename = "figures/persisence_over_time_full_period.png",
+       width = single_col_width, height = single_col_width, units = "cm")
+```
+
+Write out the persistence of introductions at the start of lockdown, post-lockdown peak
+```{r}
+lockdown_start_persistence <- persistence_results %>%
+        filter(date == as.Date("2020-03-17"))
+lockdown_end_persistence <- persistence_results %>%
+        filter(date >= as.Date("2020-04-27")) %>%
+        group_by(chains_assumption) %>%
+        top_n(n = 1, wt = Q1)
+
+con <- file("manuscript/persistence.tex", open = "w")
+medpersistenceatlockdownmin <- unlist(lockdown_start_persistence[lockdown_start_persistence$chains_assumption == "min", "median"])
+medpersistenceatlockdownmax <- unlist(lockdown_start_persistence[lockdown_start_persistence$chains_assumption == "max", "median"])
+writeLines(text = paste0("\\newcommand\\medpersistenceatlockdownmin{", medpersistenceatlockdownmin, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\medpersistenceatlockdownmax{", medpersistenceatlockdownmax, "}"), con = con)
+
+qonepersistenceatlockdownmin <- unlist(lockdown_start_persistence[lockdown_start_persistence$chains_assumption == "min", "Q1"])
+qonepersistenceatlockdownmax <- unlist(lockdown_start_persistence[lockdown_start_persistence$chains_assumption == "max", "Q1"])
+writeLines(text = paste0("\\newcommand\\qonepersistenceatlockdownmin{", qonepersistenceatlockdownmin, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\qonepersistenceatlockdownmax{", qonepersistenceatlockdownmax, "}"), con = con)
+
+qthreepersistenceatlockdownmin <- unlist(lockdown_start_persistence[lockdown_start_persistence$chains_assumption == "min", "Q3"])
+qthreepersistenceatlockdownmax <- unlist(lockdown_start_persistence[lockdown_start_persistence$chains_assumption == "max", "Q3"])
+writeLines(text = paste0("\\newcommand\\qthreepersistenceatlockdownmin{", qthreepersistenceatlockdownmin, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\qthreepersistenceatlockdownmax{", qthreepersistenceatlockdownmax, "}"), con = con)
+
+medpersistenceatpeakmin <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "min", "median"])
+medpersistenceatpeakmax <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "max", "median"])
+writeLines(text = paste0("\\newcommand\\medpersistenceatpeakmin{", medpersistenceatpeakmin, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\medpersistenceatlockdownmax{", medpersistenceatlockdownmax, "}"), con = con)
+
+qonepersistenceatpeakmin <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "min", "Q1"])
+qonepersistenceatpeakmax <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "max", "Q1"])
+writeLines(text = paste0("\\newcommand\\qonepersistenceatpeakmin{", qonepersistenceatpeakmin, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\qonepersistenceatpeakmax{", qonepersistenceatpeakmax, "}"), con = con)
+
+qthreepersistenceatpeakmin <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "min", "Q3"])
+qthreepersistenceatpeakmax <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "max", "Q3"])
+writeLines(text = paste0("\\newcommand\\qthreepersistenceatpeakmin{", qthreepersistenceatpeakmin, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\qthreepersistenceatpeakmax{", qthreepersistenceatpeakmax, "}"), con = con)
+close(con)
 ```
