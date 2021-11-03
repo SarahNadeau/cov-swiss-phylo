@@ -145,7 +145,7 @@ introduction_summary_v2 <- rbind(
     mutate(which_most = chains_assumption[[1]],
            min = frac_60_day_persisters[1],
            max = frac_60_day_persisters[2],
-           metric = "Fraction of new introductions that persist 60 days, by month") %>%
+           metric = "Fraction of new introductions that persist 60 days") %>%
     filter(date < as.Date("2020-10-01")),
   introduction_summary %>%
     group_by(date) %>%
@@ -153,17 +153,17 @@ introduction_summary_v2 <- rbind(
     mutate(which_most = chains_assumption[[1]],
            max = introductions_by_first_sample_date[1],
            min = introductions_by_first_sample_date[2],
-           metric = "Number of new introductions, by week")) %>%
-  mutate(metric = factor(x = metric, levels = c("Number of new introductions, by week", "Fraction of new introductions that persist 60 days, by month")))
+           metric = "Number of new introductions")) %>%
+  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
 
 highlight_data <- data.frame(
   date_start = as.Date(c("2020-03-13", "2020-03-17")),
   date_end = as.Date(c("2020-06-15", "2020-04-27")),
-  metric = c("Number of new introductions, by week", "Fraction of new introductions that persist 60 days, by month"),
+  metric = c("Number of new introductions", "Fraction of new introductions that persist 60 days"),
   event = c("Borders closed", "Partial lockdown")) %>%
-  mutate(metric = factor(x = metric, levels = c("Number of new introductions, by week", "Fraction of new introductions that persist 60 days, by month")))
+  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
 
-fill_scale <- scale_fill_manual(values = c(
+measures_fill_scale <- scale_fill_manual(values = c(
   "Borders closed" = "black",
   "Partial lockdown" = "grey"))
 
@@ -176,7 +176,7 @@ p1 <- ggplot(
   xlab(NULL) + ylab(NULL) +
   facet_wrap(metric ~ ., ncol = 1, scales = "free_y", ) +
   shared_theme +
-  fill_scale +
+  measures_fill_scale +
   theme(legend.position = "bottom", legend.title = element_blank()) +
   geom_rect(inherit.aes = F, data = highlight_data, aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
 
@@ -262,18 +262,25 @@ introductions_vs_indicence_data <- merge(data_max, data_min,
 introductions_vs_indicence_model <- ggplot(
         data = introductions_vs_indicence_data %>% filter(date <= as.Date("2020-07-01")),
         aes(x = date)) +
-        geom_errorbar(aes(ymin = introductions_by_first_sample_date_min, ymax = introductions_by_first_sample_date_max, color = "Estimated"),  width = 5) +
-        geom_ribbon(aes(ymin = predictions_min, ymax = predictions_max, fill = "Predicted"), alpha = 0.5) +
-        geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed") +
-        geom_vline(xintercept = as.Date("2020-06-15"), linetype = "dashed") +
-        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d", limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
+        geom_errorbar(aes(ymin = introductions_by_first_sample_date_min,
+                          ymax = introductions_by_first_sample_date_max,
+                          linetype = "Estimate range:\nfew to many introductions"),
+                      width = 5) +
+        geom_line(aes(y = predictions_min, linetype = "Null model")) +
+        geom_line(aes(y = predictions_max, linetype = "Null model")) +
+        scale_x_date(date_breaks = "1 week", date_labels = "%b. %d",
+                     limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
         scale_fill_manual(values = c("Predicted" = "grey70"), name = element_blank()) +
-        scale_color_manual(values = c("Estimated" = "black"), name = element_blank()) +
+        scale_linetype_manual(values = c("Null model" = "dashed", "Estimate range:\nfew to many introductions" = "solid")) +
+        scale_color_manual(values = c("Estimate range:\nfew to many introductions" = "black"), name = element_blank()) +
         shared_theme +
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.spacing.y = unit(0, "cm")) +
-        labs(x = element_blank(), y = "\nNew introductions")
-# ggsave(plot = introductions_vs_indicence_model, file = "figures/introductions_vs_indicence_model.png",
-#        width = single_col_width, height = single_col_width, units = "cm")
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.spacing.y = unit(0, "cm"),
+              legend.title = element_blank()) +
+        labs(x = element_blank(), y = "\nNew introductions") +
+        geom_rect(inherit.aes = F, data = highlight_data %>% filter(event == "Borders closed"),
+                  aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf),
+                  fill = "black",
+                  alpha = 0.3)
 ```
 
 Write out the model variables, number of introductions averted during the lockdown
@@ -348,18 +355,26 @@ for (idx in seq_along(dates)) {
   }
 }
 
+null_model <- persistence_results %>%
+        filter(date <= as.Date("2020-07-01")) %>%
+        group_by(chains_assumption) %>%
+        summarise(median = median(days_continued_sampled))
+
 persisence_over_time <- ggplot(data = persistence_results_smooth %>% filter(date <= as.Date("2020-07-01")), aes(x = date, fill = chains_assumption)) +
         geom_line(aes(y = median, color = chains_assumption)) +
         geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.3) +
-        geom_vline(xintercept = as.Date("2020-03-17"), linetype = "dashed") +
-        geom_vline(xintercept = as.Date("2020-04-27"), linetype = "dashed") +
         scale_x_date(date_breaks = "1 week", date_labels = "%b. %d", limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
         scale_fill_manual(labels = chain_assumption_labs, values = chains_assumption_colors, aesthetics = c("fill", "color"), name = element_blank()) +
         shared_theme +
-        theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) +
-        labs(x = element_blank(), y = "\nPersistence (days)")
-# ggsave(plot = persisence_over_time, filename = "figures/persisence_over_time.png",
-#        width = single_col_width, height = single_col_width, units = "cm")
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.title = element_blank()) +
+        scale_linetype_manual(values = c("Null model" = "dashed")) +
+        labs(x = element_blank(), y = "\nPersistence (days)") +
+        geom_rect(inherit.aes = F, data = highlight_data %>% filter(event == "Partial lockdown"),
+                  aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf),
+                  fill = "grey",
+                  alpha = 0.3) +
+        geom_hline(aes(yintercept = null_model$median[1], linetype = "Null model")) +
+        geom_hline(aes(yintercept = null_model$median[2], linetype = "Null model"))
 ```
 
 Write out the persistence of introductions at the start of lockdown, post-lockdown peak
@@ -406,9 +421,11 @@ close(con)
 
 Format comparative figure
 ```{r}
-plot_grid(introductions_vs_indicence_model, persisence_over_time,
-          nrow = 2, align = "v", axis = "tb", labels = "AUTO")
+right_col <- plot_grid(introductions_vs_indicence_model, persisence_over_time,
+          nrow = 2, align = "v", axis = "tb", labels = c("B", "C"))
+
+plot_grid(p1, right_col, labels = c("A", NULL), rel_widths = c(0.7, 1))
 
 ggsave("figures/introductions_and_persistence_v2.png",
-       width = double_col_width, height = single_col_width, units = "cm")
+       width = double_col_width * 1.5, height = single_col_width, units = "cm")
 ```
