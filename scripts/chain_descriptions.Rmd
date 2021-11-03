@@ -12,9 +12,9 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 require(dplyr)
 require(ggplot2)
 require(xtable)
-source("../grapevine/database/R/utility.R")
-source("../grapevine/utility_functions.R")
-source("../grapevine/generate_figures/functions.R")
+source("../sars_cov_2/grapevine/database/R/utility.R")
+source("../sars_cov_2/grapevine/utility_functions.R")
+source("../sars_cov_2/grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
 ```
 

@@ -16,9 +16,9 @@ knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
 ```{r, include=FALSE}
 require(dplyr)
 require(ggplot2)
-source("../grapevine/database/R/utility.R")
-source("../grapevine/utility_functions.R")
-source("../grapevine/generate_figures/functions.R")
+source("../sars_cov_2/grapevine/database/R/utility.R")
+source("../sars_cov_2/grapevine/utility_functions.R")
+source("../sars_cov_2/grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
 ```
 
@@ -89,18 +89,18 @@ relevant_run_info[relevant_run_info$sim_context == sim_context_to_replace, "sim_
 
 ```{r}
 max_sampling_frac <- 0.05
-subsample_fractions <- seq(from = 0.01, to = 0.05, by = 0.01)
+subsample_fractions <- seq(from = 0.01, to = 0.04, by = 0.01)
 n_reps <- 50
 n_focal_sequences <- nrow(
   results$`2x_repMain analysis`$samples %>%
     filter(chains_assumption == "min"))
-n_seqs_to_keep <- round(subsample_fractions * n_focal_sequences / max_sampling_frac)
+n_seqs_to_keep <- c(round(subsample_fractions * n_focal_sequences / max_sampling_frac), n_focal_sequences)
 full_samples <- results$`2x_repMain analysis`$samples
 
-for (i in 1:length(subsample_fractions)) {
+for (i in 1:length(n_seqs_to_keep)) {
   for (j in 1:n_reps) {
     n_seqs <- n_seqs_to_keep[i]
-    subsample <- full_samples %>% sample_n(size = n_seqs, replace = F)
+    subsample <- full_samples %>% group_by(chains_assumption) %>% sample_n(size = n_seqs, replace = F)
     size_dist <- subsample %>% 
       group_by(chains_assumption, chain_idx) %>%
       summarize(size = n(), .groups = "drop")
