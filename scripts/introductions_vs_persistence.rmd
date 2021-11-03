@@ -329,7 +329,7 @@ for (idx in seq_along(dates)) {
 # Smooth results
 is_first <- T
 dates <- seq.Date(from = as.Date("2020-02-01"), to = as.Date("2020-12-01"), by = 1)
-window_size <- 3  # end inclusive, so estimates are based on time from x to last_sample_date distributions summed over date - 3 days <= x <= date + 3 days
+window_size <- 0  # end inclusive, so estimates are based on time from x to last_sample_date distributions summed over date - 3 days <= x <= date + 3 days
 for (idx in seq_along(dates)) {
   start_date <- dates[idx]
   smooth_results <- persistence_results %>%
@@ -390,7 +390,7 @@ writeLines(text = paste0("\\newcommand\\qthreepersistenceatlockdownmax{", qthree
 medpersistenceatpeakmin <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "min", "median"])
 medpersistenceatpeakmax <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "max", "median"])
 writeLines(text = paste0("\\newcommand\\medpersistenceatpeakmin{", medpersistenceatpeakmin, "}"), con = con)
-writeLines(text = paste0("\\newcommand\\medpersistenceatlockdownmax{", medpersistenceatlockdownmax, "}"), con = con)
+writeLines(text = paste0("\\newcommand\\medpersistenceatpeakmax{", medpersistenceatpeakmax, "}"), con = con)
 
 qonepersistenceatpeakmin <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "min", "Q1"])
 qonepersistenceatpeakmax <- unlist(lockdown_end_persistence[lockdown_end_persistence$chains_assumption == "max", "Q1"])
