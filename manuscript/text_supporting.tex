@@ -15,6 +15,16 @@
 \usepackage[backend=bibtex,style=nature]{biblatex}
 \bibliography{references}
 
+\input{manuscript/config_variables}
+\input{manuscript/chain_summary_variables}
+\input{manuscript/sample_summary_variables}
+\input{manuscript/damping_factor_variables}
+\input{manuscript/persistence}
+\input{manuscript/intoductions_by_incidence_model}
+
+\usepackage{xfp} % to do multiplication with \inteval
+\newcommand{\maxsamplingpercent}{\maxsamplingfraction*100}
+
 \title{Supporting information}
 \author{}
 % \correspondingauthor{Corresponding Author name.\\E-mail: author.two@email.com}
