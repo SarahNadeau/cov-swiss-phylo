@@ -212,6 +212,30 @@ ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = 
 ## Write out variables for manuscript, copy figures into manuscript figure directory
 
 ```{r}
+re_data <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
+re_peak <- re_data %>% group_by(clusters, contact_tracing, sampUB) %>% top_n(n = 1, wt = median)
+re_after_peak <- re_data %>% filter(date == re_peak$date[[1]] + 7)
+
+if (length(unique(re_peak$date)) != 1 | length(unique(re_after_peak$date)) != 1) {
+  stop("Week results in re_estimates.text won't be right, code doesn't handle max/mins on different weeks.")
+}
+
+con1 <- file("../../../../manuscript/re_estimates.tex", open = "w")
+repeakmin <- round(min(re_peak$median), digits = 1)
+repeakmax <- round(max(re_peak$median), digits = 1)
+reafterpeakmin <- round(min(re_after_peak$median), digits = 1)
+reafterpeakmax <- round(max(re_after_peak$median), digits = 1)
+repeakweek <- unique(re_peak$date)
+reafterpeakweek <- unique(re_after_peak$date)
+
+writeLines(text = paste0("\\newcommand\\repeakmin{", repeakmin, "}"), con = con1)
+writeLines(text = paste0("\\newcommand\\repeakmax{", repeakmax, "}"), con = con1)
+writeLines(text = paste0("\\newcommand\\reafterpeakmin{", reafterpeakmin, "}"), con = con1)
+writeLines(text = paste0("\\newcommand\\reafterpeakmax{", reafterpeakmax, "}"), con = con1)
+writeLines(text = paste0("\\newcommand\\repeakweek{", repeakweek, "}"), con = con1)
+writeLines(text = paste0("\\newcommand\\reafterpeakweek{", reafterpeakweek, "}"), con = con1)
+close(con1)
+
 con <- file("../../../../manuscript/damping_factor_variables.tex", open = "w")
 
 damping_factor_medians <- CT_data %>%
