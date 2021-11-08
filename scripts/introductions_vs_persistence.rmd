@@ -109,87 +109,72 @@ introduction_summary_wide <- introduction_summary %>%
 combined_data <- cases_summary %>% full_join(introduction_summary_wide, by = c("date", "country"))
 ```
 
-Plot introductions vs. persistence, comparison to incidence
-
+Plot introductions through time, persistence through time
 ```{r}
+introduction_summary_v2 <- introduction_summary %>%
+                group_by(date) %>%
+                arrange(-introductions_by_first_sample_date) %>%
+                mutate(which_most = chains_assumption[[1]],
+                       max = introductions_by_first_sample_date[1],
+                       min = introductions_by_first_sample_date[2])
 
-country_color_scale <- scale_color_manual(
-  values = c("Switzerland" = "#E69F00", "France" = "#56B4E9", "Germany" = "#F0E442", "Italy" = "#009E73", "Other European" = "#CC79A7", "Austria" = "black"),
-  name = element_blank())
-
-incidence_plot <- ggplot(data = combined_data %>%
-        filter(date <= as.Date("2020-04-15"), date >= as.Date("2020-02-15")),
-        aes(x = date, color = country)) +
-        geom_line(aes(y = weekly_avg_new_cases)) +
-        scale_x_date(date_breaks = "1 month", date_labels = "%b.") +
-        labs(y = "Confirmed cases\n(weekly average)", x = "") +
-        shared_theme +
-        country_color_scale
-
-# Extract legend to plot seperately
-incidence_legend <- get_legend(
-  # create some space to the left of the legend
-  incidence_plot +
-    guides(color = guide_legend(nrow = 1)) +
-    theme(legend.position = "bottom") +
-    guides(fill=guide_legend(nrow=2,byrow=TRUE)))
-incidence_plot <- incidence_plot + theme(legend.position = "none")
-incidence_plot_v2 <- incidence_plot +
-  geom_vline(xintercept = as.Date("2020-03-13"), linetype = "dashed")
-
-# Manipulate data: sometimes max chains has more persisters in a week, sometimes min chains assumption
-introduction_summary_v2 <- rbind(
-  introduction_summary %>%
+persistence_summary_v2 <- persistence_summary %>%
     group_by(date) %>%
     arrange(frac_60_day_persisters, chains_assumption) %>%
     mutate(which_most = chains_assumption[[1]],
            min = frac_60_day_persisters[1],
-           max = frac_60_day_persisters[2],
-           metric = "Fraction of new introductions that persist 60 days") %>%
-    filter(date < as.Date("2020-10-01")),
-  introduction_summary %>%
-    group_by(date) %>%
-    arrange(-introductions_by_first_sample_date) %>%
-    mutate(which_most = chains_assumption[[1]],
-           max = introductions_by_first_sample_date[1],
-           min = introductions_by_first_sample_date[2],
-           metric = "Number of new introductions")) %>%
-  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
+           max = frac_60_day_persisters[2]) %>%
+    filter(date < as.Date("2020-10-01"))
 
 highlight_data <- data.frame(
-  date_start = as.Date(c("2020-03-13", "2020-03-17")),
-  date_end = as.Date(c("2020-06-15", "2020-04-27")),
-  metric = c("Number of new introductions", "Fraction of new introductions that persist 60 days"),
-  event = c("Borders closed", "Partial lockdown")) %>%
-  mutate(metric = factor(x = metric, levels = c("Number of new introductions", "Fraction of new introductions that persist 60 days")))
+        date_start = as.Date(c("2020-03-13", "2020-03-17")),
+        date_end = as.Date(c("2020-06-15", "2020-04-27")),
+        event = c("Borders closed", "Partial lockdown"))
 
 measures_fill_scale <- scale_fill_manual(values = c(
-  "Borders closed" = "black",
-  "Partial lockdown" = "grey"))
+        "Borders closed" = "black",
+        "Partial lockdown" = "grey"))
 
-p1 <- ggplot(
-  data = introduction_summary_v2,
-  aes(x = date)) +
-  geom_errorbar(aes(ymin = min, ymax = max),  width = 5) +
-  scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
-  ylim(0, NA) +
-  xlab(NULL) + ylab(NULL) +
-  facet_wrap(metric ~ ., ncol = 1, scales = "free_y", ) +
-  shared_theme +
-  measures_fill_scale +
-  theme(legend.position = "bottom", legend.title = element_blank()) +
-  geom_rect(inherit.aes = F, data = highlight_data, aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
+introductions_through_time <- ggplot(
+        data = introduction_summary_v2,
+        aes(x = date)) +
+        geom_errorbar(aes(ymin = min, ymax = max),  width = 5) +
+        scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
+        ylim(0, NA) +
+        xlab(NULL) + ylab("New introductions") +
+        shared_theme +
+        measures_fill_scale +
+        theme(legend.position = "bottom", legend.title = element_blank()) +
+        geom_rect(inherit.aes = F, data = highlight_data %>% filter(event == "Borders closed"),
+                  aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
 
-p2 <- incidence_plot_v2 +  # use incidence_plot for no dashed line and area instead
-  guides(color = guide_legend(nrow = 1)) +
-  theme(legend.position = "bottom") +
-  guides(color=guide_legend(nrow=3,byrow=TRUE))
+persistence_through_time <- ggplot(
+        data = persistence_summary_v2,
+        aes(x = date)) +
+        geom_errorbar(aes(ymin = min, ymax = max),  width = 5) +
+        scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
+        ylim(0, NA) +
+        xlab(NULL) + ylab("Fraction of\nnew introductions\nthat persist 60 days") +
+        shared_theme +
+        measures_fill_scale +
+        theme(legend.position = "bottom", legend.title = element_blank()) +
+        geom_rect(inherit.aes = F, data = highlight_data %>% filter(event == "Partial lockdown"),
+                  aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3)
 
-plot_grid(p1, p2, ncol = 2, labels = "AUTO", rel_widths = c(1, 0.7))
+introductions_through_time
+persistence_through_time
 
-ggsave("figures/introductions_and_persistence.png",
-       width = double_col_width, height = single_col_width, units = "cm")
+# Extract legend to plot seperately
+intervention_legend <- get_legend(
+        # create some space to the left of the legend
+        introductions_through_time +
+                guides(color = guide_legend(nrow = 1)) +
+                theme(legend.position = "bottom"))
+
+introductions_through_time <- introductions_through_time + theme(legend.position = "none")
+persistence_through_time <- persistence_through_time + theme(legend.position = "none")
 ```
+
 
 Make this quantitative: introductions ~ europe incidence (until border closure date, with some delay)
 ```{r}
@@ -197,7 +182,8 @@ Make this quantitative: introductions ~ europe incidence (until border closure d
 # up to 18 days based on 10-day infectious period, LdP's UK estimate of 10-18 day introduction to genome sample delay
 case_data_base <- cases_raw %>%
         filter(countryterritoryCode != "CHE",
-               countryterritoryCode %in% c("ITA", "FRA", "DEU", "AUT")) %>%
+               # ) %>%  # for all Europe
+               countryterritoryCode %in% c("ITA", "FRA", "DEU", "AUT")) %>%  # for only neighboring countries
         group_by(date) %>%
         summarize(cases = sum(cases), .groups = "drop") %>%
         arrange(date) %>%
@@ -281,6 +267,8 @@ introductions_vs_indicence_model <- ggplot(
                   aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf),
                   fill = "black",
                   alpha = 0.3)
+
+introductions_vs_indicence_model
 ```
 
 Write out the model variables, number of introductions averted during the lockdown
@@ -294,6 +282,8 @@ prediced_introductions_averted_as_per <- introductions_vs_indicence_data %>% fil
                           (sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T)) / sum(predictions_max),
                   predicted_introductions_averted_min_asper =
                           (sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T)) / sum(predictions_min))
+
+print(prediced_introductions_averted_as_per)
 
 introsavertedmax <- unlist(prediced_introductions_averted$predicted_introductions_averted_max)
 introsavertedmin <- unlist(prediced_introductions_averted$predicted_introductions_averted_min)
@@ -358,7 +348,9 @@ for (idx in seq_along(dates)) {
 null_model <- persistence_results %>%
         filter(date <= as.Date("2020-07-01")) %>%
         group_by(chains_assumption) %>%
-        summarise(median = median(days_continued_sampled))
+        summarise(median = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[2],
+                  Q1 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[1],
+                  Q3 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[3])
 
 persisence_over_time <- ggplot(data = persistence_results_smooth %>% filter(date <= as.Date("2020-07-01")), aes(x = date, fill = chains_assumption)) +
         geom_line(aes(y = median, color = chains_assumption)) +
@@ -374,7 +366,13 @@ persisence_over_time <- ggplot(data = persistence_results_smooth %>% filter(date
                   fill = "grey",
                   alpha = 0.3) +
         geom_hline(aes(yintercept = null_model$median[1], linetype = "Null model")) +
-        geom_hline(aes(yintercept = null_model$median[2], linetype = "Null model"))
+        geom_hline(aes(yintercept = null_model$median[2], linetype = "Null model")) # +
+        # geom_hline(aes(yintercept = null_model$Q1[1], linetype = "Null model")) +
+        # geom_hline(aes(yintercept = null_model$Q1[2], linetype = "Null model")) +
+        # geom_hline(aes(yintercept = null_model$Q3[1], linetype = "Null model")) +
+        # geom_hline(aes(yintercept = null_model$Q3[2], linetype = "Null model"))
+
+persisence_over_time
 ```
 
 Write out the persistence of introductions at the start of lockdown, post-lockdown peak
@@ -422,9 +420,13 @@ close(con)
 Format comparative figure
 ```{r}
 right_col <- plot_grid(introductions_vs_indicence_model, persisence_over_time,
-          nrow = 2, align = "v", axis = "tb", labels = c("B", "C"))
+          nrow = 2, align = "v", axis = "tb", labels = c("B", "D"))
+left_col <- plot_grid(introductions_through_time, persistence_through_time,
+                      nrow = 2, align = "v", axis = "tb", labels = c("A", "C"))
 
-plot_grid(p1, right_col, labels = c("A", NULL), rel_widths = c(0.7, 1))
+top_row <- plot_grid(left_col, right_col, nrow = 1, rel_widths = c(0.7, 1))
+
+plot_grid(top_row, intervention_legend, nrow = 2, rel_heights = c(1, 0.1))
 
 ggsave("figures/introductions_and_persistence_v2.png",
        width = double_col_width * 1.5, height = single_col_width, units = "cm")
