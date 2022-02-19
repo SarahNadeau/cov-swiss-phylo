@@ -1,0 +1,134 @@
+---
+title: "Validate NZL results"
+author: nadeaus
+date: 02.05.21
+output: html_notebook
+---
+
+This script is to check estimated NZL transmission chains against data provided by NZL sequencers on case origins.
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Documents/PhD_research/cov-swiss-phylo")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Documents/PhD_research/cov-swiss-phylo")
+```
+
+```{r, include=FALSE}
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+Load grapevine data
+
+```{r}
+workdir <- "results_all/2021-08-10_nzl"
+outdir <- paste(workdir, "output", sep = "/")
+grapevine_results <- load_grapevine_results(
+  workdir = workdir,
+  min_chain_size = 1,
+  viollier_only = F)
+```
+
+Load validation data
+
+```{r}
+case_info <- read.csv(file = "data/2020_data_request_NZL.csv") %>% mutate(date_collected = as.Date(date_collected))
+```
+
+Compare validation data to inferred chains
+
+```{r}
+sample_results <- merge(
+  x = grapevine_results$samples, y = case_info,
+  by.x = "gisaid_epi_isl", by.y = "gisaid_acc",
+  all.x = T, all.y = F)
+
+# How many cases from what source?
+table(sample_results$case_source)
+
+# Any cases where dates don't match between GISAID and case info? A: no
+sample_results %>% filter(date != date_collected)
+
+tmp <- sample_results %>%
+    group_by(chains_assumption, tree, chain_idx) %>%
+    arrange(as.Date(date)) %>%
+    summarize(
+      validation_category = case_when(
+          length(setdiff(unique(case_source), c("Community", "not-recorded"))) == 0 ~ "all_community",
+          "MIQ" %in% case_source && "border-related" %in% case_source ~ "MIQ_and_border-related",
+          "MIQ" %in% case_source ~ "includes_MIQ",
+          "border-related" %in% case_source ~ "includes_border-related",
+          T ~ "uncategorized"),
+      n_samples = n())
+
+sample_results_annotated <- sample_results %>% right_join(tmp, by = c("chains_assumption", "tree", "chain_idx"))
+write.csv(sample_results_annotated, file = "data/2020_data_request_NZL_annotated.csv", quote = T, row.names = F)
+
+```
+
+Work with manually annotated data
+
+```{r}
+df_orig <- read.csv(file = "data/2020_data_request_NZL_hand_annotated.csv")
+
+df_min <- df_orig %>% filter(chains_assumption == "min", sample_idx == 1) %>%
+  group_by(validation_category, validation_category_2) %>%
+  summarise(value = n())
+
+# Format data for Sankey diagram
+# put your df in two columns, and preserve the ordering in many levels (columns) with paste0
+values <- c(df_min$value, rep(1E-10, nrow(df_min)))
+links <- data.frame(source = c(paste0(df_min$validation_category,'_1'),paste0(df_min$validation_category_2,'_2')),
+                    target   = c(paste0(df_min$validation_category_2,'_2')),
+                    value = values)
+
+# now convert as character
+links$source <- as.character(links$source)
+links$target<- as.character(links$target)
+
+nodes <- data.frame(name = unique(c(links$source, links$target)))
+
+links$source <- match(links$source, nodes$name) - 1
+links$target <- match(links$target, nodes$name) - 1
+
+p <- networkD3::sankeyNetwork(
+  Links = links, Nodes = nodes, Source = 'source',
+  Target = 'target', Value = 'value', NodeID = 'name')
+saveNetwork(p, "plot_min.html")
+library(webshot)
+webshot("plot_min.html", "plot_min.png", vwidth = 500, vheight = 500)
+
+
+df_max <- df_orig %>% filter(chains_assumption == "max", sample_idx == 1) %>%
+  group_by(validation_category, validation_category_2) %>%
+  summarise(value = n())
+
+# Format data for Sankey diagram
+# put your df in two columns, and preserve the ordering in many levels (columns) with paste0
+values <- c(df_max$value, rep(1E-10, nrow(df)))
+links <- data.frame(source = c(paste0(df_max$validation_category,'_1'),paste0(df_max$validation_category_2,'_2')),
+                    target   = c(paste0(df_max$validation_category_2,'_2')),
+                    value = values)
+
+# now convert as character
+links$source <- as.character(links$source)
+links$target<- as.character(links$target)
+
+nodes <- data.frame(name = unique(c(links$source, links$target)))
+
+links$source <- match(links$source, nodes$name) - 1
+links$target <- match(links$target, nodes$name) - 1
+
+p <- networkD3::sankeyNetwork(
+  Links = links, Nodes = nodes, Source = 'source',
+  Target = 'target', Value = 'value', NodeID = 'name')
+saveNetwork(p, "plot_max.html")
+library(webshot)
+webshot("plot_max.html", "plot_max.png", vwidth = 500, vheight = 500)
+
+table(df_orig %>% filter(validation_category != "all_community", n_samples > 1) %>% select(chains_assumption, validation_status))
+
+```
