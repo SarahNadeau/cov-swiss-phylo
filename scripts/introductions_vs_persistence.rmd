@@ -8,26 +8,27 @@ output: html_notebook
 This script is to see if the relationship between Europe-wide incidence and estimated imports into Switzerland changes upon the Swiss border closures.
 
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Documents/PhD_research/cov-swiss-phylo")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Documents/PhD_research/cov-swiss-phylo")
 ```
 
 ```{r, include=FALSE}
+getwd()
 require(dplyr)
 require(tidyr)
 require(ggplot2)
 require(cowplot)
 library(lubridate)
-source("../sars_cov_2/grapevine/database/R/utility.R")
-source("../sars_cov_2/grapevine/utility_functions.R")
-source("../sars_cov_2/grapevine/generate_figures/functions.R")
+# source("../grapevine/database/R/utility.R")
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
 ```
 
 Load grapevine data
 
 ```{r}
-workdir <- "results_main"
+workdir <- "results_all/2021-08-10_for_manuscript_rep_1"
 outdir <- paste(workdir, "output", sep = "/")
 outdir <- "figures"
 grapevine_results <- load_grapevine_results(
@@ -190,6 +191,9 @@ case_data_base <- cases_raw %>%
         mutate(weekly_avg_new_cases = zoo::rollmean(cases,7, align = "center", na.pad = T)) %>%
         select(-cases)
 
+close_date <- as.Date("2020-03-13")
+re_open_date <- as.Date("2020-06-15")
+end_summer_holiday_date <- as.Date("2020-08-28")
 plausible_delays <- seq(from = 0, to = 18, by = 1)
 is_first <- T
 for (delay in plausible_delays) {
@@ -199,22 +203,41 @@ for (delay in plausible_delays) {
           right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date")
 
   model_max <- lm(
-          data = model_data %>% filter(date < as.Date("2020-03-13")),
+          data = model_data %>% filter(date < close_date),
           formula = introductions_by_first_sample_date_max ~ weekly_avg_new_cases)
   model_min <- lm(
-          data = model_data %>% filter(date < as.Date("2020-03-13")),
+          data = model_data %>% filter(date < close_date),
+          formula = introductions_by_first_sample_date_min ~ weekly_avg_new_cases)
+  # Reviewer requests results from model fit after re-opening as well
+  model_max_fit_after <- lm(
+          data = model_data %>% filter(date < close_date | (date >= re_open_date & date < end_summer_holiday_date)),
+          formula = introductions_by_first_sample_date_max ~ weekly_avg_new_cases)
+  model_min_fit_after <- lm(
+          data = model_data %>% filter(date < close_date | (date >= re_open_date & date < end_summer_holiday_date)),
           formula = introductions_by_first_sample_date_min ~ weekly_avg_new_cases)
 
   # Thanks https://stackoverflow.com/questions/43123462/how-to-obtain-rmse-out-of-lm-result
   RMSE_max <- sqrt(crossprod(model_max$residuals) / length(model_max$residuals)) # root mean squared error
   RMSE_min <- sqrt(crossprod(model_min$residuals) / length(model_min$residuals))
+  RMSE_max_fit_after <- sqrt(crossprod(model_max_fit_after$residuals) / length(model_max_fit_after$residuals))
+  RMSE_min_fit_after <- sqrt(crossprod(model_min_fit_after$residuals) / length(model_min_fit_after$residuals))
 
   cases_coeff_max <- model_max$coefficients["weekly_avg_new_cases"]
   cases_coeff_min <- model_min$coefficients["weekly_avg_new_cases"]
+  cases_coeff_max_fit_after <- model_max_fit_after$coefficients["weekly_avg_new_cases"]
+  cases_coeff_min_fit_after <- model_min_fit_after$coefficients["weekly_avg_new_cases"]
 
   results_tmp <- data.frame(
-          delay = delay, RMSE_max = RMSE_max, RMSE_min = RMSE_min,
-          cases_coeff_max = cases_coeff_max, cases_coeff_min = cases_coeff_min)
+          delay = delay,
+          RMSE_max = RMSE_max,
+          RMSE_min = RMSE_min,
+          RMSE_max_fit_after = RMSE_max_fit_after,
+          RMSE_min_fit_after = RMSE_min_fit_after,
+          cases_coeff_max = cases_coeff_max,
+          cases_coeff_min = cases_coeff_min,
+          cases_coeff_max_fit_after = cases_coeff_max_fit_after,
+          cases_coeff_min_fit_after = cases_coeff_min_fit_after
+  )
 
   if (is_first) {
     results <- results_tmp
@@ -227,26 +250,46 @@ for (delay in plausible_delays) {
 # Extract best-fit delays and coefficients
 cases_coeff_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(cases_coeff_max))
 cases_coeff_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(cases_coeff_min))
+cases_coeff_max_fit_after <- unlist(
+        results %>% top_n(n = 1, wt = -RMSE_max_fit_after) %>% select(cases_coeff_max_fit_after))
+cases_coeff_min_fit_after <- unlist(
+        results %>% top_n(n = 1, wt = -RMSE_min_fit_after) %>% select(cases_coeff_min_fit_after))
 
 cases_delay_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(delay))
 cases_delay_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(delay))
+cases_delay_max_fit_after <- unlist(results %>% top_n(n = 1, wt = -RMSE_max_fit_after) %>% select(delay))
+cases_delay_min_fit_after <- unlist(results %>% top_n(n = 1, wt = -RMSE_min_fit_after) %>% select(delay))
 
 # Plot best-fit models and predictions
 data_max <- case_data_base %>%
         mutate(date_current = date, date = date - cases_delay_max) %>%
         right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
         mutate(predictions_max = weekly_avg_new_cases *  cases_coeff_max)
-
 data_min <- case_data_base %>%
         mutate(date_current = date, date = date - cases_delay_min) %>%
         right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
         mutate(predictions_min = weekly_avg_new_cases *  cases_coeff_min)
+data_max_fit_after <- case_data_base %>%
+        mutate(date_current = date, date = date - cases_delay_max_fit_after) %>%
+        right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
+        mutate(predictions_max_fit_after = weekly_avg_new_cases *  cases_coeff_max_fit_after)
+data_min_fit_after <- case_data_base %>%
+        mutate(date_current = date, date = date - cases_delay_min_fit_after) %>%
+        right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date") %>%
+        mutate(predictions_min_fit_after = weekly_avg_new_cases *  cases_coeff_min_fit_after)
 
-introductions_vs_indicence_data <- merge(data_max, data_min,
-              by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min"))
+introductions_vs_indicence_data_1 <- merge(
+        data_max, data_min,
+        by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min"))
+introductions_vs_indicence_data_2 <- merge(
+        data_max_fit_after, data_min_fit_after,
+        by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min"))
+introductions_vs_indicence_data <- merge(
+        introductions_vs_indicence_data_1, introductions_vs_indicence_data_2,
+        by = c("date", "introductions_by_first_sample_date_max", "introductions_by_first_sample_date_min"))
 
 introductions_vs_indicence_model <- ggplot(
-        data = introductions_vs_indicence_data %>% filter(date <= as.Date("2020-07-01")),
+        data = introductions_vs_indicence_data %>% filter(date <= end_summer_holiday_date),
         aes(x = date)) +
         geom_errorbar(aes(ymin = introductions_by_first_sample_date_min,
                           ymax = introductions_by_first_sample_date_max,
@@ -254,10 +297,15 @@ introductions_vs_indicence_model <- ggplot(
                       width = 5) +
         geom_line(aes(y = predictions_min, linetype = "Null model")) +
         geom_line(aes(y = predictions_max, linetype = "Null model")) +
+        geom_line(aes(y = predictions_min_fit_after, linetype = "Null model fit after")) +
+        geom_line(aes(y = predictions_max_fit_after, linetype = "Null model fit after")) +
         scale_x_date(date_breaks = "1 week", date_labels = "%b. %d",
-                     limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
+                     limits = c(as.Date("2020-02-24"), end_summer_holiday_date)) +
         scale_fill_manual(values = c("Predicted" = "grey70"), name = element_blank()) +
-        scale_linetype_manual(values = c("Null model" = "dashed", "Estimate range:\nfew to many introductions" = "solid")) +
+        scale_linetype_manual(values = c(
+                "Null model" = "dashed",
+                "Null model fit after" = "dotted",
+                "Estimate range:\nfew to many introductions" = "solid")) +
         scale_color_manual(values = c("Estimate range:\nfew to many introductions" = "black"), name = element_blank()) +
         shared_theme +
         theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.spacing.y = unit(0, "cm"),
@@ -273,15 +321,22 @@ introductions_vs_indicence_model
 
 Write out the model variables, number of introductions averted during the lockdown
 ```{r}
-prediced_introductions_averted <- introductions_vs_indicence_data %>% filter(date >= as.Date("2020-03-13"), date <= as.Date("2020-06-15")) %>%
+prediced_introductions_averted <- introductions_vs_indicence_data %>%
+        filter(date >= as.Date("2020-03-13"), date <= as.Date("2020-06-15")) %>%
         summarise(predicted_introductions_averted_max = sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T),
-                  predicted_introductions_averted_min = sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T))
+                  predicted_introductions_averted_min = sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T),
+                  predicted_introductions_averted_min_fit_after = sum(predictions_min_fit_after) - sum(introductions_by_first_sample_date_min, na.rm = T),
+                  predicted_introductions_averted_max_fit_after = sum(predictions_max_fit_after) - sum(introductions_by_first_sample_date_min, na.rm = T))
 
 prediced_introductions_averted_as_per <- introductions_vs_indicence_data %>% filter(date >= as.Date("2020-03-13"), date <= as.Date("2020-06-15")) %>%
         summarise(predicted_introductions_averted_max_asper =
                           (sum(predictions_max) - sum(introductions_by_first_sample_date_max, na.rm = T)) / sum(predictions_max),
                   predicted_introductions_averted_min_asper =
-                          (sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T)) / sum(predictions_min))
+                          (sum(predictions_min) - sum(introductions_by_first_sample_date_min, na.rm = T)) / sum(predictions_min),
+                  predicted_introductions_averted_min_fit_after_asper =
+                          (sum(predictions_min_fit_after) - sum(introductions_by_first_sample_date_min, na.rm = T)) / sum(predictions_min_fit_after),
+                  predicted_introductions_averted_max_fit_after_asper =
+                          (sum(predictions_max_fit_after) - sum(introductions_by_first_sample_date_max, na.rm = T)) / sum(predictions_max_fit_after))
 
 print(prediced_introductions_averted_as_per)
 

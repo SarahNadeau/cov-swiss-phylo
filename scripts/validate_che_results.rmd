@@ -1,0 +1,75 @@
+---
+title: "Validate CHE results"
+output: html_notebook
+---
+
+This script is to see whether identified Swiss introductions are geographically structured as a proxy validation criteria.
+
+
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/nadeaus/Documents/PhD_research/cov-swiss-phylo")
+knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Documents/PhD_research/cov-swiss-phylo")
+```
+
+```{r, include=FALSE}
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+source("../grapevine/utility_functions.R")
+source("../grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+Load grapevine data
+
+```{r}
+workdir <- "results_all/2021-08-10_for_manuscript_rep_1"
+outdir <- paste(workdir, "output", sep = "/")
+grapevine_results <- load_grapevine_results(
+  workdir = workdir,
+  min_chain_size = 1,
+  viollier_only = F)
+```
+
+Plot distribution of number of regions in each introduction (expect to be right-skewed)
+```{r}
+divisions_per_introduction <- grapevine_results$samples %>%
+        group_by(chains_assumption, tree, chain_idx) %>%
+        summarise(
+          n_divisions = length(unique(division)),
+          size = n(),
+          .groups = "drop")
+
+divisions_per_introduction_plot <- ggplot(
+  data = divisions_per_introduction %>% filter(size > 1),
+  aes(x = n_divisions)
+) +
+  geom_bar() +
+  facet_grid(. ~ chains_assumption, labeller = labeller(chains_assumption = chain_assumption_labs)) +
+  labs(y = "Number of introductions\n(excluding singletons)", x = "Number of Swiss cantons") +
+  shared_theme
+
+ggsave(
+  plot = divisions_per_introduction_plot,
+  file = paste("figures", "chain_geo_dist_no_singletons.png", sep = "/"),
+  width = single_col_width,
+  height = 0.5 * single_col_width,
+  units = "cm"
+)
+
+# Quantify number of chains in fewer than 3 cantons
+divisions_per_introduction %>%
+        group_by(chains_assumption) %>%
+        summarize(frac_in_more_than_2_divisions = sum(n_divisions > 2) / n())
+```
+
+See if as expected larger introductions found in more regions
+```{r}
+ggplot(
+  data = divisions_per_introduction,
+  aes(x = size, y = n_divisions)
+) +
+  geom_point() +
+  facet_grid(. ~ chains_assumption, labeller = labeller(chains_assumption = chain_assumption_labs))
+```
+
