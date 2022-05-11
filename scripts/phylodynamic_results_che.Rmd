@@ -4,24 +4,20 @@ title: post-processing
 
 * need to have run "preprocessing.Rmd" first to generate files "sampPropChangeTimes.txt" and "ReChangeTimes.txt"
 
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/SwissTransmissionChains/")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/SwissTransmissionChains/")
-```
-
-
 ```{r }
 library(tidyverse)
 library(lubridate)
 library(ggdist)
 
-source("../../../../scripts/figures_shared_vars.R")
+source("scripts/figures_shared_vars.R")
 system(command = "mkdir -p figures")
 ```
 
 ## Load data
 
 ```{r }
+datadir <- "results_all/bdsky/log_files/SwissTransmissionChains/results/"
+
 skyline_data <- NULL
 for (clusters in c("min", "max")) {
     for (contact_tracing in c(TRUE, FALSE)) {
@@ -32,7 +28,8 @@ for (clusters in c("min", "max")) {
                               ".*.log")
 
             data <- NULL
-            for (f in dir("results/", pattern, full.names=TRUE)) {
+            for (f in dir(datadir, pattern, full.names=TRUE)) {
+                print(f)
                 data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
             }
 
@@ -74,14 +71,14 @@ for (clusters in c("min", "max")) {
 ## dates <- tibble(interval=0:52) %>% mutate(date=ymd("2020-11-30")-3.5-interval*7)
 
 finalSampleDate <- ymd("2020-11-30")
-Re_dates <- read_csv("sequences/date_to_week.csv") %>%
+Re_dates <- read_csv(paste0(datadir, "/../sequences/date_to_week.csv")) %>%
     distinct(week) %>%
     filter(week<finalSampleDate) %>%
     arrange(desc(row_number())) %>%
     transmute(interval=row_number(), date=week+3.5)
 
 
-sampProp_dates <- read_csv("sampPropChangeTimes.txt", col_names=c("age")) %>%
+sampProp_dates <- read_csv(paste0(datadir, "/../sampPropChangeTimes.txt"), col_names=c("age")) %>%
     add_row(age=0) %>%
     mutate(date=finalSampleDate - 365.25*age) %>%
     arrange(age) %>%
@@ -90,7 +87,7 @@ sampProp_dates <- read_csv("sampPropChangeTimes.txt", col_names=c("age")) %>%
 ## Load case count data
 
 ```{r}
-LINE_LIST_RE_EST_LINK <- "https://raw.githubusercontent.com/covid-19-Re/dailyRe-Data/master/CHE-estimates.csv"
+LINE_LIST_RE_EST_LINK <- "https://github.com/covid-19-Re/dailyRe-Data/raw/fbe982f48a0e8220460b1f1701a74ee7390e1fdc/CHE-estimates.csv"  # take March 2022 version of data where early estimates still made for CHE
 line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
   filter(
     region == "CHE",
@@ -110,13 +107,13 @@ line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
 
 ```{r}
 color_values <- c("conf_case_counts" = "grey", "TRUE" = model_type_colors[1], "FALSE" =  model_type_colors[2])
-color_labels <- c("conf_case_counts" = "Confirmed cases", 
-                  "TRUE" = "Model with damping factor", 
-                  "FALSE" = "Model without damping factor")
+color_labels <- c("conf_case_counts" = "Confirmed\ncases", 
+                  "TRUE" = "Model with\ndamping factor", 
+                  "FALSE" = "Model without\ndamping factor")
 
-ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
+re_plot <- ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
        aes(date, median, fill = contact_tracing, color = contact_tracing)) +
-    geom_lineribbon(
+    tidybayes::geom_lineribbon(
         aes(ymin=low, ymax=high), alpha=0.5, step = "vh") +
     geom_ribbon(
         data = line_list_re_data, 
@@ -128,25 +125,45 @@ ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
     labs(y = "Effective reproductive number", x = element_blank()) + 
-    shared_theme
-ggsave("figures/Re.pdf", width=15, height=5, units="in")
+    shared_theme + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+ggsave("figures/CHE_Re.pdf", width=double_col_width, height=single_col_width * 0.5, units="cm")
 
 # Get the first ribbon to show by repeating the first interval value at the minimum date
 samp_prop_data_1 <- skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates)
-max_interval <- max(samp_prop_data$interval)
-samp_prop_data_2 <- samp_prop_data %>% filter(interval == max_interval) %>% mutate(date = as.Date("2020-01-01"))
+max_interval <- max(samp_prop_data_1$interval)
+samp_prop_data_2 <- samp_prop_data_1 %>% filter(interval == max_interval) %>% mutate(date = as.Date("2020-01-01"))
 samp_prop_data <- rbind(samp_prop_data_1, samp_prop_data_2)
 
-ggplot(samp_prop_data,
+samp_prop_plot <- ggplot(samp_prop_data,
        aes(date, median, col=contact_tracing, fill=contact_tracing)) +
-    geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +
+    tidybayes::geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +
     scale_color_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
     labs(y = "Sampling probability", x = element_blank()) + 
-    shared_theme
-ggsave("figures/sampProp.pdf", width=15, height=5, units="in")
+    shared_theme + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+ggsave("figures/CHE_sampProp.pdf", width=double_col_width, height=single_col_width * 0.5, units="cm")
+```
+
+Arrange plots together
+```{r}
+require(cowplot)
+
+plot_grid(samp_prop_plot, re_plot,
+          nrow = 2, ncol = 1,
+          width = double_col_width,
+          labels = c("A", "B")
+)
+
+ggsave(
+        filename = "figures/CHE_phylodynamic_results.png",
+        width = double_col_width,
+        height = single_col_width * 1.75,
+        units = "cm"
+)
 ```
 
 ## Contact tracing effect size
