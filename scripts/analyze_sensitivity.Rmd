@@ -7,19 +7,13 @@ output: html_document
 
 Note: I also tried running 5x and 10x size context sets, but Euler either timed out (5x) or ran out of memory (10x).
 
-```{r, setup, include=FALSE}
-date <- "2021-08-10"
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-```
-
 ```{r, include=FALSE}
 require(dplyr)
 require(ggplot2)
-source("../sars_cov_2/grapevine/database/R/utility.R")
 source("../sars_cov_2/grapevine/utility_functions.R")
 source("../sars_cov_2/grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
+date <- "2021-08-10"
 ```
 
 # Load data
@@ -54,7 +48,7 @@ results <- load_results()
 # Add main analysis run
 
 ```{r}
-fp <- "results_main"
+fp <- paste0("results_all/", date, "_for_manuscript_rep_1")
 print(paste("Loading results in", fp))
 if (dir.exists(fp)) {
   res_desc <- "2x_repMain analysis"
@@ -97,6 +91,7 @@ n_focal_sequences <- nrow(
 n_seqs_to_keep <- c(round(subsample_fractions * n_focal_sequences / max_sampling_frac), n_focal_sequences)
 full_samples <- results$`2x_repMain analysis`$samples
 
+subsample_fractions <- c(subsample_fractions, max_sampling_frac)
 for (i in 1:length(n_seqs_to_keep)) {
   for (j in 1:n_reps) {
     n_seqs <- n_seqs_to_keep[i]
@@ -106,8 +101,8 @@ for (i in 1:length(n_seqs_to_keep)) {
       summarize(size = n(), .groups = "drop")
     subsample_results_tmp <- size_dist %>%
       group_by(chains_assumption) %>%
-      summarize(n_singletons = sum(size == 1),
-                n_chains = sum(size > 1),
+      summarize(number_chains = n(),
+                mean_size = mean(size),
                 .groups = "drop") %>%
       mutate(subsample = subsample_fractions[i],
              n_focal_seqs = n_seqs,
@@ -120,27 +115,28 @@ for (i in 1:length(n_seqs_to_keep)) {
   }
 }
 
+subsample_results_long <- subsample_results %>%
+        tidyr::pivot_longer(cols = c(mean_size, number_chains), names_to = "summary_statistic") %>%
+        mutate(
+                statistic_desc = factor(
+                        summary_statistic,
+                        levels = c("number_chains", "mean_size"),
+                        labels = c("Estimated number of introductions", "Samples per introduction (mean)"))
+        )
+
 # Plot # introductions with increasing # focal sequences
-p <- ggplot(
-  data = subsample_results,
-  aes(x = paste0(subsample * 100, "%\n(n=", n_focal_seqs, ")"))) +
-  geom_boxplot(aes(y = n_singletons, color = "No. singletons")) +
-  geom_boxplot(aes(y = n_chains, color = "No. transmission chains")) +
-  geom_boxplot(aes(y = n_chains + n_singletons, color = "No. total introductions")) +
-  labs(x = "Sub-sampling intensity", y = "Count") + 
-  scale_color_discrete(name = element_blank()) +
-  facet_grid(. ~ chains_assumption, labeller = as_labeller(chain_assumption_labs)) + 
+sensitivity_subsampling <- ggplot(
+  data = subsample_results_long,
+  aes(x = paste0(subsample * 100, "%\n(n =\n", n_focal_seqs, ")"), y = value)) +
+  geom_boxplot(aes(color = chains_assumption)) +
+  labs(x = "Sub-sampling intensity", y = element_blank()) +
+  scale_color_manual(
+          name = "Polytomy assumption",
+          values = chains_assumption_colors,
+          labels = chain_assumption_labs) +
+  facet_wrap(. ~ statistic_desc, scales = "free") +
   shared_theme +
   scale_y_continuous(limits = c(0, NA))
-
-show(p)
-
-ggsave(
-  filename = "figures/fig_SX_sensitivity_subsampling.png",
-  width = double_col_width * 1.4,
-  height = single_col_width * 0.75, 
-  units = "cm"
-)
 ```
 
 # Compare transmission chain summary statistics across context set sizes, chains assumption
@@ -174,28 +170,31 @@ to_plot_w_runtime <- merge(
   y = relevant_run_info,
   all.x = T)  # collated from Euler job finished emails, see results_all/run_info.csv
 
-n_chain_scale_factor <- 200
-ggplot(
-  data = to_plot_w_runtime,
-  aes(x = sim_context, shape = as.character(rep))) + 
-  geom_point(aes(y = mean_size, color = "Mean chain size")) + 
-  geom_point(aes(y = median_size, color = "Median chain size")) + 
-  geom_point(aes(y = number_chains / n_chain_scale_factor, color = paste("Number chains /", n_chain_scale_factor))) + 
-  geom_point(aes(y = runtime_hr, color = "Runtime (hours)")) + 
-  # geom_point(aes(y = number_trees / 5, color = "Number lineage trees / 5")) +
-  facet_grid(. ~ chains_assumption, labeller = as_labeller(chain_assumption_labs)) + 
-  shared_theme + 
-  scale_shape(name = "Replicate") + 
-  scale_color_discrete(name = "Statistic") +
-  scale_x_continuous(breaks = c(1, 2, 3), labels = c("1:1", "2:1", "3:1")) + 
-  labs(x = "Ratio of foreign context to focal Swiss sequences", y = "Count")
+to_plot_w_runtime_long <- to_plot_w_runtime %>%
+        tidyr::pivot_longer(cols = c(mean_size, number_chains), names_to = "summary_statistic") %>%
+        mutate(
+          statistic_desc = factor(
+          summary_statistic,
+          levels = c("number_chains", "mean_size"),
+          labels = c("Estimated number of introductions", "Samples per introduction (mean)"))
+        )
 
-ggsave(
-  filename = "figures/fig_SX_sensitivity_context_set_size.png",
-  width = double_col_width,
-  height = single_col_width * 0.75, 
-  units = "cm"
-)
+sensitivity_context_set_size <- ggplot(
+        data = to_plot_w_runtime_long,
+        aes(x = factor(
+                sim_context,
+                levels = c(1, 2, 3),
+                labels = c("1:1", "2:1", "3:1")),
+            y = value)) +
+        geom_boxplot(aes(color = chains_assumption)) +
+        facet_wrap(. ~ statistic_desc, scales = "free") +
+        shared_theme +
+        scale_color_manual(
+                name = "Polytomy assumption",
+                values = chains_assumption_colors,
+                labels = chain_assumption_labs) +
+        labs(x = "Ratio of foreign context to focal Swiss sequences", y = element_blank()) +
+        lims(y = c(0, NA))
 ``` 
 
 # Load alternate chain data for chosen context set ratio
@@ -252,28 +251,64 @@ to_plot_2 <- alternative_chains_all %>%
     number_trees = length(unique(tree)),
     .groups = "drop")
 
-ggplot(
-  data = to_plot_2,
-  aes(x = m, shape = as.character(rep))) +
-  geom_point(aes(y = mean_size, color = "Mean chain size")) +
-  # geom_point(aes(y = max_size, color = "Largest chain")) +
-  geom_point(aes(y = median_size, color = "Median chain size")) + 
-  geom_point(aes(y = number_chains / 10, color = "Number chains / 10")) +
-  facet_grid(
-    p ~ chains_assumption, 
-    labeller = as_labeller(x = c("0" = "0", "1" = "1", "2" = "2", "3" = "3", "4" = "4", chain_assumption_labs))) + 
-  shared_theme + 
-  scale_shape(name = "Replicate") + 
-  scale_color_discrete(name = "Statistic") +
-  scale_y_continuous(sec.axis = dup_axis(
-    name = "Maximum consecutive exports in transmission chain",
-    breaks = NULL, labels = NULL)) +   # produces lots of warnings about min(x) and max(x) but the points/axes on the plot are not affected
-  labs(x = "Maximum exported lineages in transmission chain", y = "Count")
+to_plot_2_long <- to_plot_2 %>%
+        tidyr::pivot_longer(cols = c(mean_size, number_chains), names_to = "summary_statistic") %>%
+        mutate(
+                statistic_desc = factor(
+                        summary_statistic,
+                        levels = c("number_chains", "mean_size"),
+                        labels = c("Estimated number\nof introductions", "Samples per\nintroduction (mean)"))
+        )
+
+sensitivity_chain_defn <- ggplot(
+        data = to_plot_2_long,
+        aes(x = factor(m), y = value)) +
+        geom_boxplot(aes(color = chains_assumption)) +
+        facet_grid(statistic_desc ~ p, scales = "free_y") +
+        shared_theme +
+        scale_color_manual(name = "Polytomy assumption", values = chains_assumption_colors,
+                           labels = chain_assumption_labs) +
+        ggtitle("(b) Maximum consecutive exports") +
+        theme(plot.title = element_text(hjust = 0.5, size = 11)) +
+        labs(x = "(a) Maximum number exports", y = element_blank()) +
+        lims(y = c(0, NA))
+```
+Arrange all plots together
+```{r}
+require(cowplot)
+
+plot_grid(sensitivity_chain_defn, sensitivity_context_set_size, sensitivity_subsampling,
+          nrow = 3, ncol = 1, rel_heights = c(0.7, 0.5, 0.5),
+          width = single_col_width,
+          labels = c("A", "B", "C")
+)
 
 ggsave(
-  filename = "figures/fig_SX_sensitivity_chain_defn.png",
-  width = double_col_width,
-  height = single_col_width * 1.5, 
-  units = "cm"
+        filename = "figures/fig_SX_sensitivity_results.png",
+        width = double_col_width,
+        height = single_col_width * 1.75,
+        units = "cm"
 )
+```
+Get statistics
+```{r}
+# Allowing max 4 compared to max 1 export for max 1 consecutive
+to_plot_2 %>%
+        filter(p == 1) %>%
+        group_by(m, chains_assumption) %>%
+        summarize(mean_number = mean(number_chains), .groups = "drop") %>%
+        tidyr::pivot_wider(names_from = "chains_assumption", values_from = "mean_number") %>%
+        mutate(percent_diff = (max - min) * 100 / max)
+# 20% diff 1 -> 4 for max; 27% diff 4 > 1 for min
+# 75 - 76% diff for max -> min depending on m
+
+# Ratio of foreign context:focal Swiss sequences
+to_plot %>%
+        group_by(sim_context, chains_assumption) %>%
+        summarise(mean_number = mean(number_chains), .groups = "drop") %>%
+        tidyr::pivot_wider(names_from = "chains_assumption", values_from = "mean_number") %>%
+        mutate(percent_diff = (max - min) * 100 / min)
+# 26% (min) - 5% (max) increase in # chains from 1 -> 3x context set size
+# 290 - 369% increase from min - max chains, depending on sim context set
+
 ```
