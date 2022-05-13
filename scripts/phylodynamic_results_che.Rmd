@@ -293,6 +293,7 @@ system("cp figures/Re.pdf ../../../../figures/CHE_Re.pdf")
 
 Write out median Re estimates for correcting introduction estimates.
 Use estimates without damping factor, without sampling bound
+Dates are midpoint of interval
 ```{r}
 re_data_all <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
 re_data_to_use <- re_data_all %>%
