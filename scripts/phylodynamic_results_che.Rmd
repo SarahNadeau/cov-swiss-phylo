@@ -8,16 +8,20 @@ title: post-processing
 library(tidyverse)
 library(lubridate)
 library(ggdist)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(tidyr)
 
 source("scripts/figures_shared_vars.R")
 system(command = "mkdir -p figures")
+
+datadir <- "results_all/bdsky/log_files/SwissTransmissionChains/results/"
 ```
 
 ## Load data
 
 ```{r }
-datadir <- "results_all/bdsky/log_files/SwissTransmissionChains/results/"
-
 skyline_data <- NULL
 for (clusters in c("min", "max")) {
     for (contact_tracing in c(TRUE, FALSE)) {
@@ -67,16 +71,13 @@ for (clusters in c("min", "max")) {
 ## Incoroporate interval dates
 
 ```{r }
-
-## dates <- tibble(interval=0:52) %>% mutate(date=ymd("2020-11-30")-3.5-interval*7)
-
 finalSampleDate <- ymd("2020-11-30")
-Re_dates <- read_csv(paste0(datadir, "/../sequences/date_to_week.csv")) %>%
+day_to_week <- read_csv(paste0(datadir, "/../sequences/date_to_week.csv"))
+Re_dates <- day_to_week %>%
     distinct(week) %>%
     filter(week<finalSampleDate) %>%
     arrange(desc(row_number())) %>%
-    transmute(interval=row_number(), date=week+3.5)
-
+    transmute(interval=row_number(), date=week + 3.5)  # dates are the start of each interval, make the midpoint
 
 sampProp_dates <- read_csv(paste0(datadir, "/../sampPropChangeTimes.txt"), col_names=c("age")) %>%
     add_row(age=0) %>%
@@ -84,6 +85,7 @@ sampProp_dates <- read_csv(paste0(datadir, "/../sampPropChangeTimes.txt"), col_n
     arrange(age) %>%
     mutate(interval=row_number())
 ```
+
 ## Load case count data
 
 ```{r}
@@ -111,10 +113,18 @@ color_labels <- c("conf_case_counts" = "Confirmed\ncases",
                   "TRUE" = "Model with\ndamping factor", 
                   "FALSE" = "Model without\ndamping factor")
 
-re_plot <- ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates),
+start_plot_date <- as.Date("2020-02-20")  # plot from first week we have data
+stop_plot_date <- as.Date("2020-11-30")  # plot until end of sampling period
+
+# Repeat last week so that final ribbon shows
+re_data <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
+last_week_data <- re_data %>% filter(interval == 1) %>% mutate(date = stop_plot_date)
+re_data_to_plot <- rbind(re_data, last_week_data) 
+
+re_plot <- ggplot(re_data_to_plot,
        aes(date, median, fill = contact_tracing, color = contact_tracing)) +
     tidybayes::geom_lineribbon(
-        aes(ymin=low, ymax=high), alpha=0.5, step = "vh") +
+        aes(ymin=low, ymax=high), alpha=0.5, step = "mid") +  # dates are the midpoint of each interval
     geom_ribbon(
         data = line_list_re_data, 
         aes(date, ymin=ylow, ymax=yhigh, fill = 'conf_case_counts', color = 'conf_case_counts'), alpha = 0.5) + 
@@ -123,29 +133,29 @@ re_plot <- ggplot(skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels) + 
     geom_hline(yintercept=1, linetype="dashed") +
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
-    scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
+    scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
     labs(y = "Effective reproductive number", x = element_blank()) + 
     shared_theme + 
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-ggsave("figures/CHE_Re.pdf", width=double_col_width, height=single_col_width * 0.5, units="cm")
+    theme(legend.position = "bottom")
+ggsave("figures/CHE_Re.pdf", width=double_col_width, height=single_col_width, units="cm")
 
-# Get the first ribbon to show by repeating the first interval value at the minimum date
-samp_prop_data_1 <- skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates)
+# Repeat first week so that first ribbon shows
+samp_prop_data <- skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates)
 max_interval <- max(samp_prop_data_1$interval)
-samp_prop_data_2 <- samp_prop_data_1 %>% filter(interval == max_interval) %>% mutate(date = as.Date("2020-01-01"))
-samp_prop_data <- rbind(samp_prop_data_1, samp_prop_data_2)
+first_week_data <- samp_prop_data_1 %>% filter(interval == max_interval) %>% mutate(date = start_plot_date)
+samp_prop_data <- rbind(samp_prop_data, first_week_data)
 
 samp_prop_plot <- ggplot(samp_prop_data,
        aes(date, median, col=contact_tracing, fill=contact_tracing)) +
-    tidybayes::geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +
+    tidybayes::geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +  # dates are endpoint of each interval
     scale_color_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
-    scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(as.Date("2020-01-01"), as.Date("2020-12-01"))) +
+    scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
     labs(y = "Sampling probability", x = element_blank()) + 
     shared_theme + 
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-ggsave("figures/CHE_sampProp.pdf", width=double_col_width, height=single_col_width * 0.5, units="cm")
+    theme(legend.position = "bottom")
+ggsave("figures/CHE_sampProp.pdf", width=double_col_width, height=single_col_width, units="cm")
 ```
 
 Arrange plots together
@@ -281,3 +291,15 @@ system("cp figures/sampProp.pdf ../../../../figures/CHE_sampProp.pdf")
 system("cp figures/Re.pdf ../../../../figures/CHE_Re.pdf")
 ```
 
+Write out median Re estimates for correcting introduction estimates.
+Use estimates without damping factor, without sampling bound
+```{r}
+re_data_all <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
+re_data_to_use <- re_data_all %>%
+  filter(sampUB == "Without sampling bound", !contact_tracing)
+write.csv(
+  x = re_data_to_use,
+  file = paste0(datadir, "/../re_by_week.csv"),
+  row.names = F
+)
+```
