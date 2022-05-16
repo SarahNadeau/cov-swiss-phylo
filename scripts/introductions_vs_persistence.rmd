@@ -30,6 +30,39 @@ grapevine_results <- load_grapevine_results(
   workdir = workdir,
   min_chain_size = 1,
   viollier_only = F)
+
+# Load day to week mapping
+day_to_week <- read.csv("results_all/bdsky/log_files/SwissTransmissionChains/sequences/date_to_week.csv")  %>% 
+        full_join(data.frame(date = "2020-12-01", week = "2020-11-30")) %>%  # add missing week for last sample date
+        mutate(date = as.Date(date), week = as.Date(week))
+
+# Annotate introductions with summary information
+chain_summary_stats <- grapevine_results$samples %>%
+  group_by(tree, chains_assumption, chain_idx) %>%
+  summarize(first_sample_date = min(date),
+            last_sample_date = max(date),
+            .groups = "drop") %>%
+  mutate(time_to_last_sample = as.integer(difftime(last_sample_date, first_sample_date, units = "days"))) %>%
+  full_join(y = grapevine_results$chains, by = c("tree", "chains_assumption", "chain_idx"))
+```
+
+Summarize early introduction inferences
+
+```{r}
+early_introductions <- grapevine_results$samples %>% 
+        left_join(chain_summary_stats) %>%
+        filter(first_sample_date < as.Date("2020-03-05")) %>%
+        mutate(
+                chain_idx_2 = dplyr::group_indices(., chains_assumption, chain_idx),
+                starts_before_1_mar = first_sample_date < as.Date("2020-03-01")
+        )
+
+ggplot(data = early_introductions, aes(x = date, y = chain_idx_2, color = starts_before_1_mar)) +
+        facet_grid(chains_assumption ~ ., scales = "free") +
+        geom_point() + 
+        theme(legend.position = "bottom")
+
+ggsave("figures/early_introductions.png", width = single_col_width, height = single_col_width, units = "cm")
 ```
 
 Load case data for European countries
@@ -58,80 +91,95 @@ cases_summary <- cases_raw %>%
 ```
 
 Calculate probability an introduction starting each week goes unsampled until end of sampling period
+TODO: probabilities currently on first day of each week, should use midpoint
 See Kuehnert et al. 2013 in PNAS
-Implementation adapted from https://github.com/BEAST2-Dev/bdsky/blob/master/src/beast/evolution/speciation/BirthDeathSkylineModel.java
+Implementation adapted from function "preCalculation" in https://github.com/BEAST2-Dev/bdsky/blob/master/src/beast/evolution/speciation/BirthDeathSkylineModel.java
 ```{r}
 # Load median Re estimates from BDSKY analysis
-re_by_week <- read.csv(file = "results_all/bdsky/log_files/SwissTransmissionChains/re_by_week.csv")  %>%
+re_by_week_min <- read.csv(file = "results_all/bdsky/log_files/SwissTransmissionChains/re_by_interval_start.csv")  %>%
         filter(clusters == "min") %>%
+        arrange(date)
+re_by_week_max <- read.csv(file = "results_all/bdsky/log_files/SwissTransmissionChains/re_by_interval_start.csv")  %>%
+        filter(clusters == "max") %>%
         arrange(date)
 
 # Get time (in years) from start of process to start of each interval
 breakpoint_days <- c(
-        as.Date("2020-01-01"),  # start of process
-        sort(as.Date(unique(re_by_week$date)[!is.na(unique(re_by_week$date))])) + 1,  # reported dates are end of each interval
+        sort(as.Date(unique(re_by_week_min$date)[!is.na(unique(re_by_week_min$date))])),
         as.Date("2020-11-30")  # end of sampling period
 )
-times <- as.numeric(difftime(breakpoint_days, as.Date("2020-01-01"), units = "days") / 365)
-m <- length(times) - 1
+times <- as.numeric(difftime(breakpoint_days, as.Date("2019-12-30"), units = "days") / 365.25)
+m <- length(times)
 
 # Assume constant sampling proportion, constant death rate, no single-timepoint sampling efforts
 s <- 0.05
 delta <- 36.5
 rho <- 0
 
-# Calculate birth, death, sampling rates from epi parameterization
-lambda <- re_by_week$median * delta
-mu <- delta - s * delta
-psi <- s * delta
+for (idx in 1:2) {
+        # Calculate birth, death, sampling rates from epi parameterization
+        if (idx == 1) {
+                lambda <- re_by_week_min$median * delta
+        } else {
+                lambda <- re_by_week_max$median * delta
+        }
+        mu <- delta - s * delta
+        psi <- s * delta
 
-# Initialize values for extinction probability calculation
-Ai <- rep(0, m)
-Bi <- rep(0, m)
-p0 <- rep(0, m)
+        # Initialize values for extinction probability calculation
+        Ai <- rep(0, m)
+        Bi <- rep(0, m)
+        p0 <- rep(0, m)
 
-# Calculate Ai
-for (i in 1:m) {
-        Ai[i] <- sqrt((lambda[i] - mu - psi)^2 + 4 * lambda[i] * psi)
-}
+        # Calculate Ai
+        for (i in 1:m) {
+                Ai[i] <- sqrt((lambda[i] - mu - psi)^2 + 4 * lambda[i] * psi)
+        }
 
-calc_Bi <- function(lambda, mu, psi, rho, A, p0) {
-        return(((1 - 2 * p0 * (1 - rho)) * lambda + mu + psi) / A)
-}
+        calc_Bi <- function(lambda, mu, psi, rho, A, p0) {
+                return(((1 - 2 * p0 * (1 - rho)) * lambda + mu + psi) / A)
+        }
 
-calc_p0 <- function(lambda, mu, psi, A, B, t, ti) {
-        p <- (lambda + mu + psi - A * (exp(A * (t - ti)) * (1 + B) - (1 - B)) / (exp(A * (t - ti)) * (1 + B) + (1 - B))) / (2 * lambda)
-        return (p)
-}
+        calc_p0 <- function(lambda, mu, psi, A, B, t, ti) {
+                p <- (lambda + mu + psi - A * (exp(A * (t - ti)) * (1 + B) - (1 - B)) / (exp(A * (t - ti)) * (1 + B) + (1 - B))) / (2 * lambda)
+                return (p)
+        }
 
-# Calculate last Bi (where p0[m - 1] = 1)
-Bi[m] <- calc_Bi(lambda[m], mu, psi, rho, Ai[m], 1)
+        # Calculate last Bi (where p0[m - 1] = 1)
+        Bi[m] <- calc_Bi(lambda[m], mu, psi, rho, Ai[m], 1)
 
-# Calculate Bi and p0 moving from last to first time interval
-for (i in rev(0:(m - 1))) {
-        print(paste("Calculating p0 for interval", i + 1))
-        p0[i + 1] <- calc_p0(lambda[i + 1], mu, psi, Ai[i + 1], Bi[i + 1], times[i + 2], times[i + 1])  # note on time indices: interval 49 spands breakpoint_days[49] - breakpoint_days[50] 
-        if (i > 0) {
-                print(paste("Calculating Bi for interval", i))
-                Bi[i] <- calc_Bi(lambda[i], mu, psi, rho, Ai[i], p0[i + 1])
+        # Calculate Bi and p0 moving from last to first time interval
+        for (i in rev(1:(m - 1))) {
+                p0[i + 1] <- calc_p0(lambda[i + 1], mu, psi, Ai[i + 1], Bi[i + 1], times[i + 1], times[i])
+                if (i > 0) {
+                        Bi[i] <- calc_Bi(lambda[i], mu, psi, rho, Ai[i], p0[i + 1])
+                }
+        }
+        print(p0) 
+
+        # Summarize results
+        if (idx == 1) {
+                p0_results_tmp <- data.frame(
+                        week = breakpoint_days[1:m],
+                        prob_being_sampled = 1 - p0,
+                        chains_assumption = "min"
+                ) %>% left_join(re_by_week_min %>% mutate(week = as.Date(date), re_median = median) %>% select(week, re_median))
+        } else {
+                p0_results <- rbind(
+                        p0_results_tmp, data.frame(
+                                week = breakpoint_days[1:m],
+                                prob_being_sampled = 1 - p0,
+                                chains_assumption = "max"
+                        ) %>% left_join(re_by_week_max %>% mutate(week = as.Date(date), re_median = median) %>% select(week, re_median))
+                ) 
         }
 }
-print(p0)
-
-# Probability of being sampled is 1 - p0
-print(1 - p0)
 
 # Plot probability of an introduction being sampled over time
-p0_results <- data.frame(
-        interval_start = breakpoint_days[1:m],
-        interval_end = re_by_week$date,
-        prob_being_sampled = 1 - p0,
-        re_median = re_by_week$median
-)
-ggplot(data = p0_results, aes(x = interval_start)) +
+ggplot(data = p0_results, aes(x = week)) +
         geom_step(aes(y = prob_being_sampled, color = "Probability of introduction being sampled")) +
         geom_step(aes(y = re_median, color = "Median Re estimate")) +
-        geom_vline(xintercept = as.Date("2020-03-15"), linetype = "dashed") +
+        facet_grid(chains_assumption ~ ., labeller = labeller(chains_assumption = chain_assumption_labs)) + 
         theme_bw() +
         theme(legend.position = "bottom", legend.title = element_blank()) +
         labs(x = element_blank(), y = "Value")
@@ -141,33 +189,19 @@ ggsave(file = "figures/prob_introduction_being_sampled.png", width = single_col_
 Summarize introductions, their persistence and merge with case data
 
 ```{r}
-chain_summary_stats <- grapevine_results$samples %>%
-  group_by(tree, chains_assumption, chain_idx) %>%
-  summarize(first_sample_date = min(date),
-            last_sample_date = max(date),
-            .groups = "drop") %>%
-  mutate(time_to_last_sample = difftime(last_sample_date, first_sample_date, units = "days")) %>%
-  full_join(y = grapevine_results$chains, by = c("tree", "chains_assumption", "chain_idx"))
+# Get number of introductions each week
+introduction_to_first_sample_delay <- 5  # days
 
-#' Returns the date of the Sunday of the week.
-#' Inspired by: https://stackoverflow.com/questions/32434549/how-to-find-next-particular-day
-get_start_of_week <- function(date) {
-  .day <- wday(date, label = TRUE)
-  sunday <- date + days(1 - as.numeric(.day))
-  return(sunday)
-}
-
-introduction_summary_tmp <- chain_summary_stats %>%  # weekly summary
-  mutate(date = get_start_of_week(first_sample_date)) %>%
-  group_by(date, chains_assumption) %>%
-  summarise(
-    introductions_by_first_sample_date = n(), .groups = "drop") %>%
-  mutate(country = "Switzerland")
-
-# exclude undefined values for persistence
-introduction_summary <- introduction_summary_tmp
-max_date <- max(introduction_summary$date) - 60
-introduction_summary[introduction_summary$date > max_date, "frac_60_day_persisters"] <- NA
+introductions_by_week <- chain_summary_stats %>%
+        mutate(date = as.Date(first_sample_date) - introduction_to_first_sample_delay) %>%
+        left_join(day_to_week) %>%
+        group_by(week, chains_assumption) %>%
+        summarise(introductions_by_first_sample_date_raw = n(), .groups = "drop")
+introduction_summary <- introductions_by_week %>%
+        filter(week < as.Date("2020-11-30")) %>%  # ignore introductions first sampled on 2020-12-30, no re estiamte this week
+        left_join(p0_results %>% mutate(week = as.Date(week))) %>%
+        mutate(introductions_by_first_sample_date = introductions_by_first_sample_date_raw / prob_being_sampled) %>%
+        mutate(date = week, country = "Switzerland")
 
 persistence_summary <- chain_summary_stats %>%  # monthly summary
   mutate(date = as.Date(format(first_sample_date, "%Y-%m-01"))) %>%
@@ -176,14 +210,14 @@ persistence_summary <- chain_summary_stats %>%  # monthly summary
     frac_60_day_persisters = sum(time_to_last_sample >= 60) / n()) %>%
   mutate(country = "Switzerland")
 
-introduction_summary <- merge(x = introduction_summary_tmp, y = persistence_summary, by = c("date", "chains_assumption", "country"), all = T)
+# exclude undefined values for persistence
+max_date <- max(grapevine_results$samples$date) - 60
+persistence_summary[persistence_summary$date > max_date, "frac_60_day_persisters"] <- NA
 
 introduction_summary_wide <- introduction_summary %>%
-        pivot_wider(names_from = "chains_assumption", values_from = c(
-                "introductions_by_first_sample_date",
-                "frac_60_day_persisters"))
-
-combined_data <- cases_summary %>% full_join(introduction_summary_wide, by = c("date", "country"))
+        select(-c("prob_being_sampled", "re_median")) %>%
+        pivot_wider(names_from = "chains_assumption", 
+        values_from = c("introductions_by_first_sample_date", "introductions_by_first_sample_date_raw"))
 ```
 
 Plot introductions through time, persistence through time
@@ -193,7 +227,9 @@ introduction_summary_v2 <- introduction_summary %>%
                 arrange(-introductions_by_first_sample_date) %>%
                 mutate(which_most = chains_assumption[[1]],
                        max = introductions_by_first_sample_date[1],
-                       min = introductions_by_first_sample_date[2])
+                       min = introductions_by_first_sample_date[2],
+                       max_raw = introductions_by_first_sample_date_raw[1],
+                       min_raw = introductions_by_first_sample_date_raw[2])
 
 persistence_summary_v2 <- persistence_summary %>%
     group_by(date) %>%
@@ -211,6 +247,23 @@ highlight_data <- data.frame(
 measures_fill_scale <- scale_fill_manual(values = c(
         "Borders closed" = "black",
         "Partial lockdown" = "grey"))
+
+ggplot(
+        data = introduction_summary_v2,
+        aes(x = date)) +
+        geom_errorbar(aes(ymin = min, ymax = max),  width = 5) +
+        geom_errorbar(aes(ymin = min_raw, ymax = max_raw),  width = 5, color = "red") +
+        scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
+        ylim(0, NA) +
+        xlab(NULL) + ylab("New introductions") +
+        shared_theme +
+        measures_fill_scale +
+        theme(legend.position = "bottom", legend.title = element_blank()) +
+        geom_rect(inherit.aes = F, data = highlight_data %>% filter(event == "Borders closed"),
+                  aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf, fill = event), alpha = 0.3) + 
+        geom_vline(xintercept = as.Date("2020-03-09"), linetype = "dashed")
+
+ggsave("figures/CHE_introductions_through_time_correction.png", width = double_col_width, height = single_col_width, units = "cm")
 
 introductions_through_time <- ggplot(
         data = introduction_summary_v2,
@@ -267,6 +320,7 @@ case_data_base <- cases_raw %>%
         mutate(weekly_avg_new_cases = zoo::rollmean(cases,7, align = "center", na.pad = T)) %>%
         select(-cases)
 
+stop_fit_date <- as.Date("2020-03-13")
 close_date <- as.Date("2020-03-13")
 re_open_date <- as.Date("2020-06-15")
 end_summer_holiday_date <- as.Date("2020-08-28")
@@ -276,20 +330,20 @@ for (delay in plausible_delays) {
   cases_summary_for_model <- case_data_base %>% mutate(date_current = date, date = date - delay)  # introductions ~ incidence lagged by delay days
 
   model_data <- cases_summary_for_model %>%
-          right_join(introduction_summary_wide %>% select(-c(country, starts_with("frac"))), by = "date")
+          right_join(introduction_summary_wide %>% select(-c(country)), by = "date")
 
   model_max <- lm(
-          data = model_data %>% filter(date < close_date),
+          data = model_data %>% filter(date < stop_fit_date),
           formula = introductions_by_first_sample_date_max ~ weekly_avg_new_cases)
   model_min <- lm(
-          data = model_data %>% filter(date < close_date),
+          data = model_data %>% filter(date < stop_fit_date),
           formula = introductions_by_first_sample_date_min ~ weekly_avg_new_cases)
   # Reviewer requests results from model fit after re-opening as well
   model_max_fit_after <- lm(
-          data = model_data %>% filter(date < close_date | (date >= re_open_date & date < end_summer_holiday_date)),
+          data = model_data %>% filter(date < stop_fit_date | (date >= re_open_date & date < end_summer_holiday_date)),
           formula = introductions_by_first_sample_date_max ~ weekly_avg_new_cases)
   model_min_fit_after <- lm(
-          data = model_data %>% filter(date < close_date | (date >= re_open_date & date < end_summer_holiday_date)),
+          data = model_data %>% filter(date < stop_fit_date | (date >= re_open_date & date < end_summer_holiday_date)),
           formula = introductions_by_first_sample_date_min ~ weekly_avg_new_cases)
 
   # Thanks https://stackoverflow.com/questions/43123462/how-to-obtain-rmse-out-of-lm-result
