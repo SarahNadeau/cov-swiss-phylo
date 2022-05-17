@@ -213,7 +213,7 @@ re_by_week_max <- read.csv(file = "results_all/bdsky/log_files/SwissTransmission
 # Get time (in years) from start of process to start of each interval
 breakpoint_days <- c(
   sort(as.Date(unique(re_by_week_min$date)[!is.na(unique(re_by_week_min$date))])),
-  as.Date("2020-11-30") # end of sampling period
+  as.Date("2020-12-01") # end of sampling period = end of process
 )
 times <- as.numeric(difftime(breakpoint_days, as.Date("2019-12-30"), units = "days") / 365.25)
 m <- length(times)
@@ -228,70 +228,65 @@ for (idx in 1:2) {
 
   # Calculate birth, death, sampling rates from epi parameterization
   if (idx == 1) {
-    lambda <- re_by_week_min$median * delta
+    re_by_week <- re_by_week_min
   } else {
-    lambda <- re_by_week_max$median * delta
+    re_by_week <- re_by_week_max
   }
+  lambda <- re_by_week$median * delta
   mu <- delta - s * delta
   psi <- s * delta
 
   # Initialize values for extinction probability calculation
   Ai <- rep(0, m)
   Bi <- rep(0, m)
-  p0 <- rep(0, m)
+  p <- rep(0, m)
 
   # Calculate Ai
   for (i in 1:m) {
     Ai[i] <- sqrt((lambda[i] - mu - psi)^2 + 4 * lambda[i] * psi)
   }
 
-  calc_Bi <- function(lambda, mu, psi, rho, A, p0) {
-    return(((1 - 2 * p0 * (1 - rho)) * lambda + mu + psi) / A)
+  calc_Bi <- function(lambda, mu, psi, rho, A, p) {
+    return(((1 - 2 * p * (1 - rho)) * lambda + mu + psi) / A)
   }
 
-  calc_p0 <- function(lambda, mu, psi, A, B, t, ti) {
+  calc_p <- function(lambda, mu, psi, A, B, t, ti) {
     p <- (lambda + mu + psi - A * (exp(A * (t - ti)) * (1 + B) - (1 - B)) / (exp(A * (t - ti)) * (1 + B) + (1 - B))) / (2 * lambda)
     return(p)
   }
 
-  # Calculate last Bi (where p0[m - 1] = 1)
-  Bi[m] <- calc_Bi(lambda[m], mu, psi, rho, Ai[m], 1)
+  # Calculate last Bi (where p_m+1(t_m) = 1)
+  Bi[m - 1] <- calc_Bi(lambda[m - 1], mu, psi, rho, Ai[m - 1], 1)
+  p[m] <- 1
 
-  # Calculate Bi and p0 moving from last to first time interval
+  # Calculate Bi and p moving from last to first time interval
   for (i in rev(1:(m - 1))) {
-    p0[i + 1] <- calc_p0(lambda[i + 1], mu, psi, Ai[i + 1], Bi[i + 1], times[i + 1], times[i])
-    if (i > 0) {
-      Bi[i] <- calc_Bi(lambda[i], mu, psi, rho, Ai[i], p0[i + 1])
+    p[i] <- calc_p(lambda[i], mu, psi, Ai[i], Bi[i], times[i + 1], times[i])
+    if (i > 1) {
+      Bi[i - 1] <- calc_Bi(lambda[i - 1], mu, psi, rho, Ai[i - 1], p[i])
     }
   }
 
   # Summarize results
-  p0_results_tmp <- data.frame(
-    week = breakpoint_days[1:m],
-    prob_being_sampled = 1 - p0,
+  p_results_tmp <- data.frame(
+    week = breakpoint_days,
+    prob_being_sampled = 1 - p,
     chains_assumption = case_when(idx == 1 ~ "min", T ~ "max")
+  ) %>% left_join(
+    re_by_week %>% 
+      mutate(week = as.Date(date), re_median = median) %>% 
+      select(week, re_median)
   )
 
   if (idx == 1) {
-    p0_results <- p0_results_tmp %>% 
-      left_join(
-        re_by_week_min %>% 
-          mutate(week = as.Date(date), re_median = median) %>% 
-          select(week, re_median)
-      )
+    p_results <- p_results_tmp
   } else {
-    p0_results <- rbind(p0_results, p0_results_tmp %>% 
-      left_join(
-        re_by_week_max %>% 
-          mutate(week = as.Date(date), re_median = median) %>% 
-          select(week, re_median)
-      )
-    )
+    p_results <- rbind(p_results, p_results_tmp)
   }
 }
 
 # Plot probability of an introduction being sampled over time
-ggplot(data = p0_results, aes(x = week)) +
+ggplot(data = p_results, aes(x = week)) +
   geom_step(aes(y = prob_being_sampled, color = "Probability of introduction being sampled")) +
   geom_step(aes(y = re_median, color = "Median Re estimate")) +
   facet_grid(chains_assumption ~ ., labeller = labeller(chains_assumption = chain_assumption_labs)) +
@@ -333,7 +328,7 @@ for (delay in plausible_delays) {
     left_join(day_to_week) %>%
     group_by(week, chains_assumption) %>%
     summarise(introductions_by_week_raw = n(), .groups = "drop") %>%
-    left_join(p0_results %>% mutate(week = as.Date(week))) %>%
+    left_join(p_results %>% mutate(week = as.Date(week))) %>%
     mutate(introductions_by_week = introductions_by_week_raw / prob_being_sampled) %>%
     mutate(date = week)
 
@@ -395,7 +390,10 @@ for (delay in plausible_delays) {
   }
 }
 
-# Extract best-fit delays and coefficients
+# Extract best-fit RMSE, delays, and coefficients
+best_rmse_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(RMSE_max))
+best_rmse_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(RMSE_min))
+
 cases_coeff_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(cases_coeff_max))
 cases_coeff_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(cases_coeff_min))
 cases_coeff_max_fit_after <- unlist(
@@ -411,14 +409,14 @@ cases_delay_max_fit_after <- unlist(results %>% top_n(n = 1, wt = -RMSE_max_fit_
 cases_delay_min_fit_after <- unlist(results %>% top_n(n = 1, wt = -RMSE_min_fit_after) %>% select(delay))
 
 # Plot best-fit models and predictions
-get_predictions <- function(chain_summary_stats, day_to_week, p0_results, cases_delay, cases_coeff, chains) {
+get_predictions <- function(chain_summary_stats, day_to_week, p_results, cases_delay, cases_coeff, chains) {
   predictions <- chain_summary_stats %>%
     mutate(date = as.Date(first_sample_date) - cases_delay) %>%
     filter(chains_assumption == chains) %>%
     left_join(day_to_week) %>%
     group_by(week) %>%
     summarise(introductions_by_week_raw = n(), .groups = "drop") %>%
-    full_join(p0_results %>% mutate(week = as.Date(week)) %>% filter(chains_assumption == chains)) %>%
+    full_join(p_results %>% mutate(week = as.Date(week)) %>% filter(chains_assumption == chains)) %>%
     replace_na(replace = list("introductions_by_week_raw" = 0)) %>%
     mutate(introductions_by_week = introductions_by_week_raw / prob_being_sampled) %>%
     mutate(date = week) %>%
@@ -429,19 +427,19 @@ get_predictions <- function(chain_summary_stats, day_to_week, p0_results, cases_
 }
 
 data_max <- get_predictions(
-  chain_summary_stats, day_to_week, p0_results, cases_delay_max, cases_coeff_max, "max"
+  chain_summary_stats, day_to_week, p_results, cases_delay_max, cases_coeff_max, "max"
 ) %>% rename(introductions_by_week_max = introductions_by_week, predictions_max = predictions)
 
 data_min <- get_predictions(
-  chain_summary_stats, day_to_week, p0_results, cases_delay_min, cases_coeff_min, "min"
+  chain_summary_stats, day_to_week, p_results, cases_delay_min, cases_coeff_min, "min"
 ) %>% rename(introductions_by_week_min = introductions_by_week, predictions_min = predictions)
 
 data_max_fit_after <- get_predictions(
-  chain_summary_stats, day_to_week, p0_results, cases_delay_max_fit_after, cases_coeff_max_fit_after, "max"
+  chain_summary_stats, day_to_week, p_results, cases_delay_max_fit_after, cases_coeff_max_fit_after, "max"
 ) %>% rename(introductions_by_week_max = introductions_by_week, predictions_max = predictions)
 
 data_min_fit_after <- get_predictions(
-  chain_summary_stats, day_to_week, p0_results, cases_delay_min_fit_after, cases_coeff_min_fit_after, "min"
+  chain_summary_stats, day_to_week, p_results, cases_delay_min_fit_after, cases_coeff_min_fit_after, "min"
 ) %>% rename(introductions_by_week_min = introductions_by_week, predictions_min = predictions)
 
 introductions_vs_indicence_data <- merge(data_max, data_min) %>% full_join(case_data_base)
@@ -526,7 +524,9 @@ introsavertedmin <- unlist(prediced_introductions_averted$predicted_introduction
 introsavertedaspermax <- unlist(prediced_introductions_averted_as_per$predicted_introductions_averted_max_asper)
 introsavertedaspermin <- unlist(prediced_introductions_averted_as_per$predicted_introductions_averted_min_asper)
 
-con <- file("manuscript/intoductions_by_incidence_model_fit_after.tex", open = "w")
+con <- file("manuscript/intoductions_by_incidence_model.tex", open = "w")
+writeLines(text = paste0("\\newcommand\\bestrmsemax{", signif(best_rmse_max, digits = 2), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\bestrmsemin{", signif(best_rmse_min, digits = 2), "}"), con = con)
 writeLines(text = paste0("\\newcommand\\casescoeffmax{", signif(cases_coeff_max, digits = 2), "}"), con = con)
 writeLines(text = paste0("\\newcommand\\casescoeffmin{", signif(cases_coeff_min, digits = 2), "}"), con = con)
 writeLines(text = paste0("\\newcommand\\casesdelaymax{", cases_delay_max, "}"), con = con)
