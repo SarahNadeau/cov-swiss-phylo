@@ -109,9 +109,11 @@ line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
 
 ```{r}
 color_values <- c("conf_case_counts" = "grey", "TRUE" = model_type_colors[1], "FALSE" =  model_type_colors[2])
-color_labels <- c("conf_case_counts" = "Confirmed\ncases", 
-                  "TRUE" = "Model with\ndamping factor", 
-                  "FALSE" = "Model without\ndamping factor")
+color_labels_re <- c("conf_case_counts" = "Estimate based on\nconfirmed cases", 
+                  "TRUE" = "Pre-damping estimate based\non model with damping factor", 
+                  "FALSE" = "Estimate based on model\nwithout damping factor")
+color_labels_s <- c("TRUE" = "Estimate based\non model with damping factor", 
+                  "FALSE" = "Estimate based on model\nwithout damping factor")
 
 start_plot_date <- as.Date("2020-02-20")  # plot from first week we have data
 stop_plot_date <- as.Date("2020-11-30")  # plot until end of sampling period
@@ -129,8 +131,8 @@ re_plot <- ggplot(re_data_to_plot,
         data = line_list_re_data, 
         aes(date, ymin=ylow, ymax=yhigh, fill = 'conf_case_counts', color = 'conf_case_counts'), alpha = 0.5) + 
     geom_line(data = line_list_re_data, aes(color = 'conf_case_counts'), alpha = 0.5) +
-    scale_color_manual(name = NULL, values = color_values, labels = color_labels) + 
-    scale_fill_manual(name = NULL, values = color_values, labels = color_labels) + 
+    scale_color_manual(name = NULL, values = color_values, labels = color_labels_re) + 
+    scale_fill_manual(name = NULL, values = color_values, labels = color_labels_re) + 
     geom_hline(yintercept=1, linetype="dashed") +
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
@@ -148,8 +150,8 @@ samp_prop_data <- rbind(samp_prop_data, first_week_data)
 samp_prop_plot <- ggplot(samp_prop_data,
        aes(date, median, col=contact_tracing, fill=contact_tracing)) +
     tidybayes::geom_lineribbon(aes(ymin=low, ymax=high), alpha=0.5, step="vh") +  # dates are endpoint of each interval
-    scale_color_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
-    scale_fill_manual(name = NULL, values = color_values, labels = color_labels, limits = c("TRUE", "FALSE")) + 
+    scale_color_manual(name = NULL, values = color_values, labels = color_labels_s, limits = c("TRUE", "FALSE")) + 
+    scale_fill_manual(name = NULL, values = color_values, labels = color_labels_s, limits = c("TRUE", "FALSE")) + 
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
     labs(y = "Sampling probability", x = element_blank()) + 
@@ -293,14 +295,21 @@ system("cp figures/Re.pdf ../../../../figures/CHE_Re.pdf")
 
 Write out median Re estimates for correcting introduction estimates.
 Use estimates without damping factor, without sampling bound
-Dates are midpoint of interval
+Dates are start of interval
 ```{r}
+day_to_week <- read_csv(paste0(datadir, "/../sequences/date_to_week.csv"))
+Re_dates <- day_to_week %>%
+    distinct(week) %>%
+    filter(week<finalSampleDate) %>%
+    arrange(desc(row_number())) %>%
+    transmute(interval=row_number(), date=week)  # dates are the start of each interval
+
 re_data_all <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
 re_data_to_use <- re_data_all %>%
   filter(sampUB == "Without sampling bound", !contact_tracing)
 write.csv(
   x = re_data_to_use,
-  file = paste0(datadir, "/../re_by_week.csv"),
+  file = paste0(datadir, "/../re_by_interval_start.csv"),
   row.names = F
 )
 ```
