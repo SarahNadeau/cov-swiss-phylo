@@ -5,12 +5,6 @@ date: "9/14/2021"
 output: html_document
 ---
 
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-```
-
-
 ```{r }
 library(ggplot2)
 library(dplyr)
@@ -18,6 +12,11 @@ library(treeio)
 library(ggtree)
 library(ggdist)
 library(cowplot)
+library(readr)
+library(tidyr)
+library(lubridate)
+library(treeio)
+library(ggtree)
 
 source("scripts/figures_shared_vars.R")
 ```
@@ -37,11 +36,81 @@ dummy_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
   mutate(Re = zoo::rollmean(x = median_R_mean, k = 7, fill = NA))
 ```
 
+## Get background Re data (real posterior sample)
+
+```{r}
+datadir <- "results_all/bdsky/log_files/SwissTransmissionChains/results/"
+
+# Load data
+skyline_data <- NULL
+for (clusters in c("min", "max")) {
+    for (contact_tracing in c(TRUE, FALSE)) {
+        for (sampUB in c("With sampling bound", "Without sampling bound" )) {
+            pattern <- paste0("Re_skyline.", clusters, "_chains",
+                              ".sampUB", ifelse(sampUB=="With sampling bound", "0.05", "1.0"),
+                              ".", ifelse(contact_tracing, "1", "0"),
+                              ".*.log")
+
+            data <- NULL
+            for (f in dir(datadir, pattern, full.names=TRUE)) {
+                print(f)
+                data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
+            }
+
+            Re_temp_data <- data %>%
+                pivot_longer(cols=starts_with("ReValues."),
+                             names_to="interval", values_to="value",
+                             names_prefix="ReValues.",
+                             names_transform=list(interval=as.integer)) %>%
+                select(Sample, interval, value) %>%
+                mutate(variable="Re")
+
+            sampProp_temp_data <- data %>%
+                pivot_longer(cols=starts_with("sampValues."),
+                             names_to="interval", values_to="value",
+                             names_prefix="sampValues.",
+                             names_transform=list(interval=as.integer)) %>%
+                select(Sample, interval, value) %>%
+                mutate(variable="sampProp")
+
+            skyline_temp_data <- bind_rows(Re_temp_data, sampProp_temp_data) %>%
+                group_by(interval, variable) %>%
+                summarize(median=median(value),
+                          low=quantile(value, 0.025),
+                          high=quantile(value, 0.975)) %>%
+                mutate(clusters=clusters,
+                       contact_tracing=contact_tracing,
+                       sampUB=sampUB)
+
+            skyline_data <- bind_rows(skyline_data, skyline_temp_data)
+        }
+    }
+}
+
+# Incoroporate interval dates
+finalSampleDate <- ymd("2020-11-30")
+day_to_week <- read_csv(paste0(datadir, "/../sequences/date_to_week.csv"))
+Re_dates <- day_to_week %>%
+    distinct(week) %>%
+    filter(week<finalSampleDate) %>%
+    arrange(desc(row_number())) %>%
+    transmute(interval=row_number(), date=week + 3.5)  # dates are the start of each interval, make the midpoint
+
+re_data <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
+
+# Get a single posterior sample
+real_re_data <- re_data %>%
+  filter(clusters == "max", sampUB == "Without sampling bound", contact_tracing) %>%
+  filter(date <= as.Date("2020-12-01"), date >= as.Date("2020-02-15")) %>%
+  mutate(Re = median) %>%
+  select(date, Re)
+```
+
 ## Get example introductions
 
 ```{r}
 # tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
-#                           "Re_skyline.max_chains.sampUB1.0.0.c2245.summary.tree"))
+#                             "Re_skyline.max_chains.sampUB1.0.0.c2245.summary.tree"))   # spring tree
 tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
                             "Re_skyline.max_chains.sampUB1.0.0.c2219.summary.tree"))
 tree_2 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
@@ -85,22 +154,26 @@ re_reduction_factor_summer <- 0.6
 re_reduction_factor_fall <- 0.9
 tip_color <- RColorBrewer::brewer.pal(n = 8, name = "Dark2")[2]
 
-background_re <- ggplot(data = dummy_re_data, aes(x = date, y = Re)) +
+# Repeat last week so that final ribbon shows
+last_week_data <- real_re_data %>% filter(interval == 1) %>% mutate(date = as.Date(tree_2_latest_sample) + 1)
+real_re_data_v2 <- rbind(real_re_data, last_week_data) 
+
+background_re <- ggplot(data = real_re_data_v2, aes(x = date, y = Re)) +
   geom_rect(aes(xmax = as.Date("2020-06-15"), xmin = as.Date("2020-02-15"), ymax = Inf, ymin = -Inf),
             fill = spring_col, alpha = 0.5) +  # Spring
   geom_rect(aes(xmax = as.Date("2020-09-30"), xmin = as.Date("2020-06-15"), ymax = Inf, ymin = -Inf),
             fill = summer_col, alpha = 0.1) +  # Summer
   geom_rect(aes(xmax = as.Date("2020-12-01"), xmin = as.Date("2020-09-30"), ymax = Inf, ymin = -Inf),
             fill = fall_col, alpha = 0.5) +  # Fall
-  geom_line() +
-  geom_rect(aes(xmax = as.Date(tree_1_latest_sample), xmin = as.Date(tree_1_mrca), ymax = 1.7, ymin = 0.7),
+  geom_step() +
+  geom_rect(aes(xmax = as.Date(tree_1_latest_sample), xmin = as.Date(tree_1_mrca), ymax = 2, ymin = 0),
             fill = "transparent",
             color = "black") +
-  geom_rect(aes(xmax = as.Date(tree_2_latest_sample), xmin = as.Date(tree_2_mrca), ymax = 1.7, ymin = 0.7),
+  geom_rect(aes(xmax = as.Date(tree_2_latest_sample), xmin = as.Date(tree_2_mrca), ymax = 2, ymin = 0),
             fill = "transparent",
             color = "black") +
-  annotate("text", x = as.Date(tree_1_mrca), y = 1.7, hjust = -0.2, vjust = 1.2, label= "B") +
-  annotate("text", x = as.Date(tree_2_mrca), y = 1.7, hjust = -0.2, vjust = 1.2, label= "C") + 
+  annotate("text", x = as.Date(tree_1_mrca), y = 2, hjust = -0.2, vjust = 1.2, label= "B") +
+  annotate("text", x = as.Date(tree_2_mrca), y = 2, hjust = -0.2, vjust = 1.2, label= "C") + 
   scale_x_date(date_breaks = "1 month", date_labels = "%b", expand = c(0, 0)) +
   labs(y = re_background_ylab) + 
   shared_theme + 
@@ -126,34 +199,47 @@ tree_plot_2 <- ggtree(tree_2, mrsd = tree_2_latest_sample, as.Date = T) +
   methods_fig_theme + 
   tree_theme
 
+# Make Re data daily in order to apply rate shift
+real_re_data_daily <- real_re_data_v2 %>%
+  mutate(date = as.Date(date) - 3.5) %>%  # make dates the start of each interval
+  ungroup %>%
+  complete(date = seq.Date(min(date), max(date), by = "day")) %>%
+  arrange(date) %>%
+  mutate(Re_filled = zoo::na.locf(Re)) %>%
+  mutate(date = date + 3.5)  # make dates midpoint of each interval again
+
 tree_1_re <- ggplot(
   data = rbind(
-    dummy_re_data %>% 
+    real_re_data_daily %>% 
       filter(date > tree_1_mrca - 1, date <= tree_1_rate_shift) %>%
-      mutate(Re_transformed = Re),
-    dummy_re_data %>% 
-      filter(date >= tree_1_rate_shift, date <= tree_1_latest_sample) %>%
-      mutate(Re_transformed = Re * re_reduction_factor_summer)),
+      mutate(Re_transformed = Re_filled),
+     real_re_data_daily %>% 
+      filter(date >= tree_1_rate_shift) %>%
+      mutate(Re_transformed = Re_filled * re_reduction_factor_summer)),
   aes(x = date, y = Re_transformed)) + 
   scale_x_date(expand = c(0,0), date_labels = "%d %b", limits = c(as.Date(tree_1_mrca) - 1, as.Date(tree_1_latest_sample) + 1)) +
   labs(y = re_subset_ylab) + 
-  geom_line() + 
+  lims(y = c(0, 2)) + 
+  geom_vline(xintercept = tree_1_rate_shift, linetype = "dashed") + 
+  geom_step() + 
   shared_theme + 
   methods_fig_theme + 
   re_subset_theme
 
 tree_2_re <- ggplot(
   data = rbind(
-    dummy_re_data %>% 
+    real_re_data_daily %>%
       filter(date > tree_2_mrca - 1, date <= tree_2_rate_shift) %>%
-      mutate(Re_transformed = Re),
-    dummy_re_data %>% 
-      filter(date >= tree_2_rate_shift, date <= tree_2_latest_sample) %>%
-      mutate(Re_transformed = Re * re_reduction_factor_fall)),
+      mutate(Re_transformed = Re_filled),
+    real_re_data_daily %>% 
+      filter(date >= tree_2_rate_shift) %>%
+      mutate(Re_transformed = Re_filled * re_reduction_factor_fall)),
   aes(x = date, y = Re_transformed)) +
   scale_x_date(expand = c(0,0), date_labels = "%d %b", limits = c(as.Date(tree_2_mrca) - 1, as.Date(tree_2_latest_sample) + 1)) +
   labs(y = re_subset_ylab) +
-  geom_line() + 
+  lims(y = c(0, 2)) + 
+  geom_vline(xintercept = tree_2_rate_shift, linetype = "dashed") + 
+  geom_step() + 
   shared_theme + 
   methods_fig_theme + 
   re_subset_theme
