@@ -3,15 +3,11 @@ title: "Chain descriptions"
 output: pdf_document
 ---
 
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-```
-
 ```{r, include=FALSE}
 require(dplyr)
 require(ggplot2)
 require(xtable)
+require(tidyr)
 source("../sars_cov_2/grapevine/database/R/utility.R")
 source("../sars_cov_2/grapevine/utility_functions.R")
 source("../sars_cov_2/grapevine/generate_figures/functions.R")
@@ -21,7 +17,7 @@ source("scripts/figures_shared_vars.R")
 Load data
 
 ```{r}
-workdir <- "results_main"
+workdir <- "results_all/2021-08-10_for_manuscript_rep_1"
 outdir <- paste(workdir, "output", sep = "/")
 outdir <- "figures"
 grapevine_results <- load_grapevine_results(
@@ -44,7 +40,7 @@ chain_summary_stats <- samples %>%
     last_sample_month = format(last_sample_date, "%Y-%m-01"),
     size = n(),
     .groups = "drop") %>%
-  mutate(time_to_last_sample = difftime(last_sample_date, first_sample_date, units = "days"))
+  mutate(time_to_last_sample = as.integer(difftime(last_sample_date, first_sample_date, units = "days")))
 
 chain_longevity_stats <- chain_summary_stats %>%
   mutate(first_sample_month_tmp = first_sample_month) %>%
@@ -184,18 +180,18 @@ chain_size_dist_data <- chain_summary_stats %>%
     mutate(n_chains_greater_than_eq_to = cumsum(n_chains))
 ggplot(
   data = chain_size_dist_data,
-  aes(x = size, y = n_chains_greater_than_eq_to)) + 
+  aes(x = size, y = n_chains_greater_than_eq_to)) +
   geom_point() + 
-  scale_x_continuous(trans = "log") + 
-  scale_y_continuous(trans = "log") + 
-  facet_grid(. ~ chains_assumption) + 
+  scale_x_continuous(trans = "log") +
+  scale_y_continuous(trans = "log") +
+  facet_grid(. ~ chains_assumption) +
   geom_vline(xintercept = 50, linetype = "dashed")
 
 # fit power-law coefficient to compare to UK analysis
 # want to fit P[X >= x] ~ X^-alpha
-# from poweRlaw tutorial: 
-# The Value column gives the number of times that particular word occurs. 
-# We can fit a discrete power law in the usual waym_sp = displ$new(swiss_prot$Value)
+# from poweRlaw tutorial:
+# The Value column gives the number of times that particular word occurs.
+# We can fit a discrete power law in the usual way: m_sp = displ$new(swiss_prot$Value)
 library(poweRlaw)
 power_law_data <- chain_summary_stats %>%
   filter(chains_assumption == "max", size <= 50) %>%
@@ -205,7 +201,7 @@ power_law_data <- chain_summary_stats %>%
   mutate(n_chains_greater_than_eq_to = cumsum(n_chains))
 m_pl <- displ$new(power_law_data$n_chains_greater_than_eq_to)
 m_pl$setXmin(1)
-print(paste("max chains scaling parameter  estimate 1 <= x <= 50:", estimate_pars(m_pl)$pars))
+print(paste("max chains scaling parameter estimate 1 <= x <= 50:", estimate_pars(m_pl)$pars))
 
 power_law_data <- chain_summary_stats %>%
   filter(chains_assumption == "max", size > 50) %>%
@@ -216,7 +212,7 @@ power_law_data <- chain_summary_stats %>%
 if (nrow(power_law_data) > 1) {
   m_pl <- displ$new(power_law_data$n_chains_greater_than_eq_to)
   m_pl$setXmin(1)
-  print(paste("max chains scaling parameter  estimate x > 50:", estimate_pars(m_pl)$pars))
+  print(paste("max chains scaling parameter estimate x > 50:", estimate_pars(m_pl)$pars))
 } else {
   print("< 2 max chains with x > 50")
 }
@@ -229,7 +225,7 @@ power_law_data <- chain_summary_stats %>%
   mutate(n_chains_greater_than_eq_to = cumsum(n_chains))
 m_pl <- displ$new(power_law_data$n_chains_greater_than_eq_to)
 m_pl$setXmin(1)
-print(paste("min chains scaling parameter  estimate 1 <= x <= 50:", estimate_pars(m_pl)$pars))
+print(paste("min chains scaling parameter estimate 1 <= x <= 50:", estimate_pars(m_pl)$pars))
 
 power_law_data <- chain_summary_stats %>%
   filter(chains_assumption == "min", size > 50) %>%
@@ -240,7 +236,7 @@ power_law_data <- chain_summary_stats %>%
 if (nrow(power_law_data) > 1) {
   m_pl <- displ$new(power_law_data$n_chains_greater_than_eq_to)
   m_pl$setXmin(1)
-  print(paste("min chains scaling parameter  estimate x > 50:", estimate_pars(m_pl)$pars))
+  print(paste("min chains scaling parameter estimate x > 50:", estimate_pars(m_pl)$pars))
 } else {
   print("< 2 min chains with x > 50")
 }
@@ -251,6 +247,56 @@ with a change in slope at ~ chain size 50.
 The scaling factors I estimate are much higher
 than his though, especially for small chain sizes. So, Swiss chain 
 sizes decay more sharply (fewer larger chains) than UK chains.
+
+[1] "max chains scaling parameter estimate 1 <= x <= 50: 1.25129785058669"
+[1] "max chains scaling parameter estimate x > 50: 1.55158792060696"
+[1] "min chains scaling parameter estimate 1 <= x <= 50: 1.24338039151073"
+[1] "min chains scaling parameter estimate x > 50: 1.3738905482396"
+
+Did introduction size distribution change around lockdown?
+
+```{r}
+date_cutoff <- as.Date("2020-04-15")
+chain_summary_stats_tmp <- chain_summary_stats %>%
+  mutate(
+    period = case_when(
+      last_sample_date <= date_cutoff ~ "early",
+      first_sample_date >= date_cutoff ~ "late",
+      T ~ "spanning"
+    )
+  )
+
+ggplot(
+  data = chain_summary_stats_tmp,
+  aes(x = size)) +
+  facet_grid(period ~ chains_assumption) +
+  geom_histogram()
+
+
+early_chain_size_dist_data <- chain_summary_stats %>%
+    filter(last_sample_date <= date_cutoff) %>%
+    group_by(chains_assumption, size) %>%
+    summarise(n_chains = n()) %>%
+    arrange(desc(size)) %>%
+    mutate(n_chains_greater_than_eq_to = cumsum(n_chains)) %>%
+    mutate(period = "early")
+late_chain_size_dist_data <- chain_summary_stats %>%
+    filter(first_sample_date >= date_cutoff) %>%
+    group_by(chains_assumption, size) %>%
+    summarise(n_chains = n()) %>%
+    arrange(desc(size)) %>%
+    mutate(n_chains_greater_than_eq_to = cumsum(n_chains)) %>%
+    mutate(period = "late")
+
+ggplot(
+  data = rbind(early_chain_size_dist_data, late_chain_size_dist_data),
+  aes(x = size, y = n_chains_greater_than_eq_to)) +
+  geom_point() + 
+  scale_x_continuous(trans = "log") +
+  scale_y_continuous(trans = "log") +
+  facet_grid(period ~ chains_assumption) +
+  geom_vline(xintercept = 40, linetype = "dashed")
+```
 
 Plot chain longevity
 
