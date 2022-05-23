@@ -1,0 +1,180 @@
+---
+title: "Validate NZL results"
+author: nadeaus
+date: 02.05.21
+output: html_notebook
+---
+
+This script is to check estimated NZL transmission chains against data provided by NZL sequencers on case origins.
+
+```{r, include=FALSE}
+require(dplyr)
+require(tidyr)
+require(ggplot2)
+source("../sars_cov_2/grapevine/utility_functions.R")
+source("../sars_cov_2/grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+```
+
+Load grapevine data
+
+```{r}
+workdir <- "results_all/2021-08-10_nzl"
+outdir <- paste(workdir, "output", sep = "/")
+grapevine_results <- load_grapevine_results(
+  workdir = workdir,
+  min_chain_size = 1,
+  viollier_only = F)
+```
+
+Load validation data
+
+```{r}
+case_info <- read.csv(file = "data/2020_data_request_NZL.csv") %>% mutate(date_collected = as.Date(date_collected))
+```
+
+Merge validation data with estimated introductions and summarize
+
+```{r}
+sample_results <- merge(
+  x = grapevine_results$samples, y = case_info,
+  by.x = "gisaid_epi_isl", by.y = "gisaid_acc",
+  all.x = T, all.y = F)
+
+# How many cases from what source?
+table(sample_results$case_source, sample_results$chains_assumption)
+
+# Any cases where dates don't match between GISAID and case info? A: no
+if (!(nrow(sample_results %>% filter(date != date_collected)) == 0)) {
+  warning("NZL line list data doesn't match GISAID dates!")
+}
+
+# Add introduction size information
+introduction_sizes <- sample_results %>%
+  group_by(chains_assumption, tree, chain_idx) %>%
+  summarize(introduction_size = n())
+sample_results_with_size <- merge(sample_results, introduction_sizes) %>%
+  mutate(is_singleton = case_when(introduction_size == 1 ~ "singleton", T ~ "chain"))
+# How many cases are singletons (no useful validation information)
+table(sample_results_with_size$is_singleton, sample_results$chains_assumption, sample_results$case_source)
+
+# Look at introductions with >1 case
+to_plot <- sample_results_with_size %>%
+  filter(chains_assumption == "max", introduction_size > 1) %>%
+  mutate(introduction = paste0(tree, ".", chain_idx))
+ggplot(
+  data = to_plot,
+  aes(x = date, y = division, color = case_source)) +
+  geom_point() +
+  facet_wrap(. ~ introduction)
+ggsave("figures/NZL_validation_max.png", width = 15, height = 10, units = "in")
+
+to_plot <- sample_results_with_size %>%
+  filter(chains_assumption == "min", introduction_size > 1) %>%
+  mutate(introduction = paste0(tree, ".", chain_idx))
+ggplot(
+  data = to_plot,
+  aes(x = date, y = division, color = case_source)) +
+  geom_point() +
+  facet_wrap(. ~ introduction)
+ggsave("figures/NZL_validation_min.png", width = 15, height = 10, units = "in")
+```
+
+Evaluate validation metrics
+```{r}
+chains_assumptions <- c("max", "min")
+for (chains_assumption_to_validate in chains_assumptions) {
+  res <- sample_results_with_size %>% filter(chains_assumption == chains_assumption_to_validate)
+
+  # total MIQ
+  total_miq <- res %>% filter(case_source == "MIQ")
+
+  # singleton MIQ
+  singleton_miq <- res %>% filter(introduction_size == 1, case_source == "MIQ")
+
+  # single-facility outbreaks
+  tmp <- res %>%
+    group_by(tree, chain_idx) %>%
+    mutate(all_MIQ = all(case_source == "MIQ"), n_div = length(unique(division)))
+  tmp2 <- merge(res, tmp)
+  single_MIQ_facilities_samples <- tmp2 %>% filter(introduction_size > 1, all_MIQ, n_div == 1)
+  single_facility_outbreaks <- tmp2 %>%
+    filter(introduction_size > 1, all_MIQ, n_div == 1) %>%
+    group_by(tree, chain_idx) %>%
+    summarise(
+      outbreak_length_days = as.integer(difftime(max(date), min(date), units = "days")),
+      outbreak_size = n()
+    )
+  print(paste(
+    "Avg length of single-facility outbreaks under", chains_assumption_to_validate, "assumption:", 
+    mean(single_facility_outbreaks$outbreak_length_days)
+  ))
+  print(paste(
+    "Avg size of single-facility outbreaks under", chains_assumption_to_validate, "assumption:", 
+    mean(single_facility_outbreaks$outbreak_size)
+  ))
+  ggplot(data = single_facility_outbreaks, aes(x = outbreak_length_days)) + 
+    geom_histogram()
+  ggsave(
+    paste0("figures/NZL_validation_MIQ_outbreak_lengths_", chains_assumption_to_validate, ".png"), 
+    height = 5, width = 5, units = "in"
+  )
+  ggplot(data = single_facility_outbreaks, aes(x = outbreak_size)) + 
+    geom_histogram()
+  ggsave(
+    paste0("figures/NZL_validation_MIQ_outbreak_sizes_", chains_assumption_to_validate, ".png"), 
+    height = 5, width = 5, units = "in"
+  )
+
+  # multiple quarantine facilities
+  mult_MIQ_facilities_samples <- tmp2 %>% filter(n_div > 1, all_MIQ)
+
+  # community overspill
+  tmp <- res %>%
+    group_by(tree, chain_idx) %>%
+    mutate(
+      has_MIQ = any(case_source == "MIQ"), 
+      has_community = any(case_source == "Community")
+    )
+  tmp2 <- merge(res, tmp)
+
+  # plausible community overspill
+  tmp <- res %>%
+    group_by(tree, chain_idx) %>%
+    slice_max(order_by = desc(date), n = 1) %>%
+    group_by(tree, chain_idx) %>%
+    slice_max(order_by = gisaid_epi_isl, n = 1) %>%  # take a random sample if >1 are tied for first sample date
+    mutate(first_case_source = case_source) %>%
+    select(first_case_source, tree, chain_idx)
+
+  tmp3 <- merge(tmp2, tmp)
+
+  plausible_community_overspill <- tmp3 %>%
+    filter(has_MIQ, has_community, first_case_source == "MIQ", case_source == "MIQ")
+
+  # inplausible community overspill
+  inplausible_community_overspill <- tmp3 %>%
+    filter(has_MIQ, has_community, first_case_source == "Community", case_source == "MIQ")
+
+  res_final <- rbind(
+    singleton_miq %>% select(gisaid_epi_isl) %>% mutate(category = "singleton_miq"),
+    single_MIQ_facilities_samples %>% select(gisaid_epi_isl) %>% mutate(category = "single_MIQ_facilities_samples"),
+    mult_MIQ_facilities_samples %>% select(gisaid_epi_isl) %>% mutate(category = "mult_MIQ_facilities_samples"),
+    plausible_community_overspill %>% select(gisaid_epi_isl) %>% mutate(category = "plausible_community_overspill"),
+    inplausible_community_overspill %>% select(gisaid_epi_isl) %>% mutate(category = "inplausible_community_overspill")
+  )
+
+  nrow(res_final) == nrow(total_miq)
+
+  miq_validation_summary <- res_final %>%
+    group_by(category) %>% 
+    summarise(n_miq_samples = n(), percent_miq_samples = round(n() / nrow(total_miq), digits = 2))
+    
+  write.csv(
+    miq_validation_summary, 
+    paste0("tables/NZL_MIQ_validation_", chains_assumption_to_validate, ".csv"), 
+    row.names = F
+  )
+}
+
+```
