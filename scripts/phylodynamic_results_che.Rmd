@@ -133,7 +133,7 @@ re_plot <- ggplot(re_data_to_plot,
     geom_line(data = line_list_re_data, aes(color = 'conf_case_counts'), alpha = 0.5) +
     scale_color_manual(name = NULL, values = color_values, labels = color_labels_re) + 
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels_re) + 
-    geom_hline(yintercept=1, linetype="dashed") +
+    # geom_hline(yintercept=1, linetype="dashed") +
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
     labs(y = "Effective reproductive number", x = element_blank()) + 
@@ -143,8 +143,8 @@ ggsave("figures/CHE_Re.pdf", width=double_col_width, height=single_col_width, un
 
 # Repeat first week so that first ribbon shows
 samp_prop_data <- skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates)
-max_interval <- max(samp_prop_data_1$interval)
-first_week_data <- samp_prop_data_1 %>% filter(interval == max_interval) %>% mutate(date = start_plot_date)
+max_interval <- max(samp_prop_data$interval)
+first_week_data <- samp_prop_data %>% filter(interval == max_interval) %>% mutate(date = start_plot_date)
 samp_prop_data <- rbind(samp_prop_data, first_week_data)
 
 samp_prop_plot <- ggplot(samp_prop_data,
@@ -155,6 +155,8 @@ samp_prop_plot <- ggplot(samp_prop_data,
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
     labs(y = "Sampling probability", x = element_blank()) + 
+    lims(y = c(0, 1)) + 
+    geom_hline(data = . %>% filter(interval == 1, sampUB == "With sampling bound"), aes(yintercept = 0.05), linetype = "dashed") + 
     shared_theme + 
     theme(legend.position = "bottom")
 ggsave("figures/CHE_sampProp.pdf", width=double_col_width, height=single_col_width, units="cm")
