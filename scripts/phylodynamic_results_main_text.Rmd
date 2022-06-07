@@ -5,12 +5,6 @@ date: "9/8/2021"
 output: html_document
 ---
 
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics/results_all/bdsky/log_files/")
-```
-
-
 ```{r }
 library(tidyverse)
 library(lubridate)
@@ -18,7 +12,10 @@ library(ggdist)
 library(cowplot)
 library(zoo)
 
-source("../../../scripts/figures_shared_vars.R")
+source("scripts/figures_shared_vars.R")
+
+datadir_che <- "results_all/bdsky/log_files/SwissTransmissionChains/results/"
+datadir_nzl <- "results_all/bdsky/log_files/NZTransmissionChains/results/"
 ```
 
 # Load CT data
@@ -35,7 +32,7 @@ for (clusters in c("min", "max")) {
             print(pattern)
 
             data <- NULL
-            for (f in dir("NZTransmissionChains/results", pattern, full.names=TRUE)) {
+            for (f in dir(datadir_nzl, pattern, full.names=TRUE)) {
                 data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
             }
 
@@ -69,7 +66,7 @@ for (clusters in c("min", "max")) {
                               ".*.log")
             
             data <- NULL
-            for (f in dir("SwissTransmissionChains/results", pattern, full.names=TRUE)) {
+            for (f in dir(datadir_che, pattern, full.names=TRUE)) {
               data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
             }
             
@@ -234,7 +231,59 @@ bottom_row <- plot_grid(
 # then combine with the top row for final plot
 plot_grid(top_row, bottom_row, ct_legend, rel_heights = c(1, 1, 0.3), ncol = 1)
 
-ggsave("../../../figures/contact_tracing_factors_no_sampUB_compared_to_cases.png",
+ggsave("figures/contact_tracing_factors_no_sampUB_compared_to_cases.pdf",
        width = double_col_width, height = single_col_width, units = "cm")
 ```
 
+## All-analyses damping factor figure for supplemental
+
+```{r}
+nzl_ct_supp <- ggplot() +  
+  geom_histogram(
+    data = CT_data %>% filter(country == "New Zealand", contact_tracing == "TRUE", clusters == "max"), 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
+  geom_histogram(
+    data = CT_data %>% filter(country == "New Zealand", contact_tracing == "TRUE", clusters == "min"), 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
+  facet_grid(season ~ sampUB) + 
+  scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
+  shared_theme + 
+  # lims(x = c(0, NA)) + 
+  labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
+
+che_ct_supp <- ggplot() +  
+  geom_histogram(
+    data = CT_data %>% filter(country == "Switzerland", contact_tracing == "TRUE", clusters == "max"),
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
+  geom_histogram(
+    data = CT_data %>% filter(country == "Switzerland", contact_tracing == "TRUE", clusters == "min"), 
+    aes(x = transmission_rate_decrease, fill = clusters), alpha = 0.5, bins = 30) + 
+  facet_grid(season ~ sampUB) + 
+  scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
+  shared_theme + 
+  # lims(x = c(0, NA)) + 
+  labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
+
+# Arrange both plots together
+require(cowplot)
+
+legend <- get_legend(che_ct_supp)
+
+plot_grid(
+  che_ct_supp + theme(legend.position = "none"), 
+  legend,
+  nzl_ct_supp + theme(legend.position = "none"), 
+  ncol = 2,
+  rel_widths = c(1, 0.35),
+  rel_heights = c(1.5, 1),
+  width = double_col_width,
+  labels = c("A", "", "B")
+)
+
+ggsave(
+  filename = "figures/contact_tracing_factor_for_supp.png",
+  width = double_col_width,
+  height = single_col_width * 1.75,
+  units = "cm"
+)
+```

@@ -60,8 +60,9 @@ early_introductions <- grapevine_results$samples %>%
     starts_before_1_mar = first_sample_date < as.Date("2020-03-01")
   )
 
-ggplot(data = early_introductions, aes(x = date, y = chain_idx_2, color = starts_before_1_mar)) +
-  facet_grid(chains_assumption ~ ., scales = "free") +
+ggplot(data = early_introductions, aes(x = date, y = chain_idx_2, color = size == 1)) +
+  facet_grid(chains_assumption ~ ., scales = "free_y", labeller = "label_both") +
+  geom_vline(xintercept = as.Date("2020-02-25"), linetype = "dashed") + 
   geom_point() +
   theme(legend.position = "bottom")
 
@@ -94,6 +95,17 @@ cases_summary <- cases_raw %>%
   mutate(weekly_avg_new_cases = zoo::rollmean(cases, 7, align = "center", na.pad = T))
 ```
 
+Get mean persistence across whole period
+```{r}
+chain_summary_stats %>%
+  group_by(chains_assumption) %>%
+  summarize(
+    mean_persistence = mean(time_to_last_sample),
+    sd_persistence = sd(time_to_last_sample),
+    median_persistence = median(time_to_last_sample)
+  )
+```
+
 Summarize introductions by first sample date, their persistence
 
 ```{r}
@@ -117,25 +129,6 @@ persistence_summary <- chain_summary_stats %>% # monthly summary
 max_date <- max(grapevine_results$samples$date) - 60
 persistence_summary[persistence_summary$date > max_date, "frac_60_day_persisters"] <- NA
 
-introduction_summary_v2 <- introduction_summary %>%
-  group_by(date) %>%
-  arrange(-introductions_by_first_sample_date) %>%
-  mutate(
-    which_most = chains_assumption[[1]],
-    max = introductions_by_first_sample_date[1],
-    min = introductions_by_first_sample_date[2]
-  )
-
-persistence_summary_v2 <- persistence_summary %>%
-  group_by(date) %>%
-  arrange(frac_60_day_persisters, chains_assumption) %>%
-  mutate(
-    which_most = chains_assumption[[1]],
-    min = frac_60_day_persisters[1],
-    max = frac_60_day_persisters[2]
-  ) %>%
-  filter(date < as.Date("2020-10-01"))
-
 highlight_data <- data.frame(
   date_start = as.Date(c("2020-03-13", "2020-03-17")),
   date_end = as.Date(c("2020-06-15", "2020-04-27")),
@@ -148,15 +141,21 @@ measures_fill_scale <- scale_fill_manual(values = c(
 ))
 
 introductions_through_time <- ggplot(
-  data = introduction_summary_v2,
-  aes(x = date)
+  data = introduction_summary,
+  aes(x = date, y = introductions_by_first_sample_date)
 ) +
-  geom_errorbar(aes(ymin = min, ymax = max), width = 5) +
+  geom_point(aes(color = chains_assumption, shape = chains_assumption)) + 
+  geom_line(aes(color = chains_assumption), linetype = "solid") + 
   scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
   ylim(0, NA) +
   xlab(NULL) +
-  ylab("Newly sampled\nintroductions") +
+  ylab("Newly sampled\nintroductions per week") +
   shared_theme +
+  scale_color_manual(
+    labels = chain_assumption_labs, 
+    values = chains_assumption_colors
+  ) +
+  scale_shape(labels = chain_assumption_labs) +
   measures_fill_scale +
   theme(legend.position = "bottom", legend.title = element_blank()) +
   geom_rect(
@@ -165,15 +164,21 @@ introductions_through_time <- ggplot(
   )
 
 persistence_through_time <- ggplot(
-  data = persistence_summary_v2,
-  aes(x = date)
+  data = persistence_summary  %>% filter(date < as.Date("2020-10-01")),  # don't plot within 60 days of end sampling period
+  aes(x = date, y = frac_60_day_persisters)
 ) +
-  geom_errorbar(aes(ymin = min, ymax = max), width = 5) +
+  geom_point(aes(color = chains_assumption, shape = chains_assumption)) + 
+  geom_line(aes(color = chains_assumption), linetype = "solid") + 
   scale_x_date(date_breaks = "1 month", date_labels = "%b.", limits = as.Date(c("2020-01-28", "2020-12-03"))) +
   ylim(0, NA) +
   xlab(NULL) +
-  ylab("Fraction of\nnew introductions\nthat persist 60 days") +
+  ylab("Fraction of newly\nsampled introductions\npersisting at least 60 days") +
   shared_theme +
+  scale_color_manual(
+    labels = chain_assumption_labs, 
+    values = chains_assumption_colors
+  ) +
+  scale_shape(labels = chain_assumption_labs) +
   measures_fill_scale +
   theme(legend.position = "bottom", legend.title = element_blank()) +
   geom_rect(
@@ -183,17 +188,6 @@ persistence_through_time <- ggplot(
 
 introductions_through_time
 persistence_through_time
-
-# Extract legend to plot seperately
-intervention_legend <- get_legend(
-  # create some space to the left of the legend
-  introductions_through_time +
-    guides(color = guide_legend(nrow = 1)) +
-    theme(legend.position = "bottom")
-)
-
-introductions_through_time <- introductions_through_time + theme(legend.position = "none")
-persistence_through_time <- persistence_through_time + theme(legend.position = "none")
 ```
 
 Calculate probability an introduction starting each week goes unsampled until end of sampling period
@@ -316,7 +310,7 @@ case_data_base <- cases_raw %>%
 stop_fit_date <- as.Date("2020-03-13")
 close_date <- as.Date("2020-03-13")
 re_open_date <- as.Date("2020-06-15")
-end_plot_date <- as.Date("2020-07-01")
+end_plot_date <- as.Date("2020-06-15")
 end_summer_holiday_date <- as.Date("2020-08-28")
 plausible_delays <- seq(from = 1, to = 18, by = 1)
 is_first <- T
@@ -443,45 +437,47 @@ data_min_fit_after <- get_predictions(
 ) %>% rename(introductions_by_week_min = introductions_by_week, predictions_min = predictions)
 
 introductions_vs_indicence_data <- merge(data_max, data_min) %>% full_join(case_data_base)
-# introductions_vs_indicence_data <- merge(data_max_fit_after, data_min_fit_after) %>% full_join(case_data_base)
+introductions_vs_incidence_data_long <- pivot_longer(
+  introductions_vs_indicence_data,
+  cols = c(introductions_by_week_max, introductions_by_week_min),
+  names_to = "chains_assumption",
+  values_to = "introductions_by_week",
+  names_prefix = "introductions_by_week_"
+)
 
 introductions_vs_indicence_model <- ggplot(
-  data = introductions_vs_indicence_data %>% filter(date <= end_plot_date),
+  data = introductions_vs_incidence_data_long %>% filter(date <= end_plot_date),
   aes(x = date)
 ) +
-  geom_errorbar(aes(
-    ymin = introductions_by_week_min,
-    ymax = introductions_by_week_max,
-    linetype = "Estimate range:\nfew to many introductions"
-  ),
-  width = 5
+  geom_point(aes(y = introductions_by_week, color = chains_assumption, shape = chains_assumption)) +
+  geom_line(
+    data = introductions_vs_incidence_data_long %>% filter(!is.na(introductions_by_week)),
+    aes(y = introductions_by_week, color = chains_assumption, linetype = "Phylogenetic estimate")
+  ) + 
+  geom_line(aes(y = predictions_min, color = "min", linetype = "Null model expectation")) +
+  geom_line(aes(y = predictions_max, color = "max", linetype = "Null model expectation")) +
+  scale_linetype_manual(
+    values = c("Phylogenetic estimate" = "solid", "Null model expectation" = "dashed")
+  ) + 
+  scale_color_manual(
+    labels = chain_assumption_labs, 
+    values = chains_assumption_colors
   ) +
-  geom_line(aes(y = predictions_min, linetype = "Null model")) +
-  geom_line(aes(y = predictions_max, linetype = "Null model")) +
+  scale_shape(labels = chain_assumption_labs) +
   scale_x_date(
     date_breaks = "1 week",
     date_labels = "%b. %d",
-    limits = c(as.Date("2020-02-24"), end_plot_date)
-  ) +
-  scale_fill_manual(
-    values = c("Predicted" = "grey70"),
-    name = element_blank()
-  ) +
-  scale_linetype_manual(values = c(
-    "Null model" = "dashed",
-    "Estimate range:\nfew to many introductions" = "solid"
-  )) +
-  scale_color_manual(
-    values = c("Estimate range:\nfew to many introductions" = "black"),
-    name = element_blank()
+    limits = c(as.Date("2020-02-24"), end_plot_date),
+    expand = c(0, 0)
   ) +
   shared_theme +
   theme(
+    legend.position = "bottom",
     axis.text.x = element_text(angle = 90, vjust = 0.5),
     legend.spacing.y = unit(0, "cm"),
     legend.title = element_blank()
   ) +
-  labs(x = element_blank(), y = "\nNew introductions\n(per week)") +
+  labs(x = element_blank(), y = "\nIntroductions per week") +
   geom_rect(
     inherit.aes = F,
     data = highlight_data %>% filter(event == "Borders closed"),
@@ -490,7 +486,15 @@ introductions_vs_indicence_model <- ggplot(
     alpha = 0.3
   )
 
-introductions_vs_indicence_model
+introductions_vs_indicence_model + guides(color = guide_legend(nrow = 2), linetype = guide_legend(nrow = 2))
+
+# # For all-europe fit
+# ggsave(
+#   filename = "figures/projected_introductions_all_europe.pdf", 
+#   width = single_col_width,
+#   height = single_col_width,
+#   units = "cm"
+# )
 ```
 
 Write out the model variables, number of introductions averted during the lockdown
@@ -584,7 +588,7 @@ for (idx in seq_along(dates)) {
 }
 
 null_model <- persistence_results %>%
-  filter(date <= as.Date("2020-07-01")) %>%
+  filter(date <= as.Date("2020-06-15")) %>%  # corresponds to end spring in phylodynamic analysis
   group_by(chains_assumption) %>%
   summarise(
     median = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[2],
@@ -592,23 +596,32 @@ null_model <- persistence_results %>%
     Q3 = quantile(x = days_continued_sampled, probs = c(0.25, 0.5, 0.75))[3]
   )
 
-persisence_over_time <- ggplot(data = persistence_results_smooth %>% filter(date <= as.Date("2020-07-01")), aes(x = date, fill = chains_assumption)) +
+persisence_over_time <- ggplot(data = persistence_results_smooth %>% filter(date <= as.Date("2020-06-15")), aes(x = date, fill = chains_assumption)) +
   geom_line(aes(y = median, color = chains_assumption)) +
   geom_ribbon(aes(ymin = Q1, ymax = Q3), alpha = 0.3) +
-  scale_x_date(date_breaks = "1 week", date_labels = "%b. %d", limits = c(as.Date("2020-02-24"), as.Date("2020-07-01"))) +
+  scale_x_date(
+    date_breaks = "1 week", 
+    date_labels = "%b. %d", 
+    limits = c(as.Date("2020-02-24"), as.Date("2020-06-15")),
+    expand = c(0, 0)
+  ) +
   scale_fill_manual(labels = chain_assumption_labs, values = chains_assumption_colors, aesthetics = c("fill", "color"), name = element_blank()) +
   shared_theme +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5), legend.title = element_blank()) +
+  theme(
+    legend.position = "bottom",
+    axis.text.x = element_text(angle = 90, vjust = 0.5), 
+    legend.title = element_blank()
+  ) +
   scale_linetype_manual(values = c("Null model" = "dashed")) +
-  labs(x = element_blank(), y = "\nPersistence\n(days)") +
+  labs(x = element_blank(), y = "Persistence in days") +
   geom_rect(
     inherit.aes = F, data = highlight_data %>% filter(event == "Partial lockdown"),
     aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf),
     fill = "grey",
     alpha = 0.3
   ) +
-  geom_hline(aes(yintercept = null_model$median[1], linetype = "Null model")) +
-  geom_hline(aes(yintercept = null_model$median[2], linetype = "Null model"))
+  geom_hline(aes(yintercept = null_model$median[1], linetype = "Null model", color = "max")) +
+  geom_hline(aes(yintercept = null_model$median[2], linetype = "Null model", color = "min"))
 
 persisence_over_time
 ```
@@ -659,16 +672,34 @@ close(con)
 Format comparative figure
 
 ```{r}
-right_col <- plot_grid(introductions_vs_indicence_model, persisence_over_time,
-  nrow = 2, align = "v", axis = "tb", labels = c("C", "D")
+# I have 3 legends, fill, colors, linetypes
+# Extract legend to plot seperately
+intervention_legend <- get_legend(
+  introductions_through_time +
+    guides(color = guide_legend(nrow = 2), linetype = "none") + 
+    theme(legend.position = "right")
 )
-left_col <- plot_grid(introductions_through_time, persistence_through_time,
-  nrow = 2, align = "v", axis = "tb", labels = c("A", "B")
+model_legend <- get_legend(
+  introductions_vs_indicence_model +
+    guides(fill = guide_legend(nrow = 2), color = "none", shape = "none") + 
+    theme(legend.position = "right")
+)
+legend_col <- plot_grid(NULL, intervention_legend, model_legend, NULL, ncol = 1, rel_heights = c(1, 1, 1, 0.6), align = "v")
+
+right_col <- plot_grid(
+  persistence_through_time + theme(legend.position = "none"), 
+  persisence_over_time + theme(legend.position = "none"),
+  nrow = 2, align = "v", axis = "tb", labels = c("B", "D")
+)
+left_col <- plot_grid(
+  introductions_through_time + theme(legend.position = "none"), 
+  introductions_vs_indicence_model + theme(legend.position = "none"),
+  nrow = 2, align = "v", axis = "tb", labels = c("A", "C")
 )
 
-top_row <- plot_grid(left_col, right_col, nrow = 1, rel_widths = c(0.7, 1))
+top_row <- plot_grid(left_col, right_col, nrow = 1, rel_widths = c(1, 1))
 
-plot_grid(top_row, intervention_legend, nrow = 2, rel_heights = c(1, 0.1))
+plot_grid(top_row, legend_col, ncol = 2, rel_widths = c(1, 0.2))
 
 ggsave("figures/introductions_and_persistence_v2.png",
   width = double_col_width * 1.5, height = single_col_width, units = "cm"

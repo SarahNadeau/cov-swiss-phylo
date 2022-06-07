@@ -99,3 +99,24 @@ ggsave(
         units = "cm"
 )
 ```
+
+Get pearson's R for larger introductions sampled in more cantons
+```{r}
+ggplot(data = divisions_per_introduction, aes(x = size, y = n_divisions)) + 
+  geom_point() + 
+  facet_grid(. ~ chains_assumption)
+
+many_cor_data <- divisions_per_introduction %>% filter(chains_assumption == "max")
+many_pearson_r <- cor(x = many_cor_data$size, y = many_cor_data$n_divisions, method = "pearson")
+
+few_cor_data <- divisions_per_introduction %>% filter(chains_assumption == "min")
+few_pearson_r <- cor(x = few_cor_data$size, y = few_cor_data$n_divisions, method = "pearson")
+
+# Write out results
+con <- file("manuscript/intro_size_vs_cantons_cor.tex", open = "w")
+
+writeLines(text = paste0("\\newcommand\\manyintropearsonr{", round(many_pearson_r, digits = 2), "}"), con = con)
+writeLines(text = paste0("\\newcommand\\fewintropearsonr{", round(few_pearson_r, digits = 2), "}"), con = con)
+
+close(con)
+```

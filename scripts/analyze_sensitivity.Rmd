@@ -82,16 +82,14 @@ relevant_run_info[relevant_run_info$sim_context == sim_context_to_replace, "sim_
 # Compare number of introductions across down-sampling of Swiss sequences
 
 ```{r}
-max_sampling_frac <- 0.05
-subsample_fractions <- seq(from = 0.01, to = 0.04, by = 0.01)
+subsample_fractions <- c(0.2, 0.4, 0.6, 0.8, 1)
 n_reps <- 50
 n_focal_sequences <- nrow(
   results$`2x_repMain analysis`$samples %>%
     filter(chains_assumption == "min"))
-n_seqs_to_keep <- c(round(subsample_fractions * n_focal_sequences / max_sampling_frac), n_focal_sequences)
+n_seqs_to_keep <- round(subsample_fractions * n_focal_sequences)
 full_samples <- results$`2x_repMain analysis`$samples
 
-subsample_fractions <- c(subsample_fractions, max_sampling_frac)
 for (i in 1:length(n_seqs_to_keep)) {
   for (j in 1:n_reps) {
     n_seqs <- n_seqs_to_keep[i]
@@ -121,15 +119,15 @@ subsample_results_long <- subsample_results %>%
                 statistic_desc = factor(
                         summary_statistic,
                         levels = c("number_chains", "mean_size"),
-                        labels = c("Estimated number of introductions", "Samples per introduction (mean)"))
+                        labels = c("Number of estimated introductions", "Mean sequences per introduction"))
         )
 
 # Plot # introductions with increasing # focal sequences
 sensitivity_subsampling <- ggplot(
   data = subsample_results_long,
-  aes(x = paste0(subsample * 100, "%\n(n =\n", n_focal_seqs, ")"), y = value)) +
+  aes(x = factor(n_focal_seqs), y = value)) +
   geom_boxplot(aes(color = chains_assumption)) +
-  labs(x = "Sub-sampling intensity", y = element_blank()) +
+  labs(x = "Number of analyzed Swiss sequences", y = element_blank()) +
   scale_color_manual(
           name = "Polytomy assumption",
           values = chains_assumption_colors,
@@ -176,7 +174,7 @@ to_plot_w_runtime_long <- to_plot_w_runtime %>%
           statistic_desc = factor(
           summary_statistic,
           levels = c("number_chains", "mean_size"),
-          labels = c("Estimated number of introductions", "Samples per introduction (mean)"))
+          labels = c("Number of estimated introductions", "Mean sequences per introduction"))
         )
 
 sensitivity_context_set_size <- ggplot(
@@ -257,7 +255,7 @@ to_plot_2_long <- to_plot_2 %>%
                 statistic_desc = factor(
                         summary_statistic,
                         levels = c("number_chains", "mean_size"),
-                        labels = c("Estimated number\nof introductions", "Samples per\nintroduction (mean)"))
+                        labels = c("Number of estimated\nintroductions", "Mean sequences\nper introduction"))
         )
 
 sensitivity_chain_defn <- ggplot(
@@ -268,9 +266,9 @@ sensitivity_chain_defn <- ggplot(
         shared_theme +
         scale_color_manual(name = "Polytomy assumption", values = chains_assumption_colors,
                            labels = chain_assumption_labs) +
-        ggtitle("(b) Maximum consecutive exports") +
+        ggtitle("Facets: maximum exports on one branch in an introduction") +
         theme(plot.title = element_text(hjust = 0.5, size = 11)) +
-        labs(x = "(a) Maximum number exports", y = element_blank()) +
+        labs(x = "Maximum total number of exports in an introduction", y = element_blank()) +
         lims(y = c(0, NA))
 ```
 Arrange all plots together
@@ -278,7 +276,7 @@ Arrange all plots together
 require(cowplot)
 
 plot_grid(sensitivity_chain_defn, sensitivity_context_set_size, sensitivity_subsampling,
-          nrow = 3, ncol = 1, rel_heights = c(0.7, 0.5, 0.5),
+          nrow = 3, ncol = 1, rel_heights = c(0.8, 0.5, 0.5),
           width = single_col_width,
           labels = c("A", "B", "C")
 )

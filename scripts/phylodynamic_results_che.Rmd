@@ -154,7 +154,7 @@ samp_prop_plot <- ggplot(samp_prop_data,
     scale_fill_manual(name = NULL, values = color_values, labels = color_labels_s, limits = c("TRUE", "FALSE")) + 
     facet_grid(rows=vars(clusters), cols=vars(sampUB), scales="free", labeller = labeller(clusters = chain_assumption_labs)) +
     scale_x_date(date_breaks="1 month", date_labels="%b", limits = c(start_plot_date, stop_plot_date)) +
-    labs(y = "Sampling probability", x = element_blank()) + 
+    labs(y = "Sampling proportion", x = element_blank()) + 
     lims(y = c(0, 1)) + 
     geom_hline(data = . %>% filter(interval == 1, sampUB == "With sampling bound"), aes(yintercept = 0.05), linetype = "dashed") + 
     shared_theme + 
@@ -194,7 +194,7 @@ for (clusters in c("min", "max")) {
                               ".*.log")
 
             data <- NULL
-            for (f in dir("results", pattern, full.names=TRUE)) {
+            for (f in dir(datadir, pattern, full.names=TRUE)) {
                 data <- bind_rows(data, read_tsv(f) %>% slice_tail(prop=0.9))
             }
 
@@ -237,7 +237,7 @@ ggplot() +
   shared_theme + 
   labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
 
-ggsave("figures/contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
+ggsave("figures/CHE_contact_tracing_factor.pdf", width = double_col_width, height = single_col_width * 0.75, units = "cm")
 ```
 
 ## Write out variables for manuscript, copy figures into manuscript figure directory
@@ -251,7 +251,10 @@ if (length(unique(re_peak$date)) != 1 | length(unique(re_after_peak$date)) != 1)
   stop("Week results in re_estimates.text won't be right, code doesn't handle max/mins on different weeks.")
 }
 
-con1 <- file("../../../../manuscript/re_estimates.tex", open = "w")
+con1 <- file("manuscript/re_estimates.tex", open = "w")
+re_peak_noCT <- rbind(re_after_peak, re_peak) %>% filter(!contact_tracing)
+write.table(x = re_peak_noCT, file = "manuscript/re_estimates.txt", row.names = F)
+
 repeakmin <- round(min(re_peak$median), digits = 1)
 repeakmax <- round(max(re_peak$median), digits = 1)
 reafterpeakmin <- round(min(re_after_peak$median), digits = 1)
@@ -267,12 +270,21 @@ writeLines(text = paste0("\\newcommand\\repeakweek{", repeakweek, "}"), con = co
 writeLines(text = paste0("\\newcommand\\reafterpeakweek{", reafterpeakweek, "}"), con = con1)
 close(con1)
 
-con <- file("../../../../manuscript/damping_factor_variables.tex", open = "w")
+con <- file("manuscript/damping_factor_variables.tex", open = "a")
 
 damping_factor_medians <- CT_data %>%
   filter(contact_tracing == "TRUE") %>%
   group_by(sampUB, clusters, season) %>%
-  summarize(median_damping_factor = median(value), .groups = "drop")
+  summarize(
+    median_damping_factor = median(value),
+    lowHPD_damping_factor = quantile(value, 0.025),
+    highHPD_damping_factor = quantile(value, 0.0975),
+    median_transmission_rate_decrease = median(transmission_rate_decrease),
+    lowHPD_transmission_rate_decrease = quantile(transmission_rate_decrease, 0.025),
+    highHPD_transmission_rate_decrease = quantile(transmission_rate_decrease, 0.975),
+    .groups = "drop"
+  )
+write.table(x = damping_factor_medians, file = "manuscript/damping_factor_variables.txt", row.names = F)
 
 summer_max_damping_percent_median_CHE_no_sampUB <- round(1 - unlist(damping_factor_medians %>%
   filter(sampUB == "Without sampling bound", clusters == "max", season == "Summer") %>%
@@ -289,10 +301,6 @@ writeLines(text = paste0("\\newcommand\\summermindampingpercentmedianCHEnosampUB
                          summer_min_damping_percent_median_CHE_no_sampUB, "}"), con = con)
 
 close(con)
-
-system("cp figures/contact_tracing_factor.pdf ../../../../figures/CHE_contact_tracing_factor.pdf")
-system("cp figures/sampProp.pdf ../../../../figures/CHE_sampProp.pdf")
-system("cp figures/Re.pdf ../../../../figures/CHE_Re.pdf")
 ```
 
 Write out median Re estimates for correcting introduction estimates.

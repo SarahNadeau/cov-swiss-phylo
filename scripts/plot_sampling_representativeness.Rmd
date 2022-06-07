@@ -1,0 +1,120 @@
+---
+title: "Plot sampling representativeness"
+author: "Sarah Nadeau"
+date: "6/4/2021"
+output: pdf_document
+---
+
+```{r, include=FALSE}
+require(dplyr)
+require(ggplot2)
+source("../sars_cov_2/grapevine/generate_figures/functions.R")
+source("scripts/figures_shared_vars.R")
+workdir <- "results_all/2021-08-10_for_manuscript_rep_1"
+```
+
+Load data
+
+```{r}
+grapevine_results <- load_grapevine_results(
+  workdir = workdir, 
+  min_chain_size = 1,
+  viollier_only = F)
+metadata <- load_sample_metadata(workdir = workdir)
+swiss_downsampling <- read.csv(file = paste0(workdir, "/tmp/alignments/CHE_downsampling_data.csv"))
+```
+
+Load cantonal population data
+```{r}
+pop_data_raw <- read.csv("data/PopulationAgeRangeSexData.csv")  # from https://www.covid19.admin.ch/api/data/20220531-47d2r524/downloads/sources-csv.zip
+cantonal_populations <- pop_data_raw %>% group_by(geoRegion) %>% summarize(pop = sum(pop))
+```
+
+Plot sampling representativeness
+
+```{r}
+phylogenetic_sample_info <- grapevine_results$samples %>% 
+    filter(
+        chains_assumption == "max", 
+        country == "CHE"
+    )
+nrow(phylogenetic_sample_info)
+phylodynamic_sample_info <- grapevine_results$samples %>% 
+    filter(
+        chains_assumption == "max", 
+        country == "CHE", 
+        date <= as.Date("2020-11-30"),
+        originating_lab == "Viollier AG",
+        submitting_lab == "Department of Biosystems Science and Engineering, ETH Zürich"
+    )
+nrow(phylodynamic_sample_info)
+
+first_week <- min(swiss_downsampling$week)
+swiss_downsampling_continuous_weeks <- swiss_downsampling %>%
+    mutate(week_since_start = as.double(difftime(week, first_week, units = "weeks"))) %>%
+    left_join(cantonal_populations, by = c("canton" = "geoRegion"))
+
+# Plot per-canton, per-person stratified spatio-temporal representativeness
+p1 <- ggplot(
+    data = swiss_downsampling_continuous_weeks %>% filter(canton != "CHE", week >= as.Date("2020-05-18")), 
+    aes(x = n_conf_cases / pop, color = week_since_start, y = n_to_sample)) + 
+    geom_point() + 
+    facet_wrap(. ~ canton) + 
+    scale_color_viridis_c(name = "Week", option = "magma", limits = c(0, 43)) + 
+    shared_theme + 
+    theme(legend.position = "bottom", axis.text.x = element_text(angle = 90, vjust = 0.5)) + 
+    guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5)) + 
+    labs(x = "No. confirmed cases", y = "No. analyzed sequences")
+
+# Plot per-canton, per-person stratified spatio-temporal representativeness differently
+p1_v2 <- ggplot(
+    data = swiss_downsampling_continuous_weeks %>% filter(canton != "CHE", week >= as.Date("2020-05-18")), 
+    aes(x = as.Date(week))) + 
+    geom_col(aes(y = n_to_sample, fill = "Analyzed sequences")) + 
+    geom_col(aes(y = -n_conf_cases * 10000 / pop, fill = "-Confirmed cases per 10000 population")) + 
+    facet_wrap(. ~ canton) + 
+    scale_color_viridis_c(name = "Week", option = "magma", limits = c(0, 43)) + 
+    shared_theme +
+    scale_x_date(date_labels = "%b", date_breaks = "1 month") +
+    theme(legend.position = "bottom", axis.text.x = element_text(angle = 90, vjust = 0.5)) + 
+    scale_fill_manual(values = c("Analyzed sequences" = "blue", "-Confirmed cases per 10000 population" = "red"), name = element_blank()) + 
+    labs(x = element_blank(), y = element_blank())
+p1_v2
+
+# Plot whole Switzerland temporal representativeness
+che_pre_may <- swiss_downsampling_continuous_weeks %>% 
+    filter(canton == "CHE", week < as.Date("2020-05-18")) %>%
+    select(n_conf_cases, week_since_start, n_to_sample)
+che_post_may <- swiss_downsampling_continuous_weeks %>%
+    filter(canton != "CHE", week >= as.Date("2020-05-18")) %>%
+    group_by(week_since_start) %>%
+    summarize(n_conf_cases = sum(n_conf_cases), n_to_sample = sum(n_to_sample))
+all_che <- rbind(che_pre_may, che_post_may)
+
+sampling_lm <- lm(n_to_sample ~ n_conf_cases, all_che)
+R2 <- summary(sampling_lm)$r.squared
+print(paste("best-fit R2:", R2))
+
+p2 <- ggplot(
+    data = all_che, 
+    aes(x = n_conf_cases, color = week_since_start, y = n_to_sample)) + 
+    geom_point() + 
+    geom_abline(aes(intercept = coef(sampling_lm)[["(Intercept)"]], slope = coef(sampling_lm)[["n_conf_cases"]]), linetype = "dashed") + 
+    scale_color_viridis_c(name = "Week", option = "magma", limits = c(0, 43)) + 
+    shared_theme + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5)) + 
+    guides(colour = guide_colourbar(title.position="top", title.hjust = 0.5)) + 
+    labs(x = "Absolute number of confirmed cases", y = "Analyzed sequences")
+library(cowplot)
+
+plot_grid(p2, p1_v2,
+          nrow = 2, ncol = 1,
+          rel_heights = c(0.8, 2),
+          labels = c("A", "B")
+)
+
+ggsave(
+    "figures/CHE_downsampling_v2_per_pop.png", 
+    width = double_col_width, height = 1.25 * double_col_width, units = "cm"
+)
+```

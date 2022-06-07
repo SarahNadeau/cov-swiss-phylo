@@ -5,25 +5,20 @@ date: "6/4/2021"
 output: pdf_document
 ---
 
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-knitr::opts_chunk$set(root.dir = "/Users/nadeaus/Repos/cov-swiss-phylogenetics")
-```
-
 ```{r, include=FALSE}
 require(dplyr)
 require(ggplot2)
 require(xtable)
-source("../grapevine/database/R/utility.R")
-source("../grapevine/utility_functions.R")
-source("../grapevine/generate_figures/functions.R")
+# source("../grapevine/database/R/utility.R")
+source("../sars_cov_2/rapevine/utility_functions.R")
+source("../sars_cov_2/grapevine/generate_figures/functions.R")
 source("scripts/figures_shared_vars.R")
 ```
 
 Load data
 
 ```{r}
-workdir <- "results_main"
+workdir <- "results_all/2021-08-10_for_manuscript_rep_1"
 outdir <- paste(workdir, "output", sep = "/")
 outdir <- "figures"
 grapevine_results <- load_grapevine_results(
@@ -31,8 +26,8 @@ grapevine_results <- load_grapevine_results(
   min_chain_size = 1,
   viollier_only = F)
 samples <- grapevine_results$samples
-metadata <- load_sample_metadata(workdir = "results_main")
-swiss_downsampling <- read.csv(file = "results_main/tmp/alignments/CHE_downsampling_data.csv")
+metadata <- load_sample_metadata(workdir = workdir)
+swiss_downsampling <- read.csv(file = paste0(workdir, "/tmp/alignments/CHE_downsampling_data.csv"))
 ```
 
 Copy swiss downsampling figure for supplement
@@ -44,7 +39,7 @@ system(command = paste0("cp ", workdir, "/tmp/alignments/CHE_downsampling.png ",
 Load pangolin lineage table & format for supplement
 
 ```{r}
-lineages_data <- read.csv("results_main/tmp/alignments/pangolin_lineages_aggregated.csv")
+lineages_data <- read.csv(paste0(workdir, "/tmp/alignments/pangolin_lineages_aggregated.csv"))
 analyzed_lineages <- metadata %>%
   group_by(tree_pangolin_lineage) %>%
   summarize(
@@ -123,13 +118,13 @@ n_travel_context_sequences <- unlist(
     select(n_samples))
 writeLines(text = paste0("\\newcommand\\ntravelcontext{", n_travel_context_sequences, "}"), con = con)
 
-mean_weekly_sampling_per <- signif(mean(swiss_downsampling_summary$empirical_sampling_proportion) * 100, 2)
+mean_weekly_sampling_per <- signif(mean(swiss_downsampling_summary$empirical_sampling_proportion, na.rm = T) * 100, 2)
 writeLines(text = paste0("\\newcommand\\meanweeklysamplingpercent{", mean_weekly_sampling_per, "}"), con = con)
 
-min_weekly_sampling_per <- signif(min(swiss_downsampling_summary$empirical_sampling_proportion) * 100, 2)
+min_weekly_sampling_per <- signif(min(swiss_downsampling_summary$empirical_sampling_proportion, na.rm = T) * 100, 2)
 writeLines(text = paste0("\\newcommand\\minweeklysamplingpercent{", min_weekly_sampling_per, "}"), con = con)
 
-max_weekly_sampling_per <- signif(max(swiss_downsampling_summary$empirical_sampling_proportion) * 100, 2)
+max_weekly_sampling_per <- signif(max(swiss_downsampling_summary$empirical_sampling_proportion, na.rm = T) * 100, 2)
 writeLines(text = paste0("\\newcommand\\maxweeklysamplingpercent{", max_weekly_sampling_per, "}"), con = con)
 
 overall_sampling_per <- signif(sum(swiss_downsampling$n_to_sample) / sum(swiss_downsampling$n_conf_cases) * 100, 2)
