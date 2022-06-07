@@ -90,6 +90,7 @@ n_focal_sequences <- nrow(
 n_seqs_to_keep <- round(subsample_fractions * n_focal_sequences)
 full_samples <- results$`2x_repMain analysis`$samples
 
+subsample_fractions <- c(subsample_fractions, max_sampling_frac)
 for (i in 1:length(n_seqs_to_keep)) {
   for (j in 1:n_reps) {
     n_seqs <- n_seqs_to_keep[i]

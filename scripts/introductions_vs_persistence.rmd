@@ -8,6 +8,7 @@ output: html_notebook
 This script is to summarize introductions and their persistence, then compare them to null models in the absence of interventions.
 
 ```{r, include=FALSE}
+getwd()
 require(dplyr)
 require(tidyr)
 require(ggplot2)
