@@ -16,7 +16,7 @@ library(tidyr)
 source("scripts/figures_shared_vars.R")
 system(command = "mkdir -p figures")
 
-datadir <- "results_all/bdsky/log_files_jan_1_origin/NZTransmissionChains/results/"
+datadir <- "results_all/bdsky/log_files/NZTransmissionChains/results/"
 ```
 
 ## Load data
@@ -46,9 +46,12 @@ for (clusters in c("min", "max")) {
                 mutate(variable="Re")
 
             sampProp_temp_data <- data %>%
-                mutate(value = sampValues) %>%
-                select(Sample, value) %>%
-                mutate(variable = "sampProp")
+                pivot_longer(cols=starts_with("sampValues."),
+                             names_to="interval", values_to="value",
+                             names_prefix="sampValues.",
+                             names_transform=list(interval=as.integer)) %>%
+                select(Sample, interval, value) %>%
+                mutate(variable="sampProp")
 
             skyline_temp_data_Re <- Re_temp_data %>%
                 group_by(interval, variable) %>%
@@ -60,7 +63,7 @@ for (clusters in c("min", "max")) {
                        sampUB=sampUB)
 
              skyline_temp_data_sampProp <- sampProp_temp_data %>%
-                group_by(variable) %>%
+                group_by(interval, variable) %>%
                 summarize(median=median(value),
                           low=quantile(value, 0.025),
                           high=quantile(value, 0.975)) %>%
@@ -84,6 +87,12 @@ Re_dates <- read_csv(paste0(datadir, "/../sequences/date_to_week.csv")) %>%
     filter(week<finalSampleDate) %>%
     arrange(desc(row_number())) %>%
     transmute(interval=row_number(), date=week+3.5)  # dates are the start of each interval, make the midpoint
+
+sampProp_dates <- read_csv(paste0(datadir, "/../max_chains.sampleChangeTime.txt"), col_names=c("age")) %>%
+    add_row(age=0) %>%
+    mutate(date=finalSampleDate - 365.25*age) %>%
+    arrange(age) %>%
+    mutate(interval=row_number())
 ```
 
 ## Load case count data
@@ -142,17 +151,22 @@ re_plot <- ggplot(re_data_to_plot,
     coord_cartesian(ylim = c(0, 10)) +
     shared_theme + 
     theme(legend.position = "bottom")
-ggsave("figures/NZL_Re_old.pdf", width=double_col_width, height=single_col_width, units="cm")
+ggsave("figures/NZL_Re_SampChange.pdf", width=double_col_width, height=single_col_width, units="cm")
 
+# # Repeat first week so that first ribbon shows
+# samp_prop_data <- rbind(
+#   skyline_data %>% 
+#     filter(variable=="sampProp") %>% 
+#     mutate(date = start_plot_date),  # no sampling proportion change times, use start and end dates
+#   skyline_data %>% 
+#     filter(variable=="sampProp") %>% 
+#     mutate(date = stop_plot_date)
+# )
 # Repeat first week so that first ribbon shows
-samp_prop_data <- rbind(
-  skyline_data %>% 
-    filter(variable=="sampProp") %>% 
-    mutate(date = start_plot_date),  # no sampling proportion change times, use start and end dates
-  skyline_data %>% 
-    filter(variable=="sampProp") %>% 
-    mutate(date = stop_plot_date)
-)
+samp_prop_data <- skyline_data %>% filter(variable=="sampProp") %>% left_join(sampProp_dates)
+max_interval <- max(samp_prop_data$interval)
+first_week_data <- samp_prop_data %>% filter(interval == max_interval) %>% mutate(date = start_plot_date)
+samp_prop_data <- rbind(samp_prop_data, first_week_data)
 
 samp_prop_plot <- ggplot(samp_prop_data,
        aes(date, median, col=contact_tracing, fill=contact_tracing)) +
@@ -167,7 +181,7 @@ samp_prop_plot <- ggplot(samp_prop_data,
     shared_theme + 
     theme(legend.position = "bottom")
 samp_prop_plot
-ggsave("figures/NZL_sampProp_old.pdf", width=double_col_width, height=single_col_width, units="cm")
+ggsave("figures/NZL_sampProp_SampChange.pdf", width=double_col_width, height=single_col_width, units="cm")
 ```
 
 Arrange plots together
@@ -175,13 +189,15 @@ Arrange plots together
 require(cowplot)
 
 plot_grid(samp_prop_plot, re_plot,
+          align = "v",
+          axis = "lr",
           nrow = 2, ncol = 1,
           width = double_col_width,
           labels = c("A", "B")
 )
 
 ggsave(
-        filename = "figures/NZL_phylodynamic_results_old.png",
+        filename = "figures/NZL_phylodynamic_results_sampChange.png",
         width = double_col_width,
         height = single_col_width * 1.75,
         units = "cm"
