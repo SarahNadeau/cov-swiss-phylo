@@ -137,7 +137,6 @@ cases_nzl <- read.csv(url(CASE_COUNT_LINK)) %>%
 CT_data_main_text <- CT_data %>% filter(contact_tracing == "TRUE", sampUB == "Without sampling bound")
 
 binwidth <- 3
-x_lims <- c(-1, 101)
 nzl_early_col <- RColorBrewer::brewer.pal(n = 8, name = "PuRd")[[3]]
 nzl_late_col <- RColorBrewer::brewer.pal(n = 8, name = "YlGn")[[3]]
 
@@ -159,6 +158,8 @@ ct_legend <- get_legend(
 ct <- ct + theme(legend.position = "none")
 
 # New Zealand CT
+# There's a warning about 4 rows containing missing values when x-scaled forced to go down to zero 
+# but all bars appear identical to when x-scale not forced 
 ct_nzl <- ggplot(
   data = CT_data_main_text %>% filter(country == "New Zealand"),
   aes(x = transmission_rate_decrease, alpha = clusters)) + 
@@ -166,8 +167,8 @@ ct_nzl <- ggplot(
   facet_grid(. ~ season) + 
   scale_alpha_manual(values = c(0.5, 0.85), labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
   labs(x = ct_factor_x_lab, y = ct_factor_y_lab) +
-  lims(x = c(0, NA)) + 
   shared_theme + 
+  lims(x = c(0, NA)) + 
   theme(legend.position = "none")
 
 # Change facet strip colors: https://stackoverflow.com/questions/19440069/ggplot2-facet-wrap-strip-color-based-on-variable-in-data-set
@@ -248,7 +249,7 @@ nzl_ct_supp <- ggplot() +
   facet_grid(season ~ sampUB) + 
   scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
   shared_theme + 
-  # lims(x = c(0, NA)) + 
+  lims(x = c(-5, NA)) + 
   labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
 
 che_ct_supp <- ggplot() +  
@@ -261,7 +262,7 @@ che_ct_supp <- ggplot() +
   facet_grid(season ~ sampUB) + 
   scale_fill_manual(values = chains_assumption_colors, labels = chain_assumption_labs, name = chains_assumption_legend_name) + 
   shared_theme + 
-  # lims(x = c(0, NA)) + 
+  lims(x = c(-5, NA)) + 
   labs(x = ct_factor_x_lab, y = ct_factor_y_lab)
 
 # Arrange both plots together

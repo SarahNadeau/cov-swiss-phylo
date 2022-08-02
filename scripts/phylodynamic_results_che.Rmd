@@ -101,6 +101,7 @@ line_list_re_data <- read.csv(file = LINE_LIST_RE_EST_LINK) %>%
     median = median_R_mean,
     yhigh = median_R_highHPD,
     ylow = median_R_lowHPD)
+write.csv(x = line_list_re_data, file = "data/CHE_re_data_used.csv")
 ```
 
 ## Plot skylines
@@ -115,7 +116,7 @@ color_labels_re <- c("conf_case_counts" = "Estimate based on\nconfirmed cases",
 color_labels_s <- c("TRUE" = "Estimate based\non model with damping factor", 
                   "FALSE" = "Estimate based on model\nwithout damping factor")
 
-start_plot_date <- as.Date("2020-02-20")  # plot from first week we have data
+start_plot_date <- as.Date("2020-01-01")  # plot to show prior
 stop_plot_date <- as.Date("2020-11-30")  # plot until end of sampling period
 
 # Repeat last week so that final ribbon shows
@@ -166,7 +167,11 @@ Arrange plots together
 ```{r}
 require(cowplot)
 
+aligned_plots <- align_plots(samp_prop_plot, re_plot)
+
 plot_grid(samp_prop_plot, re_plot,
+          align = "v",
+          axis = "lr",
           nrow = 2, ncol = 1,
           width = double_col_width,
           labels = c("A", "B")

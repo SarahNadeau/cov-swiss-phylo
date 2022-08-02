@@ -5,6 +5,7 @@ library(lubridate)
 library(ggtree)
 library(treeio)
 library(dplyr)
+library(gridExtra)
 
 setwd("results_all/bdsky/summary_trees/SwissTransmissionChains")
 
@@ -17,6 +18,7 @@ numeric_date_range_to_date <- function(range, mrsd) {
     return(c(date_min, date_max))
 }
 
+margin <- theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 trees <- list()
 plots <- list()
 for (chains in c("min","max")) {
@@ -34,8 +36,8 @@ for (chains in c("min","max")) {
                                       chains,"_chains",
                                       ".sampUB", sampUB,
                                       ".", ctEst,
-                                      ".c", cluster,
-                                      ".summary.tree"))
+                                      ".1.c", cluster,
+                                      ".trees.mcc_summary.tree"))
 
                 ## Get date of 2 days following the first sample, the last sample:
                 sample_data <- tree %>% as_tibble() %>% filter(!is.na(label)) %>%
@@ -53,7 +55,7 @@ for (chains in c("min","max")) {
                 
                 tree_plot <- ggtree(tree, mrsd = latest_sample, as.Date = T) %<+% node_data +
                     scale_x_date(
-                        date_labels = "%b", 
+                        date_labels = "%m", 
                         limits = c(as.Date("2020-02-01"), as.Date("2020-12-15")),
                         date_breaks = "1 month") +
                     theme_tree2() + 
@@ -63,12 +65,13 @@ for (chains in c("min","max")) {
                         "rect", xmin = as.Date("2020-02-01"), xmax = as.Date("2020-06-15"), 
                         ymin = 0, ymax = Inf, alpha = 0.5, fill = spring_col) +  # Spring
                     annotate(
-                        "rect", xmin = as.Date("2020-06-16"), xmax = as.Date("2020-09-30"), 
+                        "rect", xmin = as.Date("2020-06-15"), xmax = as.Date("2020-09-30"), 
                         ymin = 0, ymax = Inf, alpha = 0.5, fill = summer_col) +  # Summer
                     annotate(
-                        "rect", xmin = as.Date("2020-10-01"), xmax = as.Date("2020-12-15"), 
+                        "rect", xmin = as.Date("2020-09-30"), xmax = as.Date("2020-12-15"), 
                         ymin = 0, ymax = Inf, alpha = 0.5, fill = fall_col) +  # Fall
-                    ggtitle(id)
+                    ggtitle(id) + 
+                    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, size = 6), plot.title = element_text(size = 6))
                 
                 plots[[id]] <- tree_plot
             }
@@ -76,14 +79,24 @@ for (chains in c("min","max")) {
             ## Order plots by date of rate shift
             ordering <- order(unlist(rate_shifts))
             plots_sorted <- plots[ordering]
-            p <- gridExtra::grid.arrange(grobs = plots_sorted, ncol = 2, as.table = FALSE)
+            p <- gridExtra::grid.arrange(
+                grobs = lapply(plots_sorted, "+", margin),
+                ncol = 4, 
+                as.table = FALSE,
+                top = grid::textGrob(
+                    case_when(chains == "max" ~ "A", T ~ "B"),
+                    gp = grid::gpar(fontface = "bold", fontsize = 12),
+                    hjust = 0,
+                    x = 0
+                )
+            )
 
             ggsave(paste0("figures/trees/Re_skyline.",
                           chains,"_chains",
                           ".sampUB", sampUB,
                           ".ctEst", ctEst,
                           ".summary_trees.pdf"), p,
-                   width=7.5, height=10, units="in")
+                   width=7.5, height=4.5, units="in")
         }
     }
 }

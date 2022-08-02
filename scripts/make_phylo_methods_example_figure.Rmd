@@ -98,7 +98,7 @@ Re_dates <- day_to_week %>%
 
 re_data <- skyline_data %>% filter(variable=="Re") %>% left_join(Re_dates)
 
-# Get a single posterior sample
+# Get posterior median
 real_re_data <- re_data %>%
   filter(clusters == "max", sampUB == "Without sampling bound", contact_tracing) %>%
   filter(date <= as.Date("2020-12-01"), date >= as.Date("2020-02-15")) %>%
@@ -112,9 +112,9 @@ real_re_data <- re_data %>%
 # tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
 #                             "Re_skyline.max_chains.sampUB1.0.0.c2245.summary.tree"))   # spring tree
 tree_1 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
-                            "Re_skyline.max_chains.sampUB1.0.0.c2219.summary.tree"))
+                            "Re_skyline.max_chains.sampUB1.0.0.1.c2219.trees.mcc_summary.tree"))
 tree_2 <- read.beast(paste0("results_all/bdsky/summary_trees/SwissTransmissionChains/results/",
-                            "Re_skyline.max_chains.sampUB1.0.0.c2222.summary.tree"))
+                            "Re_skyline.max_chains.sampUB1.0.0.1.c2222.trees.mcc_summary.tree"))
 
 ## Get date of 2 days following the first sample, the last sample:
 tree_1_sample_data <- tree_1 %>% as_tibble() %>% filter(!is.na(label)) %>%
@@ -261,7 +261,7 @@ subsets <- cowplot::plot_grid(plots[[1]], plots[[2]], nrow = 1)
 # Combine background Re and the subsets
 cowplot::plot_grid(background_re, subsets, labels = c("A", ""), ncol = 2, rel_widths = c(1, 1))
 
-ggsave("figures/phylodynamic_method_example.png",
+ggsave("figures/phylodynamic_method_example.pdf",
        width = double_col_width, height = single_col_width * 0.5, units = "cm")
 
 # Have examples as inserts instead:
