@@ -15,6 +15,7 @@ require(ggplot2)
 require(cowplot)
 require(zoo)
 library(lubridate)
+library(tidybayes)
 
 source("../sars_cov_2/grapevine/utility_functions.R")
 source("../sars_cov_2/grapevine/generate_figures/functions.R")
@@ -55,7 +56,7 @@ Summarize early introduction inferences
 ```{r}
 early_introductions <- grapevine_results$samples %>%
   left_join(chain_summary_stats) %>%
-  filter(first_sample_date < as.Date("2020-03-05")) %>%
+  filter(first_sample_date < as.Date("2020-03-10")) %>%
   mutate(
     chain_idx_2 = dplyr::group_indices(., chains_assumption, chain_idx),
     starts_before_1_mar = first_sample_date < as.Date("2020-03-01")
@@ -219,76 +220,97 @@ delta <- 36.5
 rho <- 0
 
 # Get extinction probabilities for each set of Re estimates (conditioned on min/max introductions)
+is_first <- T
 for (idx in 1:2) {
-
-  # Calculate birth, death, sampling rates from epi parameterization
   if (idx == 1) {
     re_by_week <- re_by_week_min
   } else {
     re_by_week <- re_by_week_max
   }
-  lambda <- re_by_week$median * delta
-  mu <- delta - s * delta
-  psi <- s * delta
+  for (est_type in c("median", "low", "high")) {
+    # Calculate birth, death, sampling rates from epi parameterization
+    re_estimates <- re_by_week[[est_type]]
+    lambda <- re_estimates * delta
+    mu <- delta - s * delta
+    psi <- s * delta
 
-  # Initialize values for extinction probability calculation
-  Ai <- rep(0, m)
-  Bi <- rep(0, m)
-  p <- rep(0, m)
+    # Initialize values for extinction probability calculation
+    Ai <- rep(0, m)
+    Bi <- rep(0, m)
+    p <- rep(0, m)
 
-  # Calculate Ai
-  for (i in 1:m) {
-    Ai[i] <- sqrt((lambda[i] - mu - psi)^2 + 4 * lambda[i] * psi)
-  }
-
-  calc_Bi <- function(lambda, mu, psi, rho, A, p) {
-    return(((1 - 2 * p * (1 - rho)) * lambda + mu + psi) / A)
-  }
-
-  calc_p <- function(lambda, mu, psi, A, B, t, ti) {
-    p <- (lambda + mu + psi - A * (exp(A * (t - ti)) * (1 + B) - (1 - B)) / (exp(A * (t - ti)) * (1 + B) + (1 - B))) / (2 * lambda)
-    return(p)
-  }
-
-  # Calculate last Bi (where p_m+1(t_m) = 1)
-  Bi[m - 1] <- calc_Bi(lambda[m - 1], mu, psi, rho, Ai[m - 1], 1)
-  p[m] <- 1
-
-  # Calculate Bi and p moving from last to first time interval
-  for (i in rev(1:(m - 1))) {
-    p[i] <- calc_p(lambda[i], mu, psi, Ai[i], Bi[i], times[i + 1], times[i])
-    if (i > 1) {
-      Bi[i - 1] <- calc_Bi(lambda[i - 1], mu, psi, rho, Ai[i - 1], p[i])
+    # Calculate Ai
+    for (i in 1:m) {
+      Ai[i] <- sqrt((lambda[i] - mu - psi)^2 + 4 * lambda[i] * psi)
     }
-  }
 
-  # Summarize results
-  p_results_tmp <- data.frame(
-    week = breakpoint_days,
-    prob_being_sampled = 1 - p,
-    chains_assumption = case_when(idx == 1 ~ "min", T ~ "max")
-  ) %>% left_join(
-    re_by_week %>% 
-      mutate(week = as.Date(date), re_median = median) %>% 
-      select(week, re_median)
-  )
+    calc_Bi <- function(lambda, mu, psi, rho, A, p) {
+      return(((1 - 2 * p * (1 - rho)) * lambda + mu + psi) / A)
+    }
 
-  if (idx == 1) {
-    p_results <- p_results_tmp
-  } else {
-    p_results <- rbind(p_results, p_results_tmp)
+    calc_p <- function(lambda, mu, psi, A, B, t, ti) {
+      p <- (lambda + mu + psi - A * (exp(A * (t - ti)) * (1 + B) - (1 - B)) / (exp(A * (t - ti)) * (1 + B) + (1 - B))) / (2 * lambda)
+      return(p)
+    }
+
+    # Calculate last Bi (where p_m+1(t_m) = 1)
+    Bi[m - 1] <- calc_Bi(lambda[m - 1], mu, psi, rho, Ai[m - 1], 1)
+    p[m] <- 1
+
+    # Calculate Bi and p moving from last to first time interval
+    for (i in rev(1:(m - 1))) {
+      p[i] <- calc_p(lambda[i], mu, psi, Ai[i], Bi[i], times[i + 1], times[i])
+      if (i > 1) {
+        Bi[i - 1] <- calc_Bi(lambda[i - 1], mu, psi, rho, Ai[i - 1], p[i])
+      }
+    }
+
+    # Summarize results
+    print(paste("Idx:", idx, "est_type:", est_type))
+    p_results_tmp <- data.frame(
+      week = breakpoint_days,
+      prob_being_sampled = 1 - p,
+      chains_assumption = case_when(idx == 1 ~ "min", T ~ "max"),
+      estimate_type = est_type
+    ) %>% left_join(
+      re_by_week %>% 
+        mutate(week = as.Date(date), re_median = median, re_low = low, re_high = high) %>% 
+        select(week, re_median, re_low, re_high)
+    )
+
+    if (is_first) {
+      is_first <- F
+      p_results <- p_results_tmp
+    } else {
+      p_results <- rbind(p_results, p_results_tmp)
+    }
   }
 }
 
+p_results_wide <- tidyr::pivot_wider(
+  p_results,
+  id_cols = c(week, chains_assumption, re_high, re_low, re_median),
+  id_expand = F,
+  names_from = "estimate_type",
+  values_from = "prob_being_sampled",
+  names_prefix = "prob_being_sampled_"
+)
+
 # Plot probability of an introduction being sampled over time
-ggplot(data = p_results, aes(x = week)) +
-  geom_step(aes(y = prob_being_sampled, color = "Probability of introduction being sampled")) +
-  geom_step(aes(y = re_median, color = "Median Re estimate")) +
+ggplot(data = p_results_wide, aes(x = week)) +
+  geom_lineribbon(
+    aes(y = prob_being_sampled_median, ymax = prob_being_sampled_high, ymin = prob_being_sampled_low, fill = "Probability of introduction being sampled"), 
+    alpha = 0.3
+  ) +
+  geom_lineribbon(
+    aes(y = re_median, ymax = re_high, ymin = re_low, fill = "Re estimate"), 
+    alpha = 0.3
+  ) +
   facet_grid(chains_assumption ~ ., labeller = labeller(chains_assumption = chain_assumption_labs)) +
   theme_bw() +
   theme(legend.position = "bottom", legend.title = element_blank()) +
   labs(x = element_blank(), y = "Value")
-ggsave(file = "figures/prob_introduction_being_sampled.png", width = single_col_width, height = single_col_width, units = "cm")
+ggsave(file = "figures/prob_introduction_being_sampled_2.png", width = single_col_width, height = single_col_width, units = "cm")
 ```
 
 Incorporate this in model until border closure date: introductions (lagged from first sampling) ~ europe incidence
@@ -323,15 +345,24 @@ for (delay in plausible_delays) {
     left_join(day_to_week) %>%
     group_by(week, chains_assumption) %>%
     summarise(introductions_by_week_raw = n(), .groups = "drop") %>%
-    left_join(p_results %>% mutate(week = as.Date(week))) %>%
-    mutate(introductions_by_week = introductions_by_week_raw / prob_being_sampled) %>%
+    complete(week = seq.Date(min(week), max(week), by="week"), chains_assumption = c("min", "max")) %>%
+    mutate(introductions_by_week_raw = replace_na(introductions_by_week_raw, 0)) %>%
+    left_join(p_results_wide %>% mutate(week = as.Date(week))) %>%
+    mutate(
+      introductions_by_week = introductions_by_week_raw / prob_being_sampled_median,
+      introductions_by_week_high = introductions_by_week_raw / prob_being_sampled_high,
+      introductions_by_week_low = introductions_by_week_raw / prob_being_sampled_low
+    ) %>%
     mutate(date = week)
 
   model_data_wide <- model_data_tmp %>%
-    select(-c("prob_being_sampled", "re_median")) %>%
+    select(-c(
+      "prob_being_sampled_median", "prob_being_sampled_high", "prob_being_sampled_low",
+      "re_median",  "re_high", "re_low",
+    )) %>%
     pivot_wider(
       names_from = "chains_assumption",
-      values_from = c("introductions_by_week", "introductions_by_week_raw")
+      values_from = c("introductions_by_week", "introductions_by_week_raw", "introductions_by_week_high", "introductions_by_week_low")
     )
 
   model_data <- case_data_base %>% right_join(model_data_wide, by = "date")
@@ -340,9 +371,25 @@ for (delay in plausible_delays) {
     data = model_data %>% filter(date < stop_fit_date),
     formula = introductions_by_week_max ~ weekly_avg_new_cases
   )
+  model_max_high <- lm(
+    data = model_data %>% filter(date < stop_fit_date),
+    formula = introductions_by_week_high_max ~ weekly_avg_new_cases
+  )
+  model_max_low <- lm(
+    data = model_data %>% filter(date < stop_fit_date),
+    formula = introductions_by_week_low_max ~ weekly_avg_new_cases
+  )
   model_min <- lm(
     data = model_data %>% filter(date < stop_fit_date),
     formula = introductions_by_week_min ~ weekly_avg_new_cases
+  )
+  model_min_high <- lm(
+    data = model_data %>% filter(date < stop_fit_date),
+    formula = introductions_by_week_high_min ~ weekly_avg_new_cases
+  )
+  model_min_low <- lm(
+    data = model_data %>% filter(date < stop_fit_date),
+    formula = introductions_by_week_low_min ~ weekly_avg_new_cases
   )
   # Reviewer requests results from model fit after re-opening as well
   model_max_fit_after <- lm(
@@ -380,15 +427,36 @@ for (delay in plausible_delays) {
   if (is_first) {
     results <- results_tmp
     is_first <- F
+    best_model_data_min <- model_data
+    best_model_data_max <- model_data
+    best_model_max <- model_max
+    best_model_max_high <- model_max_high
+    best_model_max_low <- model_max_low
+    best_model_min <- model_min
+    best_model_min_high <- model_min_high
+    best_model_min_low <- model_min_low
+    best_rmse_max <- RMSE_max
+    best_rmse_min <- RMSE_min
   } else {
     results <- rbind(results, results_tmp)
+    if (RMSE_max < best_rmse_max) {
+      best_model_data_max <- model_data
+      best_model_max <- model_max
+      best_model_max_high <- model_max_high
+      best_model_max_low <- model_max_low
+      best_rmse_max <- RMSE_max
+    }
+    if (RMSE_min < best_rmse_min) {
+      best_model_data_min <- model_data
+      best_model_min <- model_min
+      best_model_min_high <- model_min_high
+      best_model_min_low <- model_min_low
+      best_rmse_min <- RMSE_min
+    }
   }
 }
 
-# Extract best-fit RMSE, delays, and coefficients
-best_rmse_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(RMSE_max))
-best_rmse_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(RMSE_min))
-
+# Extract best-fit delays and coefficients
 cases_coeff_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(cases_coeff_max))
 cases_coeff_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(cases_coeff_min))
 cases_coeff_max_fit_after <- unlist(
@@ -402,73 +470,86 @@ cases_delay_max <- unlist(results %>% top_n(n = 1, wt = -RMSE_max) %>% select(de
 cases_delay_min <- unlist(results %>% top_n(n = 1, wt = -RMSE_min) %>% select(delay))
 cases_delay_max_fit_after <- unlist(results %>% top_n(n = 1, wt = -RMSE_max_fit_after) %>% select(delay))
 cases_delay_min_fit_after <- unlist(results %>% top_n(n = 1, wt = -RMSE_min_fit_after) %>% select(delay))
-
-# Plot best-fit models and predictions
-get_predictions <- function(chain_summary_stats, day_to_week, p_results, cases_delay, cases_coeff, chains) {
-  predictions <- chain_summary_stats %>%
-    mutate(date = as.Date(first_sample_date) - cases_delay) %>%
-    filter(chains_assumption == chains) %>%
-    left_join(day_to_week) %>%
-    group_by(week) %>%
-    summarise(introductions_by_week_raw = n(), .groups = "drop") %>%
-    full_join(p_results %>% mutate(week = as.Date(week)) %>% filter(chains_assumption == chains)) %>%
-    replace_na(replace = list("introductions_by_week_raw" = 0)) %>%
-    mutate(introductions_by_week = introductions_by_week_raw / prob_being_sampled) %>%
-    mutate(date = week) %>%
-    right_join(case_data_base, by = "date") %>%
-    mutate(predictions = weekly_avg_new_cases * cases_coeff) %>%
-    select(date, introductions_by_week, predictions)
-  return(predictions)
-}
-
-data_max <- get_predictions(
-  chain_summary_stats, day_to_week, p_results, cases_delay_max, cases_coeff_max, "max"
-) %>% rename(introductions_by_week_max = introductions_by_week, predictions_max = predictions)
-
-data_min <- get_predictions(
-  chain_summary_stats, day_to_week, p_results, cases_delay_min, cases_coeff_min, "min"
-) %>% rename(introductions_by_week_min = introductions_by_week, predictions_min = predictions)
-
-data_max_fit_after <- get_predictions(
-  chain_summary_stats, day_to_week, p_results, cases_delay_max_fit_after, cases_coeff_max_fit_after, "max"
-) %>% rename(introductions_by_week_max = introductions_by_week, predictions_max = predictions)
-
-data_min_fit_after <- get_predictions(
-  chain_summary_stats, day_to_week, p_results, cases_delay_min_fit_after, cases_coeff_min_fit_after, "min"
-) %>% rename(introductions_by_week_min = introductions_by_week, predictions_min = predictions)
-
-introductions_vs_indicence_data <- merge(data_max, data_min) %>% full_join(case_data_base)
-introductions_vs_incidence_data_long <- pivot_longer(
-  introductions_vs_indicence_data,
-  cols = c(introductions_by_week_max, introductions_by_week_min),
-  names_to = "chains_assumption",
-  values_to = "introductions_by_week",
-  names_prefix = "introductions_by_week_"
+```
+Plot best-fit models and predictions
+```{r}
+predictions_max <- predict.lm(object = best_model_max, newdata = best_model_data_max, interval = "none")
+predictions_max_high <- predict.lm(object = best_model_max_high, newdata = best_model_data_max, interval = "none")
+predictions_max_low <- predict.lm(object = best_model_max_low, newdata = best_model_data_max, interval = "none")
+predictions_max_all <- cbind(
+  best_model_data_max,
+  data.frame(fit_max = predictions_max),
+  data.frame(fit_max_high = predictions_max_high),
+  data.frame(fit_max_low = predictions_max_low)
+)
+predictions_min <- predict.lm(object = best_model_min, newdata = best_model_data_min, interval = "none")
+predictions_min_high <- predict.lm(object = best_model_min_high, newdata = best_model_data_min, interval = "none")
+predictions_min_low <- predict.lm(object = best_model_min_low, newdata = best_model_data_min, interval = "none")
+predictions_min_all <- cbind(
+  best_model_data_min,
+  data.frame(fit_min = predictions_min),
+  data.frame(fit_min_high = predictions_min_high),
+  data.frame(fit_min_low = predictions_min_low)
 )
 
-introductions_vs_indicence_model <- ggplot(
-  data = introductions_vs_incidence_data_long %>% filter(date <= end_plot_date),
-  aes(x = date)
-) +
-  geom_point(aes(y = introductions_by_week, color = chains_assumption, shape = chains_assumption)) +
+introductions_vs_indicence_model <- ggplot() +
+  geom_point(
+    data = best_model_data_max %>% filter(date <= end_plot_date),
+    aes(x = date, y = introductions_by_week_max, color = "max", shape = "max")
+  ) +
+  geom_errorbar(
+    data = best_model_data_max %>% filter(date <= end_plot_date),
+    aes(x = date, ymin = introductions_by_week_high_max, ymax = introductions_by_week_low_max, color = "max"),
+    width = 1.5
+  ) +
   geom_line(
-    data = introductions_vs_incidence_data_long %>% filter(!is.na(introductions_by_week)),
-    aes(y = introductions_by_week, color = chains_assumption, linetype = "Phylogenetic estimate")
-  ) + 
-  geom_line(aes(y = predictions_min, color = "min", linetype = "Null model expectation")) +
-  geom_line(aes(y = predictions_max, color = "max", linetype = "Null model expectation")) +
+    data = best_model_data_max %>% filter(date <= end_plot_date),
+    aes(x = date, y = introductions_by_week_max, color = "max", linetype = "Phylogenetic estimate")
+  ) +
+  geom_point(
+    data = best_model_data_min %>% filter(date <= end_plot_date),
+    aes(x = date, y = introductions_by_week_min, color = "min", shape = "min")
+  ) +
+  geom_errorbar(
+    data = best_model_data_min %>% filter(date <= end_plot_date),
+    aes(x = date, ymin = introductions_by_week_high_min, ymax = introductions_by_week_low_min, color = "min"),
+    width = 1.5
+  ) +
+  geom_line(
+    data = best_model_data_min %>% filter(date <= end_plot_date),
+    aes(x = date, y = introductions_by_week_min, color = "min", linetype = "Phylogenetic estimate")
+  ) +
+  geom_line(
+    data = predictions_max_all %>% filter(date <= end_plot_date),
+    aes(x = date, y = fit_max, color = "max", linetype = "Null model expectation")
+  ) +
+  geom_ribbon(
+    data = predictions_max_all %>% filter(date <= end_plot_date),
+    aes(x = date, ymin = fit_max_low, ymax = fit_max_high, fill = "max"),
+    alpha = 0.3
+  ) +
+  geom_line(
+    data = predictions_min_all %>% filter(date <= end_plot_date),
+    aes(x = date, y = fit_min, color = "min", linetype = "Null model expectation")
+  ) +
+  geom_ribbon(
+    data = predictions_min_all %>% filter(date <= end_plot_date),
+    aes(x = date, ymin = fit_min_low, ymax = fit_min_high, fill = "min"),
+    alpha = 0.3
+  ) +
   scale_linetype_manual(
     values = c("Phylogenetic estimate" = "solid", "Null model expectation" = "dashed")
   ) + 
   scale_color_manual(
+    name = "tmp",
     labels = chain_assumption_labs, 
-    values = chains_assumption_colors
+    values = chains_assumption_colors,
+    aesthetics = c("color", "fill")
   ) +
-  scale_shape(labels = chain_assumption_labs) +
+  scale_shape(name = "tmp", labels = chain_assumption_labs) +
   scale_x_date(
     date_breaks = "1 week",
     date_labels = "%b. %d",
-    limits = c(as.Date("2020-02-24"), end_plot_date),
     expand = c(0, 0)
   ) +
   shared_theme +
@@ -478,14 +559,16 @@ introductions_vs_indicence_model <- ggplot(
     legend.spacing.y = unit(0, "cm"),
     legend.title = element_blank()
   ) +
-  labs(x = element_blank(), y = "\nIntroductions per week") +
+  guides(fill = "none") + 
+  labs(x = element_blank(), y = "Estimated total\nintroductions per week") +
   geom_rect(
     inherit.aes = F,
     data = highlight_data %>% filter(event == "Borders closed"),
-    aes(xmin = date_start, xmax = date_end, ymin = -Inf, ymax = Inf),
+    aes(xmin = date_start, xmax = date_end, ymin = 0, ymax = max(predictions_max_all$fit_max)),
     fill = "black",
     alpha = 0.3
-  )
+  ) +
+  scale_y_continuous(trans = "log10", expand = c(0, 0), labels = scales::label_comma())
 
 introductions_vs_indicence_model + guides(color = guide_legend(nrow = 2), linetype = guide_legend(nrow = 2))
 
@@ -501,33 +584,42 @@ introductions_vs_indicence_model + guides(color = guide_legend(nrow = 2), linety
 Write out the model variables, number of introductions averted during the lockdown
 
 ```{r}
-# Filter to weekly summary dates
-weekly_introductions_vs_indicence_data <- introductions_vs_indicence_data %>%
-  filter(!is.na(introductions_by_week_max))
-
-prediced_introductions_averted <- weekly_introductions_vs_indicence_data %>%
+# Note: "low" = "low Re" -> early introductions unliklier to be sampled -> more estimated total introductions
+intros_averted_max <- predictions_max_all %>% 
   filter(date >= close_date, date <= re_open_date) %>%
-  summarise(
-    predicted_introductions_averted_max = sum(predictions_max) - sum(introductions_by_week_min),
-    predicted_introductions_averted_min = sum(predictions_min) - sum(introductions_by_week_max)
+  summarize(
+    predicted_averted = sum(fit_max) - sum(introductions_by_week_max),
+    predicted_percent_averted = predicted_averted / sum(fit_max),
+    predicted_averted_lwr = sum(fit_max_high) - sum(introductions_by_week_low_max),
+    predicted_percent_averted_lwr = predicted_averted_lwr / sum(fit_max_high),    
+    predicted_averted_upr = sum(fit_max_low) - sum(introductions_by_week_high_max),
+    predicted_percent_averted_upr = predicted_averted_upr / sum(fit_max_low),
+  )
+intros_averted_min <- predictions_min_all %>%
+  filter(date >= close_date, date <= re_open_date) %>%
+  summarize(
+    predicted_averted = sum(fit_min, na.rm = T) - sum(introductions_by_week_min, na.rm = T),  # NA weeks had 0 est. introductions
+    predicted_percent_averted = predicted_averted / sum(fit_min, na.rm = T),
+    predicted_averted_lwr = sum(fit_min_high, na.rm = T) - sum(introductions_by_week_low_min, na.rm = T),
+    predicted_percent_averted_lwr = predicted_averted_lwr / sum(fit_min_high, na.rm = T),    
+    predicted_averted_upr = sum(fit_min_low, na.rm = T) - sum(introductions_by_week_high_min, na.rm = T),
+    predicted_percent_averted_upr = predicted_averted_upr / sum(fit_min_low, na.rm = T),
   )
 
-prediced_introductions_averted_as_per <- weekly_introductions_vs_indicence_data %>%
-  filter(date >= close_date, date <= re_open_date) %>%
-  summarise(
-    predicted_introductions_averted_max_asper =
-      (sum(predictions_max) - sum(introductions_by_week_max)) / sum(predictions_max),
-    predicted_introductions_averted_min_asper =
-      (sum(predictions_min) - sum(introductions_by_week_min)) / sum(predictions_min)
-  )
+write.table(
+  x = rbind(
+    intros_averted_max %>% mutate(chains_assumption = "max"), 
+    intros_averted_min %>% mutate(chains_assumption = "min")
+  ),
+  file = "manuscript/introductions_averted.txt",
+  row.names = F
+)
 
-print(prediced_introductions_averted_as_per)
+introsavertedmax <- unlist(intros_averted_max$predicted_averted)
+introsavertedmin <- unlist(intros_averted_min$predicted_averted)
 
-introsavertedmax <- unlist(prediced_introductions_averted$predicted_introductions_averted_max)
-introsavertedmin <- unlist(prediced_introductions_averted$predicted_introductions_averted_min)
-
-introsavertedaspermax <- unlist(prediced_introductions_averted_as_per$predicted_introductions_averted_max_asper)
-introsavertedaspermin <- unlist(prediced_introductions_averted_as_per$predicted_introductions_averted_min_asper)
+introsavertedaspermax <- unlist(intros_averted_max$predicted_percent_averted)
+introsavertedaspermin <- unlist(intros_averted_min$predicted_percent_averted)
 
 con <- file("manuscript/intoductions_by_incidence_model.tex", open = "w")
 writeLines(text = paste0("\\newcommand\\bestrmsemax{", signif(best_rmse_max, digits = 2), "}"), con = con)
@@ -682,7 +774,7 @@ intervention_legend <- get_legend(
 )
 model_legend <- get_legend(
   introductions_vs_indicence_model +
-    guides(fill = guide_legend(nrow = 2), color = "none", shape = "none") + 
+    guides(color = "none", shape = "none", fill = "none") + 
     theme(legend.position = "right")
 )
 legend_col <- plot_grid(NULL, intervention_legend, model_legend, NULL, ncol = 1, rel_heights = c(1, 1, 1, 0.6), align = "v")
@@ -702,7 +794,7 @@ top_row <- plot_grid(left_col, right_col, nrow = 1, rel_widths = c(1, 1))
 
 plot_grid(top_row, legend_col, ncol = 2, rel_widths = c(1, 0.2))
 
-ggsave("figures/introductions_and_persistence_v2.png",
+ggsave("figures/introductions_and_persistence_v2.pdf",
   width = double_col_width * 1.5, height = single_col_width, units = "cm"
 )
 ```
