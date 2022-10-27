@@ -108,9 +108,11 @@ ggplot(data = divisions_per_introduction, aes(x = size, y = n_divisions)) +
 
 many_cor_data <- divisions_per_introduction %>% filter(chains_assumption == "max")
 many_pearson_r <- cor(x = many_cor_data$size, y = many_cor_data$n_divisions, method = "pearson")
+cor.test(x = many_cor_data$size, y = many_cor_data$n_divisions, method = "pearson")  # get p-value
 
 few_cor_data <- divisions_per_introduction %>% filter(chains_assumption == "min")
 few_pearson_r <- cor(x = few_cor_data$size, y = few_cor_data$n_divisions, method = "pearson")
+cor.test(x = few_cor_data$size, y = few_cor_data$n_divisions, method = "pearson")  # get p-value
 
 # Write out results
 con <- file("manuscript/intro_size_vs_cantons_cor.tex", open = "w")
